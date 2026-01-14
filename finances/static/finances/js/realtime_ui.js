@@ -10,7 +10,8 @@
     'use strict';
 
     // Get current user ID from DOM
-    const currentUserId = document.body.dataset.userId ? parseInt(document.body.dataset.userId) : null;
+    const baseConfig = document.getElementById('base-config');
+    const currentUserId = baseConfig ? parseInt(baseConfig.dataset.userId) : null;
 
     // Locale settings for money formatting
     const decimalSeparator = window.decimalSeparator || ',';
@@ -173,18 +174,26 @@
     window.RealtimeUI.handleTransactionCreated = function(data) {
         console.log('[RealtimeUI] Transaction created:', data);
 
+        // Ensure data exists and is properly structured
+        if (!data || !data.data) {
+            console.warn('[RealtimeUI] Received malformed transaction_created event:', data);
+            return;
+        }
+
+        const transactionData = data.data;
+        const actorUsername = data.actor?.username || 'unknown';
+        console.log(`[RealtimeUI] New transaction ${transactionData.id} by ${actorUsername}`);
+
         // Trigger custom event for page-specific handlers
         triggerCustomEvent('realtime:transaction:created', data);
 
-        // Try to update dashboard if present
+        // Try page-specific handlers (Dashboard)
         if (typeof window.DashboardRealtime !== 'undefined' && window.DashboardRealtime.addTransaction) {
-            window.DashboardRealtime.addTransaction(data.data);
+            window.DashboardRealtime.addTransaction(transactionData);
         }
 
-        // Try to update flowgroup page if present
-        if (typeof window.FlowGroupRealtime !== 'undefined' && window.FlowGroupRealtime.addTransaction) {
-            window.FlowGroupRealtime.addTransaction(data.data);
-        }
+        // FlowGroup handling is done via event listener in FlowGroup_realtime.js
+        // to ensure clean separation and correct argument passing (data, actor)
     };
 
     window.RealtimeUI.handleTransactionUpdated = function(data) {
@@ -225,7 +234,7 @@
         console.log('[RealtimeUI] Checking for FlowGroup handler...', typeof window.FlowGroupRealtime);
         if (typeof window.FlowGroupRealtime !== 'undefined' && window.FlowGroupRealtime.updateTransaction) {
             console.log('[RealtimeUI] Calling FlowGroupRealtime.updateTransaction()');
-            window.FlowGroupRealtime.updateTransaction(data.data);
+            window.FlowGroupRealtime.updateTransaction(data.data, data.actor);
         } else {
             console.log('[RealtimeUI] FlowGroupRealtime not available');
         }
@@ -288,7 +297,7 @@
 
         // Try page-specific handler (flowgroup edit page)
         if (typeof window.FlowGroupRealtime !== 'undefined' && window.FlowGroupRealtime.updateFlowGroup) {
-            window.FlowGroupRealtime.updateFlowGroup(data.data);
+            window.FlowGroupRealtime.updateFlowGroup(data.data, data.actor);
         }
     };
 
@@ -352,9 +361,9 @@
             highlightElement(element);
         }
 
-        // Try page-specific handler
+        // Try page-specific handler (pass actor for own-action detection)
         if (typeof window.BankReconciliationRealtime !== 'undefined' && window.BankReconciliationRealtime.updateBalance) {
-            window.BankReconciliationRealtime.updateBalance(data.data);
+            window.BankReconciliationRealtime.updateBalance(data.data, data.actor);
         }
     };
 

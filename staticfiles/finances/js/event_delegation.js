@@ -457,12 +457,10 @@ class EventDelegationManager {
      * Toggle bank reconciliation mode (general vs detailed)
      */
     toggleReconciliationMode(isChecked) {
-        // Use broadcast function instead of page reload
-        if (typeof window.toggleReconciliationMode === 'function') {
-            window.toggleReconciliationMode(isChecked);
-        } else {
-            console.error('[EventDelegation] window.toggleReconciliationMode function not found');
-        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const period = urlParams.get('period') || '';
+        const mode = isChecked ? 'detailed' : 'general';
+        window.location.href = `/bank-reconciliation/?period=${period}&mode=${mode}`;
     }
 
     /**

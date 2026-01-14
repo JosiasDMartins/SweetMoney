@@ -149,7 +149,7 @@
                                         {% endif %}
                                     </div>
                                     {% if group.budget_warning %}
-                                        <div class="text-xs text-yellow-600 dark:text-yellow-400 font-medium">{% trans "⚠ Over budget" %}</div>
+                                        <div class="overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium">{% trans "⚠ Over budget" %}</div>
                                     {% endif %}
                                 </div>
                             </td>
@@ -204,7 +204,7 @@
                         {% comment %} Kids Income Entries for CHILD role {% endcomment %}
                         {% if member_role_for_period == 'CHILD' %}
                             {% for kids_income in kids_income_entries %}
-                                <tr id="income-item-{{ kids_income.id }}" data-item-id="{{ kids_income.id }}" data-realized="{{ kids_income.realized|yesno:'true,false' }}" data-date="{{ kids_income.date|date:'Y-m-d' }}" data-amount="{{ kids_income.amount }}" data-kids-income="true" class="hover:bg-slate-50 dark:hover:bg-gray-700/50">
+                                <tr id="income-item-{{ kids_income.id }}" data-item-id="{{ kids_income.id }}" data-realized="{{ kids_income.realized|yesno:'true,false' }}" data-date="{{ kids_income.date|date:'Y-m-d' }}" data-amount="{{ kids_income.amount|stringformat:'.2f' }}" data-kids-income="true" class="hover:bg-slate-50 dark:hover:bg-gray-700/50">
 
                                     <td class="py-3 px-3 text-sm text-[#0d171b] dark:text-white">
                                         <div class="cell-description-display">{{ kids_income.description }}</div>
@@ -241,7 +241,7 @@
                                 data-realized="{{ transaction.realized|yesno:'true,false' }}"
                                 data-is-fixed="{{ transaction.is_fixed|yesno:'true,false' }}"
                                 data-date="{{ transaction.date|date:'Y-m-d' }}"
-                                data-amount="{{ transaction.amount.amount }}"
+                                data-amount="{{ transaction.amount.amount|stringformat:'.2f' }}"
                                 class="swipeable-row-income {% if transaction.realized %}row-realized-income{% else %}row-not-realized-income{% endif %} hover:bg-slate-50 dark:hover:bg-gray-700/50">
 
                                 <td class="px-2 py-4 text-center drag-handle-cell-income" data-row-id="income-item-{{ transaction.id }}">
@@ -445,8 +445,8 @@
 </div>
 
 <script src="{% static 'finances/js/chart.umd.min.js' %}" defer></script>
-<script src="{% static 'finances/js/dashboard.js' %}?v=20260102-001" defer></script>
-<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20260101-001" defer></script>
+<script src="{% static 'finances/js/dashboard.js' %}?v=20260113-001" defer></script>
+<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20260114-001" defer></script>
 
 <!-- REMOVED INLINE SCRIPTS - CSP Phase 3 Complete -->
 <!-- All JavaScript code moved to external files for CSP compliance -->

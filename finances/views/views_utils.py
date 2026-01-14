@@ -4,6 +4,7 @@ from django.utils import translation
 from django.db.models import Sum, Q
 from django.utils import timezone
 from babel.numbers import get_group_symbol, get_decimal_symbol, get_currency_symbol as get_currency_symbol_babel
+from django.utils.formats import get_format
 
 # Relative imports from the app (.. moves up one level, from /views/ to /finances/)
 from ..models import (
@@ -31,15 +32,17 @@ def _get_babel_locale():
 def get_thousand_separator():
     """
     Returns the thousands separator for the active language.
+    Using Django's get_format to ensure consistency with template filters like |intcomma
     """
-    return get_group_symbol(_get_babel_locale())
+    return get_format('THOUSAND_SEPARATOR')
 
 
 def get_decimal_separator():
     """
     Returns the decimal separator for the active language.
+    Using Django's get_format to ensure consistency with template filters like |intcomma
     """
-    return get_decimal_symbol(_get_babel_locale())
+    return get_format('DECIMAL_SEPARATOR')
 
 
 def get_currency_symbol(currency_code):

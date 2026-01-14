@@ -188,22 +188,25 @@ def save_flow_item_ajax(request):
 
         # Real-time WebSocket broadcast
         try:
-            if is_new:
-                WebSocketBroadcaster.broadcast_transaction_created(
-                    transaction=transaction,
-                    actor_user=request.user
-                )
-            else:
-                WebSocketBroadcaster.broadcast_transaction_updated(
-                    transaction=transaction,
+            def broadcast_changes():
+                if is_new:
+                    WebSocketBroadcaster.broadcast_transaction_created(
+                        transaction=transaction,
+                        actor_user=request.user
+                    )
+                else:
+                    WebSocketBroadcaster.broadcast_transaction_updated(
+                        transaction=transaction,
+                        actor_user=request.user
+                    )
+
+                # Also broadcast FlowGroup update to update Dashboard totals
+                WebSocketBroadcaster.broadcast_flowgroup_updated(
+                    flowgroup=flow_group,
                     actor_user=request.user
                 )
 
-            # Also broadcast FlowGroup update to update Dashboard totals
-            WebSocketBroadcaster.broadcast_flowgroup_updated(
-                flowgroup=flow_group,
-                actor_user=request.user
-            )
+            db_transaction.on_commit(broadcast_changes)
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
             import traceback
@@ -225,7 +228,7 @@ def save_flow_item_ajax(request):
             print(f"[ERROR] Error creating notification: {e}")
             import traceback
             traceback.print_exc()
-        
+
         config = getattr(family, 'configuration', None)
         if config:
             start_date, end_date, _unused = get_current_period_dates(family, flow_group.period_start_date.strftime('%Y-%m-%d'))
@@ -292,19 +295,22 @@ def delete_flow_item_ajax(request):
 
         # Real-time WebSocket broadcast
         try:
-            WebSocketBroadcaster.broadcast_transaction_deleted(
-                transaction_id=transaction_id,
-                family_id=family_id,
-                is_investment=is_investment,
-                is_income=is_income,
-                actor_user=request.user
-            )
+            def broadcast_delete():
+                WebSocketBroadcaster.broadcast_transaction_deleted(
+                    transaction_id=transaction_id,
+                    family_id=family_id,
+                    is_investment=is_investment,
+                    is_income=is_income,
+                    actor_user=request.user
+                )
 
-            # Also broadcast FlowGroup update to update Dashboard totals
-            WebSocketBroadcaster.broadcast_flowgroup_updated(
-                flowgroup=flow_group,
-                actor_user=request.user
-            )
+                # Also broadcast FlowGroup update to update Dashboard totals
+                WebSocketBroadcaster.broadcast_flowgroup_updated(
+                    flowgroup=flow_group,
+                    actor_user=request.user
+                )
+
+            db_transaction.on_commit(broadcast_delete)
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
 
@@ -347,10 +353,10 @@ def toggle_kids_group_realized_ajax(request):
 
         # Real-time WebSocket broadcast
         try:
-            WebSocketBroadcaster.broadcast_flowgroup_updated(
+            db_transaction.on_commit(lambda: WebSocketBroadcaster.broadcast_flowgroup_updated(
                 flowgroup=flow_group,
                 actor_user=request.user
-            )
+            ))
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
 
@@ -422,10 +428,10 @@ def toggle_credit_card_closed_ajax(request):
 
         # Real-time WebSocket broadcast
         try:
-            WebSocketBroadcaster.broadcast_flowgroup_updated(
+            db_transaction.on_commit(lambda: WebSocketBroadcaster.broadcast_flowgroup_updated(
                 flowgroup=flow_group,
                 actor_user=request.user
-            )
+            ))
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
 
@@ -733,12 +739,28 @@ def save_bank_balance_ajax(request):
 
         # Real-time WebSocket broadcast
         try:
-            WebSocketBroadcaster.broadcast_bank_balance_updated(
-                bank_balance=bank_balance,
-                actor_user=request.user
+            db_transaction.on_commit(
+                lambda: WebSocketBroadcaster.broadcast_bank_balance_updated(
+                    bank_balance=bank_balance,
+                    actor_user=request.user
+                )
             )
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
+
+        # Calculate new total after save
+        tot_bank = BankBalance.objects.filter(
+            family=family,
+            period_start_date=period_start_date
+        ).aggregate(total=Sum('amount'))['total']
+
+        # Handle Money object or None
+        if tot_bank is None:
+            total_bank_balance = Decimal('0.00')
+        elif hasattr(tot_bank, 'amount'):
+            total_bank_balance = Decimal(str(tot_bank.amount))
+        else:
+            total_bank_balance = Decimal(str(tot_bank))
 
         amount_value = str(bank_balance.amount.amount)
         
@@ -750,6 +772,7 @@ def save_bank_balance_ajax(request):
             'date': bank_balance.date.strftime('%Y-%m-%d'),
             'member_id': bank_balance.member.id if bank_balance.member else None,
             'member_name': bank_balance.member.user.username if bank_balance.member else 'Family',
+            'total_bank_balance': str(total_bank_balance.quantize(Decimal('0.01'))),
         })
         
     except Exception as e:
@@ -770,16 +793,36 @@ def delete_bank_balance_ajax(request):
 
         bank_balance = BankBalance.objects.get(id=balance_id, family=family)
         family_id = bank_balance.family.id
+        period_start_date = bank_balance.period_start_date
 
         bank_balance.delete()
 
+        # Calculate new total after deletion
+        tot_bank = BankBalance.objects.filter(
+            family=family,
+            period_start_date=period_start_date
+        ).aggregate(total=Sum('amount'))['total']
+
+        # Handle Money object or None
+        if tot_bank is None:
+            total_bank_balance = Decimal('0.00')
+        elif hasattr(tot_bank, 'amount'):
+            total_bank_balance = Decimal(str(tot_bank.amount))
+        else:
+            total_bank_balance = Decimal(str(tot_bank))
+
         # Real-time WebSocket broadcast
         try:
-            WebSocketBroadcaster.broadcast_to_family(
-                family_id=family_id,
-                message_type='bank_balance_deleted',
-                data={'id': balance_id},
-                actor_user=request.user
+            db_transaction.on_commit(
+                lambda: WebSocketBroadcaster.broadcast_to_family(
+                    family_id=family_id,
+                    message_type='bank_balance_deleted',
+                    data={
+                        'id': balance_id,
+                        'total_bank_balance': str(total_bank_balance.quantize(Decimal('0.01'))),
+                    },
+                    actor_user=request.user
+                )
             )
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
@@ -1450,13 +1493,22 @@ def get_bank_reconciliation_summary_ajax(request):
             
             calculated_balance = total_income - total_expenses
             
-            tot_bank = bank_balances.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-            total_bank_balance = Decimal(str(tot_bank.amount)) if hasattr(tot_bank, 'amount') else tot_bank
-            
+            tot_bank = bank_balances.aggregate(total=Sum('amount'))['total']
+            # Handle Money object or None
+            if tot_bank is None:
+                total_bank_balance = Decimal('0.00')
+            elif hasattr(tot_bank, 'amount'):
+                total_bank_balance = Decimal(str(tot_bank.amount))
+            else:
+                total_bank_balance = Decimal(str(tot_bank))
+
             discrepancy = total_bank_balance - calculated_balance
-            discrepancy_percentage = abs(discrepancy / calculated_balance * 100) if calculated_balance != 0 else 0
-            has_warning = discrepancy_percentage > tolerance
-            
+            if calculated_balance != 0:
+                discrepancy_percentage = Decimal(str(abs(discrepancy / calculated_balance * 100)))
+            else:
+                discrepancy_percentage = Decimal('0.00')
+            has_warning = discrepancy_percentage > Decimal(str(tolerance))
+
             reconciliation_data = {
                 'mode': 'general',
                 'total_income': str(total_income.quantize(Decimal('0.01'))),
@@ -1485,20 +1537,42 @@ def get_bank_reconciliation_summary_ajax(request):
 
             members_data = []
             for member in family_members:
-                mem_inc = income_transactions.filter(member=member).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-                mem_exp = expense_transactions.filter(member=member).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-                
-                member_income = Decimal(str(mem_inc.amount)) if hasattr(mem_inc, 'amount') else mem_inc
-                member_expenses = Decimal(str(mem_exp.amount)) if hasattr(mem_exp, 'amount') else mem_exp
-                
+                mem_inc = income_transactions.filter(member=member).aggregate(total=Sum('amount'))['total']
+                mem_exp = expense_transactions.filter(member=member).aggregate(total=Sum('amount'))['total']
+
+                # Handle Money object or None for income
+                if mem_inc is None:
+                    member_income = Decimal('0.00')
+                elif hasattr(mem_inc, 'amount'):
+                    member_income = Decimal(str(mem_inc.amount))
+                else:
+                    member_income = Decimal(str(mem_inc))
+
+                # Handle Money object or None for expenses
+                if mem_exp is None:
+                    member_expenses = Decimal('0.00')
+                elif hasattr(mem_exp, 'amount'):
+                    member_expenses = Decimal(str(mem_exp.amount))
+                else:
+                    member_expenses = Decimal(str(mem_exp))
+
                 member_calculated_balance = member_income - member_expenses
-                
-                mem_bank = bank_balances.filter(member=member).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-                member_bank_balance = Decimal(str(mem_bank.amount)) if hasattr(mem_bank, 'amount') else mem_bank
-                
+
+                mem_bank = bank_balances.filter(member=member).aggregate(total=Sum('amount'))['total']
+                # Handle Money object or None for bank balance
+                if mem_bank is None:
+                    member_bank_balance = Decimal('0.00')
+                elif hasattr(mem_bank, 'amount'):
+                    member_bank_balance = Decimal(str(mem_bank.amount))
+                else:
+                    member_bank_balance = Decimal(str(mem_bank))
+
                 member_discrepancy = member_bank_balance - member_calculated_balance
-                member_discrepancy_percentage = abs(member_discrepancy / member_calculated_balance * 100) if member_calculated_balance != 0 else 0
-                member_has_warning = member_discrepancy_percentage > tolerance
+                if member_calculated_balance != 0:
+                    member_discrepancy_percentage = Decimal(str(abs(member_discrepancy / member_calculated_balance * 100)))
+                else:
+                    member_discrepancy_percentage = Decimal('0.00')
+                member_has_warning = member_discrepancy_percentage > Decimal(str(tolerance))
 
                 members_data.append({
                     'member_id': member.id,
@@ -1512,9 +1586,19 @@ def get_bank_reconciliation_summary_ajax(request):
                     'has_warning': member_has_warning,
                 })
             
+            # Calculate total bank balance (all accounts, regardless of member)
+            tot_bank_all = bank_balances.aggregate(total=Sum('amount'))['total']
+            if tot_bank_all is None:
+                total_bank_balance_detailed = Decimal('0.00')
+            elif hasattr(tot_bank_all, 'amount'):
+                total_bank_balance_detailed = Decimal(str(tot_bank_all.amount))
+            else:
+                total_bank_balance_detailed = Decimal(str(tot_bank_all))
+
             reconciliation_data = {
                 'mode': 'detailed',
                 'members_data': members_data,
+                'total_bank_balance': str(total_bank_balance_detailed.quantize(Decimal('0.01'))),
             }
 
         return JsonResponse({
@@ -1553,11 +1637,13 @@ def toggle_reconciliation_mode_ajax(request):
         config.save(update_fields=['bank_reconciliation_mode'])
 
         # Broadcast to all family members
-        WebSocketBroadcaster.broadcast_to_family(
-            family_id=family.id,
-            message_type='reconciliation_mode_changed',
-            data={'mode': mode},
-            actor_user=request.user
+        db_transaction.on_commit(
+            lambda: WebSocketBroadcaster.broadcast_to_family(
+                family_id=family.id,
+                message_type='reconciliation_mode_changed',
+                data={'mode': mode},
+                actor_user=request.user
+            )
         )
 
         return JsonResponse({

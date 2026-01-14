@@ -1,7 +1,7 @@
 # finances/permissions.py
 
 """
-User permission helpers for the WIMM Finance application.
+User permission helpers for the SweetMoney Finance application.
 
 Permission hierarchy:
 - ADMIN: Full access to all user management functions

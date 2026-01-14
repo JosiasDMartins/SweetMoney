@@ -10,7 +10,7 @@
         /**
          * Add new transaction to the list
          */
-        addTransaction: function(transactionData, actor) {
+        addTransaction: function(transactionData) {
             console.log('[Dashboard RT] Adding new transaction:', transactionData);
 
             // Check if transaction is income type (since dashboard shows income)
@@ -29,29 +29,8 @@
             const existingRow = document.getElementById(`income-item-${transactionData.id}`);
             if (existingRow) {
                 console.log('[Dashboard RT] Transaction already exists, updating instead');
-                this.updateTransaction(transactionData, actor);
+                this.updateTransaction(transactionData);
                 return;
-            }
-
-            // OWN ACTION CHECK: Skip if this is our own action and template is active (AJAX in progress)
-            const currentUserId = document.body.dataset.userId || window.USER_ID || document.getElementById('base-config')?.dataset?.userId;
-            const actorId = actor?.id;
-            const isOwnAction = actorId && currentUserId && String(actorId) === String(currentUserId);
-
-            console.log('[Dashboard RT] Own action check:', isOwnAction, 'Actor:', actorId, 'Me:', currentUserId);
-
-            if (isOwnAction) {
-                // Check if the template row is currently active (being saved)
-                const templateRow = document.getElementById('new-income-template');
-                const isTemplateActive = templateRow && !templateRow.classList.contains('hidden');
-
-                // Also check if any row is in edit mode
-                const rowsInEdit = document.querySelectorAll('tr[data-mode="edit"]');
-
-                if (isTemplateActive || rowsInEdit.length > 0) {
-                    console.log('[Dashboard RT] SKIPPING: Own action and local UI is in edit mode (avoiding double entry)');
-                    return;
-                }
             }
 
             // Create new row
@@ -120,17 +99,11 @@
                     }
                     const amountInput = row.querySelector('input[data-field="amount"]');
                     if (amountInput && typeof formatAmountForInput === 'function') {
-                        amountInput.value = formatAmountForInput(transactionData.amount, window.thousandSeparator, window.decimalSeparator);
+                        amountInput.value = formatAmountForInput(transactionData.amount);
                     } else if (amountInput) {
                         amountInput.value = transactionData.amount;
                     }
-                    // Only use getRawValue if amount contains comma (locale format)
-                    const amountStr = String(transactionData.amount);
-                    if (typeof getRawValue === 'function' && amountStr.includes(',')) {
-                        row.dataset.amount = getRawValue(amountStr, window.thousandSeparator, window.decimalSeparator);
-                    } else {
-                        row.dataset.amount = transactionData.amount;
-                    }
+                    row.dataset.amount = transactionData.amount;
                 }
 
                 // Update is_fixed
@@ -196,11 +169,8 @@
                 }
 
                 // Update balance sheet, key metrics, and charts
-                // CRITICAL FIX: Add delay to ensure backend has time to recalculate YTD values
                 if (typeof updateBalanceSheet === 'function') {
-                    setTimeout(() => {
-                        updateBalanceSheet();
-                    }, 300);
+                    updateBalanceSheet();
                 }
             } catch (error) {
                 console.error('[Dashboard RT] Error updating transaction:', error);
@@ -243,13 +213,7 @@
             tr.dataset.realized = data.realized ? 'true' : 'false';
             tr.dataset.isFixed = data.is_fixed ? 'true' : 'false';
             tr.dataset.date = data.date;
-            // Only use getRawValue if amount contains comma (locale format)
-            const amountStr = String(data.amount);
-            if (typeof getRawValue === 'function' && amountStr.includes(',')) {
-                tr.dataset.amount = getRawValue(amountStr, window.thousandSeparator, window.decimalSeparator);
-            } else {
-                tr.dataset.amount = data.amount;
-            }
+            tr.dataset.amount = data.amount;
             tr.className = `swipeable-row-income ${data.realized ? 'row-realized-income' : 'row-not-realized-income'} hover:bg-slate-50 dark:hover:bg-gray-700/50`;
             tr.style.backgroundColor = 'rgba(34, 197, 94, 0.1)'; // Initial highlight
 
@@ -328,10 +292,7 @@
             amountInput.inputMode = 'decimal';
             amountInput.dataset.field = 'amount';
             amountInput.className = 'w-20 border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-xs text-right p-1';
-            // Format amount for locale (e.g., 107.18 -> 107,18 in pt-BR)
-            amountInput.value = typeof formatAmountForInput === 'function'
-                ? formatAmountForInput(data.amount, window.thousandSeparator, window.decimalSeparator)
-                : data.amount;
+            amountInput.value = data.amount;  // SAFE
             amountEdit.appendChild(amountInput);
 
             const mobileActions = createEl('div', 'mobile-actions-btns-income');
@@ -526,8 +487,10 @@
                     nameCell.textContent = flowgroupData.name;
                 }
 
-                // Use budget_warning from backend - NO frontend calculation!
-                const hasBudgetWarning = flowgroupData.budget_warning || false;
+                // Check for budget warning
+                const budgetedAmount = parseFloat(flowgroupData.budgeted_amount) || 0;
+                const totalEstimated = parseFloat(flowgroupData.total_estimated) || 0;
+                const hasBudgetWarning = totalEstimated > budgetedAmount;
 
                 // Update estimated (3rd column) with budget warning logic
                 const estimatedCell = row.querySelector('.group-estimated');
@@ -551,27 +514,17 @@
                 const nameContainer = row.querySelector('td:nth-child(2) .flex.flex-col');
                 if (nameContainer) {
                     // Remove existing warning if present
-                    const existingWarning = nameContainer.querySelector('.overbudget-warning, .text-xs.text-yellow-600');
+                    const existingWarning = nameContainer.querySelector('.text-xs.text-yellow-600');
                     if (existingWarning) {
                         existingWarning.remove();
                     }
 
-                    // Add warning if backend says over budget
+                    // Add warning if over budget
                     if (hasBudgetWarning) {
                         const warningDiv = document.createElement('div');
-                        warningDiv.className = 'overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium';
-
-                        // Get i18n text with safety checks
-                        let warningText = '⚠ Over budget';
-                        if (window.DASHBOARD_CONFIG && window.DASHBOARD_CONFIG.i18n && window.DASHBOARD_CONFIG.i18n.overBudget) {
-                            warningText = window.DASHBOARD_CONFIG.i18n.overBudget;
-                        }
-                        warningDiv.textContent = warningText;
-
+                        warningDiv.className = 'text-xs text-yellow-600 dark:text-yellow-400 font-medium';
+                        warningDiv.textContent = 'window.DASHBOARD_CONFIG.i18n.overBudget';
                         nameContainer.appendChild(warningDiv);
-                        console.log('[Dashboard RT] Overbudget warning added for group:', flowgroupData.id);
-                    } else {
-                        console.log('[Dashboard RT] No overbudget warning for group:', flowgroupData.id);
                     }
                 }
 
@@ -689,66 +642,90 @@
             });
 
             console.log('[Dashboard RT] FlowGroups reordered successfully');
+        },
+
+        /**
+         * Update overbudget warning display for a flow group
+         */
+        updateOverbudgetWarning: function(flowGroupId, showWarning) {
+            console.log('[Dashboard RT] Updating overbudget warning for group:', flowGroupId, 'show:', showWarning);
+
+            // Find the flowgroup row
+            const row = document.querySelector(`tr[data-flow-group-id="${flowGroupId}"]`);
+            if (!row) {
+                console.warn('[Dashboard RT] FlowGroup row not found:', flowGroupId);
+                return;
+            }
+
+            // Find the name cell (first td with the group name and badges)
+            const nameCell = row.querySelector('td:first-child');
+            if (!nameCell) {
+                console.warn('[Dashboard RT] Name cell not found for group:', flowGroupId);
+                return;
+            }
+
+            // Find or create the warning container
+            let warningContainer = nameCell.querySelector('.overbudget-warning');
+
+            if (showWarning) {
+                // Add warning if it doesn't exist
+                if (!warningContainer) {
+                    warningContainer = document.createElement('div');
+                    warningContainer.className = 'overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium';
+
+                    // Get i18n text
+                    const warningText = window.DASHBOARD_CONFIG?.i18n?.overBudget || '⚠ Over budget';
+                    warningContainer.textContent = warningText;
+
+                    // Insert after the badges div
+                    const badgesDiv = nameCell.querySelector('div');
+                    if (badgesDiv && badgesDiv.nextSibling) {
+                        badgesDiv.parentNode.insertBefore(warningContainer, badgesDiv.nextSibling);
+                    } else {
+                        nameCell.appendChild(warningContainer);
+                    }
+
+                    console.log('[Dashboard RT] Overbudget warning added to group:', flowGroupId);
+                }
+            } else {
+                // Remove warning if it exists
+                if (warningContainer) {
+                    warningContainer.remove();
+                    console.log('[Dashboard RT] Overbudget warning removed from group:', flowGroupId);
+                }
+            }
+        },
+
+        /**
+         * Check and update overbudget status based on current values
+         */
+        checkOverbudget: function(flowGroupId) {
+            console.log('[Dashboard RT] Checking overbudget status for group:', flowGroupId);
+
+            const row = document.querySelector(`tr[data-flow-group-id="${flowGroupId}"]`);
+            if (!row) {
+                return;
+            }
+
+            // Get estimated and budgeted values
+            const estimatedCell = row.querySelector('.group-estimated');
+            const budgetedCell = row.querySelector('.group-budgeted');
+
+            if (!estimatedCell || !budgetedCell) {
+                console.warn('[Dashboard RT] Could not find budget cells for group:', flowGroupId);
+                return;
+            }
+
+            const estimated = parseFloat(estimatedCell.dataset.value || 0);
+            const budgeted = parseFloat(budgetedCell.dataset.value || 0);
+
+            console.log('[Dashboard RT] Budget check - estimated:', estimated, 'budgeted:', budgeted);
+
+            // Update warning display
+            const isOverBudget = estimated > budgeted;
+            this.updateOverbudgetWarning(flowGroupId, isOverBudget);
         }
     };
-
-    // Listen for Transaction creation events (income)
-    document.addEventListener('realtime:transaction:created', function(event) {
-        console.log('[Dashboard RT] Received transaction:created event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.addTransaction) {
-            window.DashboardRealtime.addTransaction(event.detail.data, event.detail.actor);
-        }
-    });
-
-    // Listen for Transaction update events (income)
-    document.addEventListener('realtime:transaction:updated', function(event) {
-        console.log('[Dashboard RT] Received transaction:updated event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.updateTransaction) {
-            window.DashboardRealtime.updateTransaction(event.detail.data);
-        }
-    });
-
-    // Listen for Transaction deletion events (income)
-    document.addEventListener('realtime:transaction:deleted', function(event) {
-        console.log('[Dashboard RT] Received transaction:deleted event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.removeTransaction) {
-            const transactionId = event.detail.data.id || event.detail.data.transaction_id;
-            window.DashboardRealtime.removeTransaction(transactionId);
-        }
-    });
-
-    // Listen for FlowGroup creation events
-    document.addEventListener('realtime:flowgroup:created', function(event) {
-        console.log('[Dashboard RT] Received flowgroup:created event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.addFlowGroup) {
-            window.DashboardRealtime.addFlowGroup(event.detail.data);
-        }
-    });
-
-    // Listen for FlowGroup update events
-    document.addEventListener('realtime:flowgroup:updated', function(event) {
-        console.log('[Dashboard RT] Received flowgroup:updated event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.updateFlowGroup) {
-            window.DashboardRealtime.updateFlowGroup(event.detail.data);
-        }
-    });
-
-    // Listen for FlowGroup deletion events
-    document.addEventListener('realtime:flowgroup:deleted', function(event) {
-        console.log('[Dashboard RT] Received flowgroup:deleted event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.removeFlowGroup) {
-            const flowgroupId = event.detail.data.id || event.detail.data.flowgroup_id;
-            window.DashboardRealtime.removeFlowGroup(flowgroupId);
-        }
-    });
-
-    // Listen for FlowGroup reorder events
-    document.addEventListener('realtime:flowgroups:reordered', function(event) {
-        console.log('[Dashboard RT] Received flowgroups:reordered event:', event.detail);
-        if (window.DashboardRealtime && window.DashboardRealtime.reorderFlowGroups) {
-            window.DashboardRealtime.reorderFlowGroups(event.detail.data);
-        }
-    });
 
     console.log('[Dashboard RT] Real-time updates initialized');
 })();

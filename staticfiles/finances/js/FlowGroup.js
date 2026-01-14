@@ -59,9 +59,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initFlowGroup() {
-    // Initialize synchronization variables
-    window.lastBackendBudgetBroadcast = 0;
-
     const config = document.getElementById('flowgroup-config');
     if (!config) {
         console.error('[FlowGroup] Config element not found');
@@ -94,10 +91,8 @@ function initFlowGroup() {
 
         // i18n strings
         i18n: {
-            budgetWarning: config.dataset.i18nBudgetWarning,
             estimatedExpenses: config.dataset.i18nEstimatedExpenses,
             exceedBudget: config.dataset.i18nExceedBudget,
-            overBudget: config.dataset.i18nOverBudget,
             markedAsGiven: config.dataset.i18nMarkedAsGiven,
             notGivenYet: config.dataset.i18nNotGivenYet,
             budgetMarkedAsGiven: config.dataset.i18nBudgetMarkedAsGiven,
@@ -128,7 +123,6 @@ function initFlowGroup() {
             errorDeletingFlowGroup: config.dataset.i18nErrorDeletingFlowGroup,
             confirmDeleteItem: config.dataset.i18nConfirmDeleteItem,
             descriptionAmountDateRequired: config.dataset.i18nDescriptionAmountDateRequired,
-            descriptionRequired: config.dataset.i18nDescriptionRequired,
             duplicateName: config.dataset.i18nDuplicateName,
             anotherUser: config.dataset.i18nAnotherUser,
             flowGroupDeletedByUser: config.dataset.i18nFlowGroupDeletedByUser,
@@ -156,14 +150,14 @@ function initFlowGroup() {
 
     // Add money mask to all amount fields using event delegation
     document.addEventListener('input', function(event) {
-        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
+        if (event.target.matches('input[data-field="amount"]')) {
             applyMoneyMask(event, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
         }
     });
 
     // Cursor positioned to the right only on first click/focus
     document.addEventListener('focus', function(event) {
-        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
+        if (event.target.matches('input[data-field="amount"]')) {
             if (!event.target.hasAttribute('data-first-focus-done')) {
                 event.target.setAttribute('data-first-focus-done', 'true');
                 setTimeout(function() {
@@ -175,7 +169,7 @@ function initFlowGroup() {
 
     // Reset flags when field loses focus
     document.addEventListener('blur', function(event) {
-        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
+        if (event.target.matches('input[data-field="amount"]')) {
             event.target.removeAttribute('data-first-focus-done');
         }
     }, true);
@@ -764,8 +758,6 @@ function showSuccessMessage(message) {
 // Money mask functions - using utils.js (applyMoneyMask, getRawValue, formatAmountForInput, formatCurrency)
 
 function updateBudgetWarning() {
-    if (!window.FLOWGROUP_CONFIG || !window.FLOWGROUP_CONFIG.i18n) return;
-
     const budgetInput = document.querySelector('input[name="budgeted_amount"]');
     if (!budgetInput) return;
 
@@ -783,34 +775,19 @@ function updateBudgetWarning() {
         }
     });
 
-    console.log(`[updateBudgetWarning] totalEstimated: ${totalEstimated}, budgetValue: ${budgetValue}`);
-
+    // FIXED: Use the template container as per user request
     const warningContainer = document.getElementById('budget-warning-container');
     const warningText = document.getElementById('budget-warning-text');
 
     if (totalEstimated > budgetValue) {
-        console.log('[updateBudgetWarning] Over budget! Showing warning');
         // Show warning and update text
         if (warningContainer) {
             warningContainer.classList.remove('hidden');
         }
         if (warningText) {
-            const formattedTotal = formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-            const msg = `${window.FLOWGROUP_CONFIG.i18n.estimatedExpenses} (${formattedTotal}) ${window.FLOWGROUP_CONFIG.i18n.exceedBudget}`;
-            warningText.textContent = msg;
+            warningText.textContent = window.FLOWGROUP_CONFIG.i18n.estimatedExpenses + ' (' + formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator) + ') ' + window.FLOWGROUP_CONFIG.i18n.exceedBudget;
         }
     } else {
-        // PRIORITY CHECK: If a backend broadcast happened in the last 1.5 seconds, 
-        // don't hide the warning locally yet. This prevents "flicker".
-        const now = Date.now();
-        const timeSinceBroadcast = now - (window.lastBackendBudgetBroadcast || 0);
-        
-        if (timeSinceBroadcast < 1500) {
-            console.log(`[updateBudgetWarning] Skipping hide - last broadcast was only ${timeSinceBroadcast}ms ago`);
-            return;
-        }
-
-        console.log('[updateBudgetWarning] Under budget. Hiding warning');
         // Hide warning when total is below budget
         if (warningContainer) {
             warningContainer.classList.add('hidden');
@@ -926,7 +903,7 @@ window.toggleRealized = function(rowId, currentStatus) {
     const dateInput = row.querySelector('input[data-field="date"]');
     const dateText = dateInput ? dateInput.value : '';
 
-    const memberSelect = row.querySelector('select[data-field="member_id"]');
+    const memberSelect = row.querySelector('select[data-field="member"]');
     const memberId = memberSelect ? memberSelect.value : '';
 
     const isFixed = row.getAttribute('data-fixed') === 'true';
@@ -1195,10 +1172,9 @@ window.saveItem = function(rowId) {
     const descInput = row.querySelector('input[data-field="description"]');
     const amountInput = row.querySelector('input[data-field="amount"]');
     const dateInput = row.querySelector('input[data-field="date"]');
-    const memberSelect = row.querySelector('select[data-field="member_id"]');
+    const memberSelect = row.querySelector('select[data-field="member"]');
     if (!descInput || !amountInput || !dateInput) {
-        row.dataset.saving = 'false';
-        window.GenericModal.alert(window.FLOWGROUP_CONFIG.i18n.descriptionAmountDateRequired);
+        alert(window.FLOWGROUP_CONFIG.i18n.descriptionAmountDateRequired);
         return;
     }
     const description = descInput.value.trim();
@@ -1224,10 +1200,8 @@ window.saveItem = function(rowId) {
         fixed = row.getAttribute('data-fixed') === 'true';
     }
 
-    // Validate only description is required (amount can be 0)
-    if (!description) {
-        row.dataset.saving = 'false';
-        window.GenericModal.alert(window.FLOWGROUP_CONFIG.i18n.descriptionRequired || 'Description is required.');
+    if (!description || !amount || !date) {
+        alert(window.FLOWGROUP_CONFIG.i18n.descriptionAmountDateRequired);
         return;
     }
 
@@ -1346,7 +1320,7 @@ window.saveItem = function(rowId) {
                     const bgClass = data.realized ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600';
                     const translateClass = data.realized ? 'translate-x-4' : '';
                     realizedCell.innerHTML =
-                        '<div class="flex items-center justify-center w-full">' +
+                        '<div class="flex items-center justify-center">' +
                         '<button type="button" data-toggle="realized" data-item-id="item-' + data.transaction_id + '" data-current-state="' + (data.realized ? 'true' : 'false') + '" ' +
                         'class="realized-toggle relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer ' + bgClass + '">' +
                         '<span class="absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full ' + translateClass + '"></span>' +
@@ -1359,7 +1333,7 @@ window.saveItem = function(rowId) {
                     const fixedCell = fixedToggleNew.closest('td');
                     const bgClass = data.is_fixed ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-blue-200 dark:hover:bg-blue-900/30';
                     fixedCell.innerHTML =
-                        '<div class="flex items-center justify-center w-full">' +
+                        '<div class="flex items-center justify-center">' +
                         '<button type="button" data-action="toggle-transaction-fixed" data-row-id="item-' + data.transaction_id + '" ' +
                         'class="fixed-toggle-btn inline-flex items-center justify-center w-8 h-8 rounded transition-all duration-200 ' + bgClass + '" ' +
                         'title="Mark as recurring expense">' +
@@ -1398,16 +1372,7 @@ window.saveItem = function(rowId) {
 
                 // Switch to display mode and populate values
                 toggleEditMode('item-' + data.transaction_id, false);
-                updateRowDisplay('item-' + data.transaction_id, { 
-                    id: data.transaction_id, 
-                    description: data.description, 
-                    amount: data.amount, 
-                    date: data.date, 
-                    member_id: data.member_id, 
-                    member_name: data.member_name, // Added member_name to fix blank field
-                    realized: data.realized, 
-                    fixed: data.is_fixed 
-                });
+                updateRowDisplay('item-' + data.transaction_id, { id: data.transaction_id, description: data.description, amount: data.amount, date: data.date, member_id: data.member_id, realized: data.realized, fixed: data.is_fixed });
 
                 // Reset and hide the template row
                 const descInput = templateRow.querySelector('input[data-field="description"]');
@@ -1496,67 +1461,11 @@ function updateRowDisplay(rowId, data) {
     const descInput = row.querySelector('input[data-field="description"]');
     const amountInput = row.querySelector('input[data-field="amount"]');
     const dateInput = row.querySelector('input[data-field="date"]');
-    const memberSelect = row.querySelector('select[data-field="member"], select[data-field="member_id"]');
-    
-    // Update input values (edit mode)
+    const memberSelect = row.querySelector('select[data-field="member"]');
     if (descInput) descInput.value = data.description;
     if (amountInput) amountInput.value = formatAmountForInput(data.amount, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
     if (dateInput) dateInput.value = data.date;
     if (memberSelect) memberSelect.value = data.member_id || '';
-
-    // Update display spans (display mode) - CRITICAL FIX for blank fields
-    const descDisplay = row.querySelector('.cell-description-display');
-    if (descDisplay) descDisplay.textContent = data.description || '';
-
-    const amountDisplay = row.querySelector('.cell-budget-display');
-    if (amountDisplay) {
-        // Ensure data.amount is a valid number
-        const amountValue = parseFloat(data.amount || 0);
-        
-        // Safe formatCurrency call - use RealtimeUI utils if available, or basic fallback
-        let formattedAmount;
-        if (typeof window.RealtimeUI !== 'undefined' && window.RealtimeUI.utils && window.RealtimeUI.utils.formatCurrency) {
-            formattedAmount = window.RealtimeUI.utils.formatCurrency(amountValue);
-        } else if (typeof formatCurrency === 'function') {
-            formattedAmount = formatCurrency(amountValue, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-        } else {
-            // Fallback
-            const symbol = window.FLOWGROUP_CONFIG.currencySymbol || '$';
-            formattedAmount = symbol + ' ' + amountValue.toFixed(2); 
-        }
-        
-        // Preserve mobile action buttons if they exist
-        const mobileActions = amountDisplay.querySelector('.mobile-actions-btns');
-        if (mobileActions) {
-            // Remove text nodes only
-            Array.from(amountDisplay.childNodes).forEach(node => {
-                if (node.nodeType === Node.TEXT_NODE) node.remove();
-            });
-            // Insert formatted amount at start (stripped of currency symbol per design)
-            const cleanAmount = formattedAmount.replace(window.FLOWGROUP_CONFIG.currencySymbol, '').trim();
-            amountDisplay.insertBefore(document.createTextNode(cleanAmount + '\n'), amountDisplay.firstChild);
-        } else {
-            amountDisplay.textContent = formattedAmount.replace(window.FLOWGROUP_CONFIG.currencySymbol, '').trim();
-        }
-    }
-
-    const memberDisplay = row.querySelector('.cell-member-display');
-    if (memberDisplay) {
-        if (data.member_name) {
-            memberDisplay.textContent = data.member_name;
-        } else if (data.member) {
-            memberDisplay.textContent = data.member;
-        } else if (memberSelect) {
-            const selectedOption = memberSelect.options[memberSelect.selectedIndex];
-            memberDisplay.textContent = selectedOption ? selectedOption.text : '-';
-        }
-        
-        // Always sync the data attribute if possible
-        const mid = data.member_id || (data.member && typeof data.member === 'object' ? data.member.id : '');
-        if (mid) {
-            memberDisplay.setAttribute('data-member-id', mid);
-        }
-    }
 
     // Update date display (date-full and date-short spans)
     const dateDisplayCell = row.querySelector('.cell-date-display');
@@ -2027,14 +1936,29 @@ function updateSummary(customBudget, customRealized) {
             }
         });
     }
-    const estimatedDisplays = [document.getElementById('total-expenses-desktop'), document.getElementById('total-expenses-mobile')];
-    const realizedDisplays = [document.getElementById('total-realized-desktop'), document.getElementById('total-realized-mobile')];
-
-    const formattedEstimated = formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-    const formattedRealized = formatCurrency(totalRealized, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-
-    estimatedDisplays.forEach(el => { if (el) el.textContent = formattedEstimated; });
-    realizedDisplays.forEach(el => { if (el) el.textContent = formattedRealized; });
+    const estimatedSpan = document.getElementById('total-estimated');
+    const realizedSpan = document.getElementById('total-realized');
+    const remainingSpan = document.getElementById('total-remaining');
+    if (estimatedSpan) {
+        estimatedSpan.textContent = formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+    }
+    if (realizedSpan) {
+        realizedSpan.textContent = formatCurrency(totalRealized, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+    }
+    if (remainingSpan) {
+        const remaining = budgetValue - totalRealized;
+        remainingSpan.textContent = formatCurrency(remaining, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+        const remainingContainer = remainingSpan.closest('.flex');
+        if (remainingContainer) {
+            if (remaining < 0) {
+                remainingContainer.classList.remove('text-green-600', 'dark:text-green-400');
+                remainingContainer.classList.add('text-red-600', 'dark:text-red-400');
+            } else {
+                remainingContainer.classList.remove('text-red-600', 'dark:text-red-400');
+                remainingContainer.classList.add('text-green-600', 'dark:text-green-400');
+            }
+        }
+    }
 
     // Totals row is now updated via backend calculation and WebSocket broadcasts
     // No need to calculate totals in JavaScript anymore

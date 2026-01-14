@@ -2,10 +2,14 @@
 {% load i18n %}
 <!DOCTYPE html>
 <html lang="en" class="h-full">
+
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
-    <meta name="service-worker-url" content="{% url 'service_worker' %}"  />
+    <meta charset="utf-8" />
+    <!-- PHASE 3 CSP Compliance: Dark mode init moved to external file -->
+    <!-- NOTE: NO defer - dark mode init must run immediately to prevent FOUC -->
+    <script src="{% static 'finances/js/dark_mode_init.js' %}?v=20251230-001"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="service-worker-url" content="{% url 'service_worker' %}" />
     <title>{% block title %}{% trans "SweetMoney | Family Financial Flow" %}{% endblock title %}</title>
 
     <!-- PWA Meta Tags - Custom implementation with dynamic versioning -->
@@ -21,22 +25,27 @@
     <link rel="icon" type="image/svg+xml" href="{% static 'finances/images/favicons/favicon.svg' %}">
     <link rel="icon" type="image/png" sizes="96x96" href="{% static 'finances/images/favicons/favicon-96x96.png' %}">
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'finances/images/favicons/apple-touch-icon.png' %}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'finances/images/favicons/android-chrome-192x192.png' %}">
-    <link rel="icon" type="image/png" sizes="512x512" href="{% static 'finances/images/favicons/android-chrome-512x512.png' %}">
+    <link rel="icon" type="image/png" sizes="192x192"
+        href="{% static 'finances/images/favicons/android-chrome-192x192.png' %}">
+    <link rel="icon" type="image/png" sizes="512x512"
+        href="{% static 'finances/images/favicons/android-chrome-512x512.png' %}">
 
-    <link href="{% static 'finances/css/tailwind.css' %}" rel="stylesheet"/>
-    <link href="{% static 'finances/css/fonts.css' %}" rel="stylesheet"/>
+    <link href="{% static 'finances/css/tailwind.css' %}" rel="stylesheet" />
+    <link href="{% static 'finances/css/fonts.css' %}" rel="stylesheet" />
 
     <style>
         /* Auto-adjust for Windows DPI scaling */
         @media screen and (min-resolution: 144dpi) and (max-width: 1920px) {
+
             /* For 150% Windows scaling on FullHD screens */
             html {
-                font-size: 14px; /* Reduce base font size from 16px */
+                font-size: 14px;
+                /* Reduce base font size from 16px */
             }
         }
 
         @media screen and (min-resolution: 192dpi) and (max-width: 1920px) {
+
             /* For 200% Windows scaling */
             html {
                 font-size: 13px;
@@ -57,7 +66,10 @@
 
         /* Make buttons and inputs more responsive */
         @media (max-width: 1366px) {
-            .btn, button, input[type="submit"] {
+
+            .btn,
+            button,
+            input[type="submit"] {
                 font-size: 0.875rem;
                 padding: 0.5rem 0.75rem;
             }
@@ -68,72 +80,67 @@
 
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to base.js (loaded at end of body) -->
 </head>
+
 <body class="h-full bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200">
 
     <!-- Base Configuration for JavaScript -->
-    <div id="base-config" style="display: none;"
-         data-server-version="{{ db_version }}"
-         data-db-version="{{ db_version }}"
-         data-user-id="{{ user.id|default:'' }}"
-         data-is-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
-         data-decimal-separator="{{ decimal_separator }}"
-         data-thousand-separator="{{ thousand_separator }}"
-         data-currency-symbol="{{ currency_symbol }}"
-         data-i18n-error-loading-period-details="{% trans 'Error loading period details:' %}"
-         data-i18n-error-loading-period="{% trans 'An error occurred while loading period details' %}"
-         data-i18n-pwa-new-version-title="{% trans 'New SweetMoney version available!' %}"
-         data-i18n-pwa-installed="{% trans 'Installed:' %}"
-         data-i18n-pwa-available="{% trans 'Available:' %}"
-         data-i18n-pwa-update-instructions="{% trans 'To update, please reinstall the app.' %}"
-         data-i18n-pwa-click-to-dismiss="{% trans 'Click OK to dismiss this message.' %}"
-         data-i18n-pwa-ios-instructions="{% trans 'To install this app on your iPhone/iPad:' %}"
-         data-i18n-pwa-ios-step1="{% trans 'Tap the Share button (square with arrow)' %}"
-         data-i18n-pwa-ios-step2="{% trans 'Scroll down and tap \"Add to Home Screen\"' %}"
-         data-i18n-pwa-ios-step3="{% trans 'Tap \"Add\" to install' %}"
-         data-i18n-modal-notification="{% trans 'Notification' %}"
-         data-i18n-modal-warning="{% trans 'Warning' %}"
-         data-i18n-modal-error="{% trans 'Error' %}"
-         data-i18n-modal-success="{% trans 'Success' %}"
-         data-i18n-modal-confirm="{% trans 'Confirm Action' %}"
-         data-i18n-modal-ok="{% trans 'OK' %}"
-         data-i18n-modal-cancel="{% trans 'Cancel' %}"
-         data-i18n-modal-continue="{% trans 'Continue' %}"
-         data-i18n-modal-yes="{% trans 'Yes' %}"
-         data-i18n-modal-no="{% trans 'No' %}"
-         data-i18n-modal-close="{% trans 'Close' %}"
-         data-i18n-period-creating="{% trans 'Creating...' %}"
-         data-i18n-period-error-creating="{% trans 'An error occurred while creating the period' %}"
-         data-i18n-period-confirm-delete="{% trans 'Are you sure you want to delete this period?' %}"
-         data-i18n-period-deleting="{% trans 'Deleting...' %}"
-         data-i18n-period-error-deleting="{% trans 'An error occurred while deleting the period' %}"
-    ></div>
+    <div id="base-config" style="display: none;" data-server-version="{{ db_version }}"
+        data-db-version="{{ db_version }}" data-user-id="{{ user.id|default:'' }}"
+        data-is-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
+        data-decimal-separator="{{ decimal_separator }}" data-thousand-separator="{{ thousand_separator }}"
+        data-currency-symbol="{{ currency_symbol }}"
+        data-i18n-error-loading-period-details="{% trans 'Error loading period details:' %}"
+        data-i18n-error-loading-period="{% trans 'An error occurred while loading period details' %}"
+        data-i18n-pwa-new-version-title="{% trans 'New SweetMoney version available!' %}"
+        data-i18n-pwa-installed="{% trans 'Installed:' %}" data-i18n-pwa-available="{% trans 'Available:' %}"
+        data-i18n-pwa-update-instructions="{% trans 'To update, please reinstall the app.' %}"
+        data-i18n-pwa-click-to-dismiss="{% trans 'Click OK to dismiss this message.' %}"
+        data-i18n-pwa-ios-instructions="{% trans 'To install this app on your iPhone/iPad:' %}"
+        data-i18n-pwa-ios-step1="{% trans 'Tap the Share button (square with arrow)' %}"
+        data-i18n-pwa-ios-step2="{% trans 'Scroll down and tap \" Add to Home Screen\"' %}"
+        data-i18n-pwa-ios-step3="{% trans 'Tap \" Add\" to install' %}"
+        data-i18n-modal-notification="{% trans 'Notification' %}" data-i18n-modal-warning="{% trans 'Warning' %}"
+        data-i18n-modal-error="{% trans 'Error' %}" data-i18n-modal-success="{% trans 'Success' %}"
+        data-i18n-modal-confirm="{% trans 'Confirm Action' %}" data-i18n-modal-ok="{% trans 'OK' %}"
+        data-i18n-modal-cancel="{% trans 'Cancel' %}" data-i18n-modal-continue="{% trans 'Continue' %}"
+        data-i18n-modal-yes="{% trans 'Yes' %}" data-i18n-modal-no="{% trans 'No' %}"
+        data-i18n-modal-close="{% trans 'Close' %}" data-i18n-period-creating="{% trans 'Creating...' %}"
+        data-i18n-period-error-creating="{% trans 'An error occurred while creating the period' %}"
+        data-i18n-period-confirm-delete="{% trans 'Are you sure you want to delete this period?' %}"
+        data-i18n-period-deleting="{% trans 'Deleting...' %}"
+        data-i18n-period-error-deleting="{% trans 'An error occurred while deleting the period' %}"></div>
 
     <div class="flex h-full">
         <aside id="mobile-sidebar"
-               class="fixed inset-y-0 left-0 z-30 flex flex-col w-64 px-4 py-8 bg-white dark:bg-gray-800 border-r dark:border-gray-700 transform -translate-x-full transition-transform duration-300 ease-in-out md:translate-x-0 md:static">
-            
+            class="fixed inset-y-0 left-0 z-30 flex flex-col w-64 px-4 py-8 bg-white dark:bg-gray-800 border-r dark:border-gray-700 transform -translate-x-full transition-transform duration-300 ease-in-out md:translate-x-0 md:static">
+
             <div class="flex items-center justify-between">
-                <a href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}" class="flex items-center gap-2">
-                    <img src="{% static 'finances/images/logo.png' %}" alt="SweetMoney" class="h-16 w-auto" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="flex items-center gap-2" style="display: none;">
+                <a href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}"
+                    class="flex items-center gap-2">
+                    <img src="{% static 'finances/images/logo.png' %}" alt="SweetMoney" class="h-16 w-auto"
+                        data-hide-on-error="true" data-show-fallback="true">
+                    <div class="flex items-center gap-2" style="display: none;" data-logo-fallback>
                         <span class="material-symbols-outlined text-3xl text-primary">savings</span>
                         <span class="text-2xl font-bold text-gray-800 dark:text-white">SweetMoney</span>
                     </div>
                 </a>
-                <button data-action="close-sidebar" class="md:hidden text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white">
+                <button data-action="close-sidebar"
+                    class="md:hidden text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
 
             <nav class="flex flex-col justify-between flex-1 mt-6">
                 <div class="space-y-2">
-                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'dashboard' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}" href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
+                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'dashboard' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
+                        href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
                         <span class="material-symbols-outlined">dashboard</span>
                         <span class="mx-4 font-medium">{% trans "Dashboard" %}</span>
                     </a>
 
                     {% if not is_child %}
-                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'investments' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}" href="{% url 'investments' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
+                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'investments' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
+                        href="{% url 'investments' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
                         <span class="material-symbols-outlined">trending_up</span>
                         <span class="mx-4 font-medium">{% trans "Investments" %}</span>
                         <span class="text-xs font-normal text-teal-600 dark:text-teal-500 ml-auto">{% trans "Soon" %}</span>
@@ -141,7 +148,8 @@
                     {% endif %}
 
                     {% if not is_child %}
-                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'configuration' or request.resolver_match.url_name == 'members' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}" href="{% url 'configuration' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
+                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'configuration' or request.resolver_match.url_name == 'members' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
+                        href="{% url 'configuration' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
                         <span class="material-symbols-outlined">settings</span>
                         <span class="mx-4 font-medium">{% trans "Settings" %}</span>
                     </a>
@@ -150,8 +158,10 @@
 
                 <div class="mt-auto space-y-2 pb-0">
                     <div class="pt-4 border-t dark:border-gray-700">
-                        <a href="{% url 'user_profile' %}{% if selected_period %}?period={{ selected_period }}{% endif %}" class="flex items-center px-4 py-2 text-gray-600 rounded-md dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <div class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold mr-3">
+                        <a href="{% url 'user_profile' %}{% if selected_period %}?period={{ selected_period }}{% endif %}"
+                            class="flex items-center px-4 py-2 text-gray-600 rounded-md dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <div
+                                class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold mr-3">
                                 {{ request.user.username|first|upper }}
                             </div>
                             <div class="flex flex-col">
@@ -165,7 +175,8 @@
                     <div class="px-4 py-2 md:hidden">
                         <form method="POST" action="{% url 'auth_logout' %}">
                             {% csrf_token %}
-                            <button type="submit" class="flex items-center w-full px-4 py-2 text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            <button type="submit"
+                                class="flex items-center w-full px-4 py-2 text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                                 <span class="material-symbols-outlined mr-3">logout</span>
                                 <span class="font-medium">{% trans "Logout" %}</span>
                             </button>
@@ -174,8 +185,7 @@
 
                     <!-- PWA Install Button -->
                     <div id="pwa-install-container" class="hidden px-4 py-2">
-                        <button id="pwa-install-btn"
-                                class="w-full bg-green-500 bg-opacity-80 hover:bg-opacity-100
+                        <button id="pwa-install-btn" class="w-full bg-green-500 bg-opacity-80 hover:bg-opacity-100
                                        text-white font-medium py-2 px-4 rounded-lg
                                        flex items-center justify-center gap-2 transition-all
                                        shadow-md hover:shadow-lg">
@@ -187,7 +197,8 @@
                     <!-- Version -->
                     <div class="px-4 py-2 pb-0 text-center">
                         <span id="sidebar-version" class="text-xs text-gray-500 dark:text-gray-600">{% trans "Version" %} {{ db_version }}</span>
-                        <div id="sidebar-update-indicator" class="hidden text-xs text-orange-500 dark:text-orange-400 mt-1">
+                        <div id="sidebar-update-indicator"
+                            class="hidden text-xs text-orange-500 dark:text-orange-400 mt-1">
                             ({% trans "Update Available" %})
                         </div>
                     </div>
@@ -196,7 +207,8 @@
         </aside>
 
         <div class="flex-1 flex flex-col overflow-hidden">
-            <header class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 w-full">
+            <header
+                class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 w-full">
 
                 <button data-action="open-sidebar" class="md:hidden text-gray-600 dark:text-gray-400">
                     <span class="material-symbols-outlined">menu</span>
@@ -207,19 +219,20 @@
 
                         {% if not is_child and is_dashboard %}
                         <button data-modal-action="open" data-modal="create-period"
-                                class="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                title="{% trans 'Create New Period' %}">
+                            class="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            title="{% trans 'Create New Period' %}">
                             <span class="material-symbols-outlined text-sm">add</span>
                             <span class="text-sm font-medium hidden md:inline">{% trans "New Period" %}</span>
                         </button>
 
-                        <button type="button"
-                                data-modal-action="open" data-modal="delete-period"
-                                style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background-color: #dc2626; color: white; border-radius: 8px; border: none; cursor: pointer; line-height: 1.25rem;"
-                                title="{% trans 'Delete Current Period' %}">
+                        <button type="button" data-modal-action="open" data-modal="delete-period"
+                            style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background-color: #dc2626; color: white; border-radius: 8px; border: none; cursor: pointer; line-height: 1.25rem;"
+                            title="{% trans 'Delete Current Period' %}">
 
-                            <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.054.68-.11 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.054.68-.11 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                             </svg>
 
                             <span style="font-size: 14px; font-weight: 500;" class="hidden md:inline">{% trans "Delete Period" %}</span>
@@ -227,19 +240,20 @@
                         {% endif %}
 
                         <div class="relative" data-dropdown-container="period">
-                            <button {% if is_dashboard %}data-action="toggle-period-dropdown"{% endif %}
-                                    class="flex items-center space-x-2 px-3 py-2 bg-primary/10 text-primary rounded-lg {% if is_dashboard %}hover:bg-primary/20 cursor-pointer{% else %}cursor-default opacity-70{% endif %} transition-colors">
+                            <button {% if is_dashboard %}data-action="toggle-period-dropdown" {% endif %}
+                                class="flex items-center space-x-2 px-3 py-2 bg-primary/10 text-primary rounded-lg {% if is_dashboard %}hover:bg-primary/20 cursor-pointer{% else %}cursor-default opacity-70{% endif %} transition-colors">
                                 <span class="material-symbols-outlined text-sm">calendar_month</span>
                                 <span class="text-sm font-medium">{{ current_period_label }}</span>
-                                {% if is_dashboard %}<span class="material-symbols-outlined text-sm">expand_more</span>{% endif %}
+                                {% if is_dashboard %}<span
+                                    class="material-symbols-outlined text-sm">expand_more</span>{% endif %}
                             </button>
 
                             <div id="period-dropdown-menu"
-                                 class="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 transition-opacity duration-100">
-                                 <div class="py-1">
+                                class="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 transition-opacity duration-100">
+                                <div class="py-1">
                                     {% for period in available_periods %}
-                                    <a href="?period={{ period.value }}" 
-                                       class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 {% if period.is_current %}bg-primary/10 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                                    <a href="?period={{ period.value }}"
+                                        class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 {% if period.is_current %}bg-primary/10 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300{% endif %}">
                                         <div class="flex items-center justify-between">
                                             <span>{{ period.label }}</span>
                                             {% if period.is_current %}
@@ -250,64 +264,75 @@
                                         </div>
                                     </a>
                                     {% empty %}
-                                    <div class="px-4 py-2 text-sm text-gray-500">{% trans "No periods available" %}</div>
+                                    <div class="px-4 py-2 text-sm text-gray-500">{% trans "No periods available" %}
+                                    </div>
                                     {% endfor %}
-                                 </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="relative">
-                        <button id="notification-bell" class="relative text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+                        <button id="notification-bell"
+                            class="relative text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
                             <span class="material-symbols-outlined">notifications</span>
                             {% if unread_notifications_count > 0 %}
-                            <span id="notification-badge" class="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                            <span id="notification-badge"
+                                class="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                                 {{ unread_notifications_count }}
                             </span>
                             {% else %}
-                            <span id="notification-badge" class="hidden absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                            <span id="notification-badge"
+                                class="hidden absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                                 0
                             </span>
                             {% endif %}
                         </button>
 
-                        <div id="notification-dropdown" class="hidden absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 max-h-96 overflow-hidden z-50">
-                            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div id="notification-dropdown"
+                            class="hidden absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 max-h-96 overflow-hidden z-50">
+                            <div
+                                class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                                 <h3 class="font-semibold text-gray-900 dark:text-white">{% trans "Notifications" %}</h3>
-                                <button id="acknowledge-all-btn" class="text-xs text-primary hover:text-primary/80 font-medium">
+                                <button id="acknowledge-all-btn"
+                                    class="text-xs text-primary hover:text-primary/80 font-medium">
                                     {% trans "Mark all as read" %}
                                 </button>
                             </div>
                             <div id="notification-list" class="overflow-y-auto max-h-80">
-                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <button id="theme-toggle" class="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors" title="{% trans 'Toggle Dark Mode' %}">
+                    <button id="theme-toggle"
+                        class="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors"
+                        title="{% trans 'Toggle Dark Mode' %}">
                         <span id="icon-dark" class="material-symbols-outlined block dark:hidden">dark_mode</span>
                         <span id="icon-light" class="material-symbols-outlined hidden dark:block">light_mode</span>
                     </button>
 
                     <form method="POST" action="{% url 'auth_logout' %}" class="hidden md:block">
                         {% csrf_token %}
-                        <button type="submit" class="text-gray-600 dark:text-gray-400 hover:text-red-500" title="{% trans 'Logout' %}">
+                        <button type="submit" class="text-gray-600 dark:text-gray-400 hover:text-red-500"
+                            title="{% trans 'Logout' %}">
                             <span class="material-symbols-outlined">logout</span>
                         </button>
                     </form>
                 </div>
             </header>
-            
+
             <main class="flex-1 overflow-x-hidden overflow-y-auto bg-background-light dark:bg-background-dark">
                 {% if messages %}
-                    <div class="p-4">
-                        {% for message in messages %}
-                            <div class="mb-2 p-3 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
+                <div class="p-4">
+                    {% for message in messages %}
+                    <div
+                        class="mb-2 p-3 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ message }}
                     </div>
+                    {% endfor %}
+                </div>
                 {% endif %}
-                
+
                 {% block content %}
                 {% endblock content %}
             </main>
@@ -316,7 +341,8 @@
 
     <!-- Admin Warning Modal -->
     {% if is_admin and not admin_warning_seen %}
-    <div id="admin-warning-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style="z-index: 9999;">
+    <div id="admin-warning-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+        style="z-index: 9999;">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4">
             <div class="bg-amber-600 p-4 flex items-center gap-3">
                 <span class="material-symbols-outlined text-white text-3xl">warning</span>
@@ -326,7 +352,8 @@
                 <p class="text-gray-700 dark:text-gray-300 mb-4">
                     {% trans "This is an Administrator account and should be used only for family group administration. Daily operations should be performed using Parent or Child accounts." %}
                 </p>
-                <button id="btn-dismiss-admin-warning" type="button" class="w-full px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium transition-colors">
+                <button id="btn-dismiss-admin-warning" type="button"
+                    class="w-full px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium transition-colors">
                     {% trans "I Agree" %}
                 </button>
             </div>
@@ -336,36 +363,42 @@
 
     {% include 'finances/update_modal.html' %}
 
-    <div id="createPeriodModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div id="createPeriodModal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Create New Period" %}</h3>
-                    <button data-modal-action="close" data-modal="create-period" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <button data-modal-action="close" data-modal="create-period"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <span class="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
                 <form id="createPeriodForm" class="space-y-4">
                     <div>
-                        <label for="period_start_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label for="period_start_date"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             {% trans "Start Date" %}
                         </label>
                         <input type="date" id="period_start_date" name="start_date" required
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
                     </div>
 
                     <div>
-                        <label for="period_end_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label for="period_end_date"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             {% trans "End Date" %}
                         </label>
                         <input type="date" id="period_end_date" name="end_date" required
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
                     </div>
 
-                    <div id="overlapWarning" class="hidden p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
+                    <div id="overlapWarning"
+                        class="hidden p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 rounded-lg">
                         <div class="flex items-start">
-                            <span class="material-symbols-outlined text-yellow-600 dark:text-yellow-400 mr-2">warning</span>
+                            <span
+                                class="material-symbols-outlined text-yellow-600 dark:text-yellow-400 mr-2">warning</span>
                             <div>
                                 <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">{% trans "Warning: Period Overlap Detected" %}</p>
                                 <p id="overlapMessage" class="text-sm text-yellow-700 dark:text-yellow-400 mt-1"></p>
@@ -375,11 +408,11 @@
 
                     <div class="flex space-x-3 pt-4">
                         <button type="button" data-modal-action="close" data-modal="create-period"
-                                class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                            class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                             {% trans "Cancel" %}
                         </button>
                         <button type="submit" id="createPeriodBtn"
-                                class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
                             {% trans "Create" %}
                         </button>
                     </div>
@@ -388,7 +421,8 @@
         </div>
     </div>
 
-    <div id="deletePeriodModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div id="deletePeriodModal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl mx-4 border-4 border-orange-500">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -396,7 +430,8 @@
                         <span class="material-symbols-outlined inline align-text-bottom mr-2">warning</span>
                         {% trans "Delete Period" %}
                     </h3>
-                    <button data-modal-action="close" data-modal="delete-period" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <button data-modal-action="close" data-modal="delete-period"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <span class="material-symbols-outlined">close</span>
                     </button>
                 </div>
@@ -404,11 +439,13 @@
                 <div id="deletePeriodContent" class="space-y-4">
                     <div id="deletePeriodLoading" class="text-center py-8">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">{% trans "Loading period details..." %}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">{% trans "Loading period details..." %}
+                        </p>
                     </div>
 
                     <div id="deletePeriodDetails" class="hidden">
-                        <div id="deleteWarningBox" class="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg mb-4">
+                        <div id="deleteWarningBox"
+                            class="p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg mb-4">
                             <p class="text-sm font-semibold text-red-800 dark:text-red-300">
                                 <span class="material-symbols-outlined text-sm align-text-bottom mr-1">warning</span>
                                 <span id="deleteWarningText">{% trans "This action cannot be undone!" %}</span>
@@ -419,20 +456,24 @@
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
                             <h4 class="font-semibold text-gray-900 dark:text-white mb-2">{% trans "Period Information" %}</h4>
                             <p class="text-sm text-gray-700 dark:text-gray-300">
-                                <span class="font-medium">{% trans "Period:" %}</span> <span id="deletePeriodLabel"></span>
+                                <span class="font-medium">{% trans "Period:" %}</span> <span
+                                    id="deletePeriodLabel"></span>
                             </p>
                         </div>
 
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">{% trans "Period Summary" %}</h4>
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">{% trans "Period Summary" %}
+                            </h4>
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between">
                                     <span class="text-gray-600 dark:text-gray-400">{% trans "Flow Groups:" %}</span>
-                                    <span class="font-semibold text-gray-900 dark:text-white" id="deleteFlowGroupCount">0</span>
+                                    <span class="font-semibold text-gray-900 dark:text-white"
+                                        id="deleteFlowGroupCount">0</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-gray-600 dark:text-gray-400">{% trans "Transactions:" %}</span>
-                                    <span class="font-semibold text-gray-900 dark:text-white" id="deleteTransactionCount">0</span>
+                                    <span class="font-semibold text-gray-900 dark:text-white"
+                                        id="deleteTransactionCount">0</span>
                                 </div>
                             </div>
                         </div>
@@ -441,27 +482,34 @@
                             <h4 class="font-semibold text-gray-900 dark:text-white mb-3">{% trans "Key Metrics" %}</h4>
                             <div class="grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                    <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Income (Estimated)" %}</p>
+                                    <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Income (Estimated)" %}
+                                    </p>
                                     <p class="font-semibold text-green-600 dark:text-green-400">
-                                        <span id="deleteCurrencySymbol1"></span><span id="deleteIncomeEstimated">0.00</span>
+                                        <span id="deleteCurrencySymbol1"></span><span
+                                            id="deleteIncomeEstimated">0.00</span>
                                     </p>
                                 </div>
                                 <div>
                                     <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Income (Realized)" %}</p>
                                     <p class="font-semibold text-green-700 dark:text-green-500">
-                                        <span id="deleteCurrencySymbol2"></span><span id="deleteIncomeRealized">0.00</span>
+                                        <span id="deleteCurrencySymbol2"></span><span
+                                            id="deleteIncomeRealized">0.00</span>
                                     </p>
                                 </div>
                                 <div>
-                                    <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Expenses (Estimated)" %}</p>
+                                    <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Expenses (Estimated)" %}
+                                    </p>
                                     <p class="font-semibold text-red-600 dark:text-red-400">
-                                        <span id="deleteCurrencySymbol3"></span><span id="deleteExpenseEstimated">0.00</span>
+                                        <span id="deleteCurrencySymbol3"></span><span
+                                            id="deleteExpenseEstimated">0.00</span>
                                     </p>
                                 </div>
                                 <div>
-                                    <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Expenses (Realized)" %}</p>
+                                    <p class="text-gray-600 dark:text-gray-400 mb-1">{% trans "Expenses (Realized)" %}
+                                    </p>
                                     <p class="font-semibold text-red-700 dark:text-red-500">
-                                        <span id="deleteCurrencySymbol4"></span><span id="deleteExpenseRealized">0.00</span>
+                                        <span id="deleteCurrencySymbol4"></span><span
+                                            id="deleteExpenseRealized">0.00</span>
                                     </p>
                                 </div>
                             </div>
@@ -469,23 +517,22 @@
 
                         <div class="mt-6">
                             <div class="flex items-center mb-4">
-                                <input id="deleteConsentCheckbox"
-                                       type="checkbox"
-                                       data-action="toggle-delete-consent"
-                                       class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer">
-                                <label for="deleteConsentCheckbox" class="ml-2 block text-sm text-gray-900 dark:text-gray-300 cursor-pointer">
+                                <input id="deleteConsentCheckbox" type="checkbox" data-action="toggle-delete-consent"
+                                    class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer">
+                                <label for="deleteConsentCheckbox"
+                                    class="ml-2 block text-sm text-gray-900 dark:text-gray-300 cursor-pointer">
                                     {% trans "I understand the consequences and want to proceed." %}
                                 </label>
                             </div>
 
                             <div class="flex space-x-3">
                                 <button type="button" data-modal-action="close" data-modal="delete-period"
-                                        class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                    class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                                     {% trans "Cancel" %}
                                 </button>
                                 <button type="button" data-action="confirm-delete-period" id="confirmDeleteBtn" disabled
-                                        style="background-color: #d1d5db; color: #6b7280; cursor: not-allowed; transition: all 0.2s;"
-                                        class="flex-1 px-4 py-2 rounded-lg shadow-sm flex items-center justify-center font-medium">
+                                    style="background-color: #d1d5db; color: #6b7280; cursor: not-allowed; transition: all 0.2s;"
+                                    class="flex-1 px-4 py-2 rounded-lg shadow-sm flex items-center justify-center font-medium">
                                     <span id="deleteButtonText">{% trans "Delete Period" %}</span>
                                 </button>
                             </div>
@@ -504,24 +551,31 @@
     {% endblock %}
 
     <!-- Generic Alert/Confirm Modal -->
-    <div id="generic-modal" class="hidden fixed inset-0 z-[9999] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div id="generic-modal" class="hidden fixed inset-0 z-[9999] overflow-y-auto" aria-labelledby="modal-title"
+        role="dialog" aria-modal="true">
         <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 transition-opacity"></div>
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 transition-opacity">
+        </div>
 
         <!-- Modal panel -->
         <div class="fixed inset-0 z-10 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                <div
+                    class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
                     <!-- Icon -->
                     <div class="sm:flex sm:items-start">
-                        <div id="modal-icon-container" class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                        <div id="modal-icon-container"
+                            class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10">
                             <!-- Icon will be injected by JavaScript -->
-                            <svg id="modal-icon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            <svg id="modal-icon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                             </svg>
                         </div>
                         <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left flex-1">
-                            <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white" id="modal-title">
+                            <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white"
+                                id="modal-title">
                                 {% trans "Notification" %}
                             </h3>
                             <div class="mt-2">
@@ -564,6 +618,7 @@
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to external base.js -->
     <!-- This file handles: Dark mode, DPI scaling, Periods, Admin warning, PWA, WebSocket, UI Components -->
     <!-- NOTE: NO defer - dark mode init must run immediately to prevent FOUC -->
-    <script src="{% static 'finances/js/base.js' %}?v=20260101-002"></script>
+    <script src="{% static 'finances/js/base.js' %}?v=20260113-001"></script>
 </body>
+
 </html>

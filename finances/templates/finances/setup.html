@@ -2,9 +2,10 @@
 {% load i18n %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>{% trans "SweetMoney - Initial Setup" %}</title>
 
     <!-- Local fonts and styles -->
@@ -17,9 +18,10 @@
         }
     </style>
 </head>
+
 <body class="bg-gradient-to-br from-teal-50 to-blue-50 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-2xl">
-        
+
         {% if needs_migration %}
         <!-- Migration in Progress Card -->
         <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
@@ -30,7 +32,7 @@
                 <h1 class="text-4xl font-bold mb-2">{% trans "Setting Up Database" %}</h1>
                 <p class="text-blue-100 text-lg">{% trans "Please wait while we prepare your system..." %}</p>
             </div>
-            
+
             <div class="p-8">
                 {% if migration_success %}
                 <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
@@ -46,14 +48,14 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="text-center">
                     <button data-action="reload-page"
-                            class="bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold py-4 px-8 rounded-lg hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                        class="bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold py-4 px-8 rounded-lg hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                         {% trans "Continue to Setup Form" %}
                     </button>
                 </div>
-                
+
                 {% elif migration_error %}
                 <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
                     <div class="flex">
@@ -68,36 +70,40 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="text-center">
                     <button data-action="reload-page"
-                            class="bg-gray-500 text-white text-lg font-semibold py-4 px-8 rounded-lg hover:bg-gray-600 transition-all duration-200 shadow-lg">
+                        class="bg-gray-500 text-white text-lg font-semibold py-4 px-8 rounded-lg hover:bg-gray-600 transition-all duration-200 shadow-lg">
                         {% trans "Retry Setup" %}
                     </button>
                 </div>
-                
+
                 {% else %}
                 <div class="text-center">
-                    <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-teal-500 mb-4"></div>
+                    <div
+                        class="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-teal-500 mb-4">
+                    </div>
                     <p class="text-gray-600">{% trans "Running database migrations..." %}</p>
                 </div>
                 {% endif %}
             </div>
         </div>
-        
+
         {% else %}
-        
+
         <!-- Welcome Card -->
         <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
             <div class="bg-gradient-to-r from-teal-500 to-teal-600 p-8 text-white text-center">
                 <div class="flex justify-center mb-4">
-                    <img src="{% static 'finances/images/logo.png' %}" alt="SweetMoney" class="h-20 w-auto" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                    <span class="material-symbols-outlined text-6xl" style="display: none;">savings</span>
+                    <img src="{% static 'finances/images/logo.png' %}" alt="SweetMoney" class="h-20 w-auto"
+                        data-hide-on-error="true" data-show-fallback="true">
+                    <span class="material-symbols-outlined text-6xl" style="display: none;"
+                        data-logo-fallback>savings</span>
                 </div>
                 <h1 class="text-4xl font-bold mb-2">{% trans "Welcome to SweetMoney" %}</h1>
-                <p class="text-teal-100 text-lg">{% trans "Where Is My Money - Family Financial Flow" %}</p>
+                <p class="text-teal-100 text-lg">{% trans "Family Financial Flow" %}</p>
             </div>
-            
+
             <div class="p-8">
                 <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
                     <div class="flex">
@@ -112,7 +118,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 {% if database_error %}
                 <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
                     <div class="flex">
@@ -141,13 +147,13 @@
                 <div class="mb-6">
                     <div class="flex items-center justify-center gap-4">
                         <button type="button" id="btn-show-restore"
-                                class="px-6 py-3 border-2 border-teal-500 text-teal-600 rounded-lg hover:bg-teal-50 font-medium transition-colors flex items-center gap-2">
+                            class="px-6 py-3 border-2 border-teal-500 text-teal-600 rounded-lg hover:bg-teal-50 font-medium transition-colors flex items-center gap-2">
                             <span class="material-symbols-outlined">restore</span>
                             {% trans "Restore from Backup" %}
                         </button>
                         <span class="text-gray-400">{% trans "or" %}</span>
                         <button type="button" id="btn-show-setup"
-                                class="px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition-colors flex items-center gap-2">
+                            class="px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition-colors flex items-center gap-2">
                             <span class="material-symbols-outlined">add_circle</span>
                             {% trans "New Installation" %}
                         </button>
@@ -167,16 +173,13 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <form id="restore-form" enctype="multipart/form-data" class="space-y-6">
                         {% csrf_token %}
-                        
+
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                             <span class="material-symbols-outlined text-6xl text-gray-400 mb-4">upload_file</span>
-                            <input type="file" 
-                                id="backup-file-input" 
-                                name="backup_file"
-                                accept=".sqlite3,.db"
+                            <input type="file" id="backup-file-input" name="backup_file" accept=".sqlite3,.db"
                                 class="hidden">
                             <label for="backup-file-input"
                                 class="cursor-pointer inline-block px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition-colors">
@@ -184,7 +187,7 @@
                             </label>
                             <p class="mt-2 text-sm text-gray-600" id="file-name">{% trans "No file selected" %}</p>
                         </div>
-                        
+
                         <div id="restore-info" class="hidden bg-green-50 border-l-4 border-green-500 p-4">
                             <h4 class="font-semibold text-green-800 mb-3">{% trans "Backup Information:" %}</h4>
                             <div class="text-sm text-green-700 space-y-2">
@@ -198,15 +201,15 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="flex gap-4">
                             <button type="button" id="btn-cancel-restore"
-                                    class="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">
+                                class="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors">
                                 {% trans "Cancel" %}
                             </button>
                             <button type="button" id="btn-upload-backup"
-                                    class="flex-1 px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled>
+                                class="flex-1 px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled>
                                 {% trans "Restore Backup" %}
                             </button>
                         </div>
@@ -220,251 +223,252 @@
 
 
 
-                
 
-                
-                        <form method="post" class="space-y-6">
-                            {% csrf_token %}
-                            
-                            <div class="border-b border-gray-200 pb-6">
-                                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                    <span class="material-symbols-outlined mr-2 text-teal-600">person</span>
-                                    {% trans "Administrator Account" %}
-                                </h2>
-                                
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.username.id_for_label }}">
-                                            {% trans "Username" %}
-                                            <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="text"
-                                            name="{{ form.username.name }}"
-                                            id="{{ form.username.id_for_label }}"
-                                            placeholder="{% trans 'Choose a username' %}"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                            required>
-                                        {% if form.username.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.username.errors.0 }}</p>
-                                        {% endif %}
-                                    </div>
 
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.email.id_for_label }}">
-                                            {% trans "Email" %}
-                                        </label>
-                                        <input type="email"
-                                            name="{{ form.email.name }}"
-                                            id="{{ form.email.id_for_label }}"
-                                            placeholder="{% trans 'your@email.com' %}"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
-                                        {% if form.email.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
-                                        {% endif %}
-                                    </div>
 
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.password.id_for_label }}">
-                                            {% trans "Password" %}
-                                            <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="password"
-                                            name="{{ form.password.name }}"
-                                            id="{{ form.password.id_for_label }}"
-                                            placeholder="{% trans 'Minimum 6 characters' %}"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                            required>
-                                        {% if form.password.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.password.errors.0 }}</p>
-                                        {% endif %}
-                                        <p class="mt-1 text-sm text-gray-500">{% trans "Must be at least 6 characters long" %}</p>
-                                    </div>
+                    <form method="post" class="space-y-6">
+                        {% csrf_token %}
 
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.confirm_password.id_for_label }}">
-                                            {% trans "Confirm Password" %}
-                                            <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="password"
-                                            name="{{ form.confirm_password.name }}"
-                                            id="{{ form.confirm_password.id_for_label }}"
-                                            placeholder="{% trans 'Re-enter your password' %}"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                            required>
-                                        {% if form.confirm_password.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.confirm_password.errors.0 }}</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="border-b border-gray-200 pb-6">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                <span class="material-symbols-outlined mr-2 text-teal-600">person</span>
+                                {% trans "Administrator Account" %}
+                            </h2>
 
-                            <div class="border-b border-gray-200 pb-6">
-                                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                    <span class="material-symbols-outlined mr-2 text-teal-600">home</span>
-                                    {% trans "Family Information" %}
-                                </h2>
-
+                            <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.family_name.id_for_label }}">
-                                        {% trans "Family Name" %}
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        for="{{ form.username.id_for_label }}">
+                                        {% trans "Username" %}
                                         <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text"
-                                        name="{{ form.family_name.name }}"
-                                        id="{{ form.family_name.id_for_label }}"
-                                        placeholder="{% trans 'e.g., Smith Family' %}"
+                                    <input type="text" name="{{ form.username.name }}"
+                                        id="{{ form.username.id_for_label }}"
+                                        placeholder="{% trans 'Choose a username' %}"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                                         required>
-                                    {% if form.family_name.errors %}
-                                        <p class="mt-1 text-sm text-red-600">{{ form.family_name.errors.0 }}</p>
+                                    {% if form.username.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.username.errors.0 }}</p>
                                     {% endif %}
                                 </div>
-                            </div>
-
-                            <div class="border-b border-gray-200 pb-6">
-                                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                    <span class="material-symbols-outlined mr-2 text-teal-600">payments</span>
-                                    {% trans "Currency Settings" %}
-                                </h2>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.base_currency.id_for_label }}">
-                                        {% trans "Base Currency" %}
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        for="{{ form.email.id_for_label }}">
+                                        {% trans "Email" %}
+                                    </label>
+                                    <input type="email" name="{{ form.email.name }}" id="{{ form.email.id_for_label }}"
+                                        placeholder="{% trans 'your@email.com' %}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                                    {% if form.email.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        for="{{ form.password.id_for_label }}">
+                                        {% trans "Password" %}
                                         <span class="text-red-500">*</span>
                                     </label>
-                                    <select name="{{ form.base_currency.name }}" 
-                                            id="{{ form.base_currency.id_for_label }}"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                                            required>
-                                        <option value="BRL">BRL - Brazilian Real (R$)</option>
-                                        <option value="USD">USD - US Dollar ($)</option>
-                                        <option value="EUR">EUR - Euro (€)</option>
-                                        <option value="GBP">GBP - British Pound (£)</option>
-                                        <option value="JPY">JPY - Japanese Yen (¥)</option>
-                                        <option value="CNY">CNY - Chinese Yuan (¥)</option>
-                                        <option value="INR">INR - Indian Rupee (₹)</option>
-                                        <option value="RUB">RUB - Russian Ruble (₽)</option>
-                                        <option value="ZAR">ZAR - South African Rand (R)</option>
-                                        <option value="CAD">CAD - Canadian Dollar ($)</option>
-                                        <option value="AUD">AUD - Australian Dollar ($)</option>
-                                        <option value="MXN">MXN - Mexican Peso ($)</option>
-                                        <option value="KRW">KRW - South Korean Won (₩)</option>
-                                        <option value="TRY">TRY - Turkish Lira (₺)</option>
-                                        <option value="IDR">IDR - Indonesian Rupiah (Rp)</option>
-                                        <option value="SAR">SAR - Saudi Riyal (﷼)</option>
-                                        <option value="ARS">ARS - Argentine Peso ($)</option>
-                                        <option value="EGP">EGP - Egyptian Pound (£)</option>
-                                        <option value="AED">AED - UAE Dirham (د.إ)</option>
-                                        <option value="ETB">ETB - Ethiopian Birr (Br)</option>
-                                    </select>
-                                    {% if form.base_currency.errors %}
-                                        <p class="mt-1 text-sm text-red-600">{{ form.base_currency.errors.0 }}</p>
+                                    <input type="password" name="{{ form.password.name }}"
+                                        id="{{ form.password.id_for_label }}"
+                                        placeholder="{% trans 'Minimum 6 characters' %}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        required>
+                                    {% if form.password.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.password.errors.0 }}</p>
                                     {% endif %}
-                                    <p class="mt-1 text-sm text-gray-500">{% trans "All financial values will be stored and displayed in this currency" %}</p>
+                                    <p class="mt-1 text-sm text-gray-500">{% trans "Must be at least 6 characters long" %}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        for="{{ form.confirm_password.id_for_label }}">
+                                        {% trans "Confirm Password" %}
+                                        <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="password" name="{{ form.confirm_password.name }}"
+                                        id="{{ form.confirm_password.id_for_label }}"
+                                        placeholder="{% trans 'Re-enter your password' %}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                        required>
+                                    {% if form.confirm_password.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.confirm_password.errors.0 }}</p>
+                                    {% endif %}
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="border-b border-gray-200 pb-6">
-                                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                    <span class="material-symbols-outlined mr-2 text-teal-600">calendar_month</span>
-                                    {% trans "Financial Cycle Settings" %}
-                                </h2>
+                        <div class="border-b border-gray-200 pb-6">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                <span class="material-symbols-outlined mr-2 text-teal-600">home</span>
+                                {% trans "Family Information" %}
+                            </h2>
 
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            {% trans "Period Frequency" %}
-                                            <span class="text-red-500">*</span>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2"
+                                    for="{{ form.family_name.id_for_label }}">
+                                    {% trans "Family Name" %}
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="{{ form.family_name.name }}"
+                                    id="{{ form.family_name.id_for_label }}"
+                                    placeholder="{% trans 'e.g., Smith Family' %}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    required>
+                                {% if form.family_name.errors %}
+                                <p class="mt-1 text-sm text-red-600">{{ form.family_name.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="border-b border-gray-200 pb-6">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                <span class="material-symbols-outlined mr-2 text-teal-600">payments</span>
+                                {% trans "Currency Settings" %}
+                            </h2>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2"
+                                    for="{{ form.base_currency.id_for_label }}">
+                                    {% trans "Base Currency" %}
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                <select name="{{ form.base_currency.name }}" id="{{ form.base_currency.id_for_label }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    required>
+                                    <option value="BRL">BRL - Brazilian Real (R$)</option>
+                                    <option value="USD">USD - US Dollar ($)</option>
+                                    <option value="EUR">EUR - Euro (€)</option>
+                                    <option value="GBP">GBP - British Pound (£)</option>
+                                    <option value="JPY">JPY - Japanese Yen (¥)</option>
+                                    <option value="CNY">CNY - Chinese Yuan (¥)</option>
+                                    <option value="INR">INR - Indian Rupee (₹)</option>
+                                    <option value="RUB">RUB - Russian Ruble (₽)</option>
+                                    <option value="ZAR">ZAR - South African Rand (R)</option>
+                                    <option value="CAD">CAD - Canadian Dollar ($)</option>
+                                    <option value="AUD">AUD - Australian Dollar ($)</option>
+                                    <option value="MXN">MXN - Mexican Peso ($)</option>
+                                    <option value="KRW">KRW - South Korean Won (₩)</option>
+                                    <option value="TRY">TRY - Turkish Lira (₺)</option>
+                                    <option value="IDR">IDR - Indonesian Rupiah (Rp)</option>
+                                    <option value="SAR">SAR - Saudi Riyal (﷼)</option>
+                                    <option value="ARS">ARS - Argentine Peso ($)</option>
+                                    <option value="EGP">EGP - Egyptian Pound (£)</option>
+                                    <option value="AED">AED - UAE Dirham (د.إ)</option>
+                                    <option value="ETB">ETB - Ethiopian Birr (Br)</option>
+                                </select>
+                                {% if form.base_currency.errors %}
+                                <p class="mt-1 text-sm text-red-600">{{ form.base_currency.errors.0 }}</p>
+                                {% endif %}
+                                <p class="mt-1 text-sm text-gray-500">{% trans "All financial values will be stored and displayed in this currency" %}</p>
+                            </div>
+                        </div>
+
+                        <div class="border-b border-gray-200 pb-6">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                <span class="material-symbols-outlined mr-2 text-teal-600">calendar_month</span>
+                                {% trans "Financial Cycle Settings" %}
+                            </h2>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        {% trans "Period Frequency" %}
+                                        <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="space-y-3">
+                                        {% for radio in form.period_type %}
+                                        <label
+                                            class="flex items-center gap-3 border border-gray-300 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                                            {{ radio.tag }}
+                                            <div class="flex grow flex-col">
+                                                <p class="text-gray-900 text-sm font-medium">{{ radio.choice_label }}
+                                                </p>
+                                                {% if radio.choice_value == 'M' %}
+                                                <p class="text-xs text-gray-500">{% trans "Budget resets monthly on a specific day" %}</p>
+                                                {% elif radio.choice_value == 'B' %}
+                                                <p class="text-xs text-gray-500">{% trans "Budget resets every 2 weeks" %}</p>
+                                                {% elif radio.choice_value == 'W' %}
+                                                <p class="text-xs text-gray-500">{% trans "Budget resets weekly" %}</p>
+                                                {% endif %}
+                                            </div>
                                         </label>
-                                        <div class="space-y-3">
-                                            {% for radio in form.period_type %}
-                                            <label class="flex items-center gap-3 border border-gray-300 p-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                                                {{ radio.tag }}
-                                                <div class="flex grow flex-col">
-                                                    <p class="text-gray-900 text-sm font-medium">{{ radio.choice_label }}</p>
-                                                    {% if radio.choice_value == 'M' %}
-                                                    <p class="text-xs text-gray-500">{% trans "Budget resets monthly on a specific day" %}</p>
-                                                    {% elif radio.choice_value == 'B' %}
-                                                    <p class="text-xs text-gray-500">{% trans "Budget resets every 2 weeks" %}</p>
-                                                    {% elif radio.choice_value == 'W' %}
-                                                    <p class="text-xs text-gray-500">{% trans "Budget resets weekly" %}</p>
-                                                    {% endif %}
-                                                </div>
-                                            </label>
-                                            {% endfor %}
-                                        </div>
-                                        {% if form.period_type.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.period_type.errors.0 }}</p>
-                                        {% endif %}
+                                        {% endfor %}
                                     </div>
+                                    {% if form.period_type.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.period_type.errors.0 }}</p>
+                                    {% endif %}
+                                </div>
 
-                                    <div id="starting-day-field">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.starting_day.id_for_label }}">
-                                            {% trans "Starting Day of Month" %}
-                                            <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="number"
-                                            name="{{ form.starting_day.name }}"
-                                            id="{{ form.starting_day.id_for_label }}"
-                                            value="{{ form.starting_day.value|default:'1' }}"
-                                            min="1"
-                                            max="31"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
-                                        {% if form.starting_day.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.starting_day.errors.0 }}</p>
-                                        {% endif %}
-                                        <p class="mt-1 text-sm text-gray-500">{% trans "Day of the month (1-31) when your budget cycle starts" %}</p>
-                                    </div>
+                                <div id="starting-day-field">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        for="{{ form.starting_day.id_for_label }}">
+                                        {% trans "Starting Day of Month" %}
+                                        <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="number" name="{{ form.starting_day.name }}"
+                                        id="{{ form.starting_day.id_for_label }}"
+                                        value="{{ form.starting_day.value|default:'1' }}" min="1" max="31"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                                    {% if form.starting_day.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.starting_day.errors.0 }}</p>
+                                    {% endif %}
+                                    <p class="mt-1 text-sm text-gray-500">{% trans "Day of the month (1-31) when your budget cycle starts" %}</p>
+                                </div>
 
-                                    <div id="base-date-field" style="display: none;">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2" for="{{ form.base_date.id_for_label }}">
-                                            {% trans "Base Date for Cycle" %}
-                                            <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="date"
-                                            name="{{ form.base_date.name }}"
-                                            id="{{ form.base_date.id_for_label }}"
-                                            value="{{ form.base_date.value|default:'' }}"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
-                                        {% if form.base_date.errors %}
-                                            <p class="mt-1 text-sm text-red-600">{{ form.base_date.errors.0 }}</p>
-                                        {% endif %}
-                                        <p class="mt-1 text-sm text-gray-500">{% trans "Reference date for calculating bi-weekly/weekly periods" %}</p>
+                                <div id="base-date-field" style="display: none;">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        for="{{ form.base_date.id_for_label }}">
+                                        {% trans "Base Date for Cycle" %}
+                                        <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="date" name="{{ form.base_date.name }}"
+                                        id="{{ form.base_date.id_for_label }}"
+                                        value="{{ form.base_date.value|default:'' }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                                    {% if form.base_date.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ form.base_date.errors.0 }}</p>
+                                    {% endif %}
+                                    <p class="mt-1 text-sm text-gray-500">{% trans "Reference date for calculating bi-weekly/weekly periods" %}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-teal-50 rounded-lg p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <span class="material-symbols-outlined text-teal-600">check_circle</span>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-medium text-teal-800">{% trans "What happens next?" %}</h3>
+                                    <div class="mt-2 text-sm text-teal-700">
+                                        <ul class="list-disc list-inside space-y-1">
+                                            <li>{% trans "Your family account will be created" %}</li>
+                                            <li>{% trans "You'll be logged in as the administrator" %}</li>
+                                            <li>{% trans "You can start managing your family's finances immediately" %}
+                                            </li>
+                                            <li>{% trans "You can add other family members from the Settings page" %}
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="bg-teal-50 rounded-lg p-4">
-                                <div class="flex">
-                                    <div class="flex-shrink-0">
-                                        <span class="material-symbols-outlined text-teal-600">check_circle</span>
-                                    </div>
-                                    <div class="ml-3">
-                                        <h3 class="text-sm font-medium text-teal-800">{% trans "What happens next?" %}</h3>
-                                        <div class="mt-2 text-sm text-teal-700">
-                                            <ul class="list-disc list-inside space-y-1">
-                                                <li>{% trans "Your family account will be created" %}</li>
-                                                <li>{% trans "You'll be logged in as the administrator" %}</li>
-                                                <li>{% trans "You can start managing your family's finances immediately" %}</li>
-                                                <li>{% trans "You can add other family members from the Settings page" %}</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="pt-4">
-                                <button type="submit"
-                                        class="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold py-4 px-6 rounded-lg hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                                    <span class="material-symbols-outlined">rocket_launch</span>
-                                    {% trans "Complete Setup & Get Started" %}
-                                </button>
-                            </div>
-                        </form>
+                        <div class="pt-4">
+                            <button type="submit"
+                                class="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold py-4 px-6 rounded-lg hover:from-teal-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined">rocket_launch</span>
+                                {% trans "Complete Setup & Get Started" %}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-        
+
         {% endif %}
 
         <div class="text-center text-gray-600 text-sm">
@@ -473,28 +477,24 @@
     </div>
 
     <!-- Configuration for setup.js -->
-    <div id="setup-config" class="hidden"
-         data-i18n-no-file-selected="{% trans 'No file selected' %}"
-         data-i18n-checking-service-workers="{% trans 'Checking service workers...' %}"
-         data-i18n-service-workers-error="{% trans 'Service workers could not be unregistered. Please refresh the page and try again.' %}"
-         data-i18n-upload-backup="{% trans 'Upload Backup' %}"
-         data-i18n-restoring="{% trans 'Restoring...' %}"
-         data-i18n-server-error="{% trans 'Server returned non-JSON response. Please check server logs.' %}"
-         data-i18n-db-restored-successfully="{% trans 'Database restored successfully!' %}"
-         data-i18n-migration-warning="{% trans 'Note: Some migrations encountered warnings. Check console for details.' %}"
-         data-i18n-migration-success="{% trans 'Database structure updated to latest version.' %}"
-         data-i18n-click-ok-to-login="{% trans 'Click OK to go to login page.' %}"
-         data-i18n-restore-failed="{% trans 'Restore failed:' %}"
-         data-i18n-unknown-error="{% trans 'Unknown error' %}"
-         data-i18n-error-restoring-database="{% trans 'Error restoring database:' %}"
-         data-i18n-restore-backup="{% trans 'Restore Backup' %}"
-         data-i18n-restore-successful="{% trans 'Restore Successful' %}"
-         data-i18n-restore-error="{% trans 'Restore Error' %}">
+    <div id="setup-config" class="hidden" data-i18n-no-file-selected="{% trans 'No file selected' %}"
+        data-i18n-checking-service-workers="{% trans 'Checking service workers...' %}"
+        data-i18n-service-workers-error="{% trans 'Service workers could not be unregistered. Please refresh the page and try again.' %}"
+        data-i18n-upload-backup="{% trans 'Upload Backup' %}" data-i18n-restoring="{% trans 'Restoring...' %}"
+        data-i18n-server-error="{% trans 'Server returned non-JSON response. Please check server logs.' %}"
+        data-i18n-db-restored-successfully="{% trans 'Database restored successfully!' %}"
+        data-i18n-migration-warning="{% trans 'Note: Some migrations encountered warnings. Check console for details.' %}"
+        data-i18n-migration-success="{% trans 'Database structure updated to latest version.' %}"
+        data-i18n-click-ok-to-login="{% trans 'Click OK to go to login page.' %}"
+        data-i18n-restore-failed="{% trans 'Restore failed:' %}" data-i18n-unknown-error="{% trans 'Unknown error' %}"
+        data-i18n-error-restoring-database="{% trans 'Error restoring database:' %}"
+        data-i18n-restore-backup="{% trans 'Restore Backup' %}"
+        data-i18n-restore-successful="{% trans 'Restore Successful' %}"
+        data-i18n-restore-error="{% trans 'Restore Error' %}">
     </div>
 
     <!-- PHASE 3 CSP Compliance: Load external scripts -->
-    <!-- Material Symbols (needs to load early for icons) -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+    <!-- Material Symbols already loaded in fonts.css (lines 42-67) - zero external dependencies -->
 
     <!-- Utils.js (provides getCookie and other utilities) -->
     <script src="{% static 'finances/js/utils.js' %}?v=20251231-002" defer></script>
@@ -505,4 +505,5 @@
     <!-- Setup.js (handles all setup page functionality) -->
     <script src="{% static 'finances/js/setup.js' %}?v=20251231-001" defer></script>
 </body>
+
 </html>

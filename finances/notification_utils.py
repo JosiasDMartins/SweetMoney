@@ -85,28 +85,29 @@ def create_overdue_notifications(family, member):
 def create_overbudget_notifications(family, member):
     """
     Cria notificações para FlowGroups que excederam o orçamento.
+    Remove notificações de overbudget quando o budget volta ao normal.
     """
     from .models import FlowGroup, Notification
     from django.db.models import Sum, Q
-    
+
     # Search FlowGroups accessible to the member
     accessible_flow_groups = get_accessible_flow_groups(family, member)
-    
+
     # Filter only Expense Flow Groups (EXPENSE MAIN and EXPENSE SECONDARY)
     expense_groups = accessible_flow_groups.filter(
         Q(group_type='EXPENSE_MAIN') | Q(group_type='EXPENSE_SECONDARY')
     )
-    
+
     notifications_created = 0
-    
+
     for flow_group in expense_groups:
         # Calculate total amount spent
         realized_total = flow_group.transactions.filter(realized=True).aggregate(
             total=Sum('amount')
         )['total'] or Decimal('0')
-        
+
         budgeted = flow_group.budgeted_amount.amount if hasattr(flow_group.budgeted_amount, 'amount') else flow_group.budgeted_amount
-        
+
         # Verifica se está acima do orçamento
         if realized_total > budgeted:
             # Check if a notification already exists (acknowledged or not).
@@ -145,11 +146,38 @@ def create_overbudget_notifications(family, member):
                         'type': notif.notification_type,
                         'message': notif.message,
                         'target_url': notif.target_url,
-                        'created_at': notif.created_at.isoformat()
+                        'created_at': notif.created_at.isoformat(),
+                        'flow_group_id': flow_group.id
                     }
                 )
                 notifications_created += 1
-    
+        else:
+            # Budget is back to normal - remove unacknowledged overbudget notifications
+            deleted_notifications = Notification.objects.filter(
+                member=member,
+                flow_group=flow_group,
+                notification_type='OVERBUDGET',
+                is_acknowledged=False
+            )
+
+            if deleted_notifications.exists():
+                # Get notification IDs before deleting
+                notification_ids = list(deleted_notifications.values_list('id', flat=True))
+                deleted_notifications.delete()
+
+                # Broadcast removal for each deleted notification
+                from finances.websocket_utils import WebSocketBroadcaster
+                for notif_id in notification_ids:
+                    WebSocketBroadcaster.broadcast_to_family(
+                        family_id=family.id,
+                        message_type='notification_removed',
+                        data={
+                            'notification_id': notif_id,
+                            'type': 'OVERBUDGET',
+                            'flow_group_id': flow_group.id
+                        }
+                    )
+
     return notifications_created
 
 

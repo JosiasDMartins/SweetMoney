@@ -107,13 +107,40 @@ def migrate_sqlite_to_postgres(sqlite_path):
         del settings.DATABASES[sqlite_db_alias]
         connections.close_all() # Important to close connections after settings change
 
+        # STEP 3.5: Clear existing PostgreSQL data before loading
+        logger.info(f"[DATA_MIGRATION] Clearing existing PostgreSQL database")
+        try:
+            from django.apps import apps
+            from django.db import transaction
+
+            with transaction.atomic():
+                # Get all models from finances app in reverse dependency order
+                app_models = apps.get_app_config('finances').get_models()
+
+                # Disable foreign key checks temporarily for PostgreSQL
+                with connection.cursor() as cursor:
+                    cursor.execute('SET CONSTRAINTS ALL DEFERRED;')
+
+                # Delete all data from each model
+                for model in app_models:
+                    model_name = model.__name__
+                    count = model.objects.count()
+                    if count > 0:
+                        logger.info(f"[DATA_MIGRATION] Deleting {count} records from {model_name}")
+                        model.objects.all().delete()
+
+                logger.info(f"[DATA_MIGRATION] PostgreSQL database cleared successfully")
+        except Exception as e:
+            logger.error(f"[DATA_MIGRATION] Failed to clear PostgreSQL database: {e}")
+            raise
+
         # STEP 4: Load data into PostgreSQL (the default connection)
         logger.info(f"[DATA_MIGRATION] Loading data into PostgreSQL")
         try:
             # Verify the dump file is not empty before loading
             if temp_dump_file.stat().st_size == 0:
                 raise Exception("Dump file is empty. Cannot load data.")
-                
+
             call_command('loaddata', str(temp_dump_file), verbosity=2)
         except Exception as e:
             logger.error(f"[DATA_MIGRATION] Loaddata failed: {e}")

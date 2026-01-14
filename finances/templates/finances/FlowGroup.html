@@ -270,7 +270,7 @@
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-yellow-700 dark:text-yellow-300">
-                            <strong>{% trans "Budget Warning:" %}</strong> <span id="budget-warning-text">{% blocktrans with estimated=total_estimated|floatformat:2|intcomma budgeted=flow_group.budgeted_amount|floatformat:2|intcomma %}Estimated expenses ($ {{ estimated }}) exceed the budgeted amount ($ {{ budgeted }}).{% endblocktrans %}</span>
+                            <strong>{% trans "Budget Warning:" %}</strong> <span id="budget-warning-text">{% blocktrans with estimated=total_estimated|floatformat:2|intcomma %}Estimated expenses ($ {{ estimated }}) exceed the budgeted amount{% endblocktrans %}</span>
                         </p>
                     </div>
                 </div>
@@ -282,12 +282,12 @@
                     <thead>
                         <tr>
                             <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style="width: 40px;"></th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{% trans "Description" %}</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style="width: 250px; max-width: 250px;">{% trans "Description" %}</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider date-header-mobile">{% trans "Date" %}</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider member-header-mobile">{% trans "Member" %}</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Realized" %}</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Fixed" %}</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{% trans "Amount" %}</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Realized" %}</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Fixed" %}</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{% trans "Amount" %}</th>
                             <th class="px-6 py-3 text-left w-24 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Actions" %}</th>
                         </tr>
                     </thead>
@@ -325,7 +325,7 @@
                             </td>
                             <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-display">{{ transaction.description }}</td>
                             <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-edit hidden">
-                                <input type="text" value="{{ transaction.description }}" data-field="description" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm p-1">
+                                <input type="text" value="{{ transaction.description }}" data-field="description" maxlength="35" size="" class="border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm p-1">
                             </td>
 
                             <td class="px-6 py-4 text-sm text-gray-500 cell-date-display">
@@ -350,7 +350,7 @@
                             </td>
 
                             <td class="px-6 py-4 mobile-hide-column">
-                                <div class="flex items-center">
+                                <div class="flex items-center justify-center w-full">
                                     <button type="button" data-toggle="realized" data-item-id="item-{{ transaction.id }}" data-current-state="{{ transaction.realized|yesno:'true,false' }}" class="realized-toggle relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer {% if transaction.realized %}bg-green-500{% else %}bg-gray-300 dark:bg-gray-600{% endif %}">
                                         <span class="absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full {% if transaction.realized %}translate-x-4{% endif %}"></span>
                                     </button>
@@ -358,7 +358,7 @@
                             </td>
 
                             <td class="px-6 py-4 mobile-hide-column">
-                                <div class="flex items-center">
+                                <div class="flex items-center justify-center w-full">
                                     {% if current_member.role != 'CHILD' %}
                                     <button type="button"
                                             data-action="toggle-fixed" data-item-id="item-{{ transaction.id }}"
@@ -416,7 +416,7 @@
                             </td>
                             <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-display hidden"></td>
                             <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-edit">
-                                <input type="text" data-field="description" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm p-1" placeholder="{% trans "New Item Description" %}">
+                                <input type="text" data-field="description" maxlength="35" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm p-1" placeholder="{% trans "New Item Description" %}">
                             </td>
 
                             <td class="px-6 py-4 text-sm text-gray-500 cell-date-display hidden"></td>
@@ -436,7 +436,7 @@
                             </td>
 
                             <td class="px-6 py-4 mobile-hide-column">
-                                <div class="flex items-center">
+                                <div class="flex items-center justify-center w-full">
                                     <div class="realized-toggle-new relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full bg-gray-300 dark:bg-gray-600">
                                         <span class="absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full"></span>
                                     </div>
@@ -444,7 +444,7 @@
                             </td>
 
                             <td class="px-6 py-4 mobile-hide-column">
-                                <div class="flex items-center">
+                                <div class="flex items-center justify-center w-full">
                                     {% if current_member.role != 'CHILD' %}
                                     <div class="fixed-toggle-new relative inline-flex items-center justify-center w-8 h-8 rounded transition-all duration-200 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/30"
                                          data-action="toggle-new-item-fixed" data-item-id="new-item-template"
@@ -570,8 +570,10 @@
      data-url-delete-flow-group="{% url 'delete_flow_group' flow_group.id|default:0 %}"
      data-url-dashboard="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}"
 
+     data-i18n-budget-warning="{% trans 'Budget Warning:' %}"
      data-i18n-estimated-expenses="{% trans 'Estimated expenses' %}"
      data-i18n-exceed-budget="{% trans 'exceed the budgeted amount' %}"
+     data-i18n-over-budget="{% trans '⚠ Over budget' %}"
      data-i18n-marked-as-given="{% trans '✓ Marked as given' %}"
      data-i18n-not-given-yet="{% trans 'Not given yet' %}"
      data-i18n-budget-marked-as-given="{% trans 'Budget marked as given to child' %}"
@@ -602,6 +604,7 @@
      data-i18n-error-deleting-flow-group="{% trans 'Error deleting Flow Group:' %}"
      data-i18n-confirm-delete-item="{% trans 'Are you sure you want to delete this item?' %}"
      data-i18n-description-amount-date-required="{% trans 'Description, Amount, and Date are required.' %}"
+     data-i18n-description-required="{% trans 'Description is required.' %}"
      data-i18n-duplicate-name="{% trans 'Duplicate Name' %}"
      data-i18n-another-user="{% trans 'another user' %}"
      data-i18n-flow-group-deleted-by-user="{% trans 'This FlowGroup was deleted by' %}"
@@ -1025,7 +1028,7 @@
 </style>
 
 <!-- PHASE 3 CSP Compliance: All inline scripts moved to external files -->
-<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260102-009" defer></script>
-<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260101-003" defer></script>
+<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260114-006" defer></script>
+<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260114-006" defer></script>
 
 {% endblock content %}

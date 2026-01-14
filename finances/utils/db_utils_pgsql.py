@@ -501,13 +501,13 @@ def _create_family_isolated_postgres_backup(family_id):
             backup_file.write("-- ==============================================\n\n")
 
             cursor.execute("""
-                SELECT sequence_name, table_name, column_name
+                SELECT sequence_name
                 FROM information_schema.sequences
                 WHERE sequence_schema = 'public'
             """)
             sequences = cursor.fetchall()
 
-            for seq_name, _, _ in sequences:
+            for (seq_name,) in sequences:
                 backup_file.write(f"SELECT setval('{seq_name}', COALESCE((SELECT MAX(id) FROM {seq_name.replace('_id_seq', '')}), 1));\n")
 
             backup_file.write("\n")

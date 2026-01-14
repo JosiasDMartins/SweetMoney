@@ -73,35 +73,7 @@ function initUtilities() {
     window.thousandSeparator = cfg.thousandSeparator;
 
     console.log('[INIT] decimalSeparator:', window.decimalSeparator, 'thousandSeparator:', window.thousandSeparator);
-
-    // Initialize existing amount fields with money mask on page load (FlowGroup pattern)
-    initInputMasks();
 }
-
-function initInputMasks() {
-    console.log('[initInputMasks] applying masks to amount fields');
-    document.querySelectorAll('input[data-field="amount"]').forEach(function(input) {
-        if (input.value && input.value.trim() !== '') {
-            let value = input.value;
-            // Handle simple decimal case (e.g. from floatformat)
-            if (value.indexOf(thousandSeparator) === -1 && value.indexOf(decimalSeparator) !== -1) {
-                 // Already in potential locale format "5000,00" (if separator is comma)
-                 // Just need to add thousand separators
-            }
-            
-            // Use getRawValue to sanitize first (treat as if it has current separators)
-            let raw = getRawValue(value, thousandSeparator, decimalSeparator);
-            
-            // Then re-apply mask
-            input.value = formatAmountForInput(raw, thousandSeparator, decimalSeparator);
-        } else {
-            input.value = '0' + decimalSeparator + '00';
-        }
-    });
-}
-
-
-
 
 function initCharts() {
     // Charts will be initialized here
@@ -398,20 +370,15 @@ function getTop3ExpensesData() {
     const expenseRows = document.querySelectorAll('tbody tr[data-group-id]');
     const expenses = [];
 
-    console.log('[getTop3ExpensesData] Found expense rows:', expenseRows.length);
-
     expenseRows.forEach(row => {
         // Get the first cell (after drag handle) which contains the group name
         const nameCell = row.querySelectorAll('td')[1]; // Second td (index 1)
-        const nameText = nameCell ? nameCell.textContent.trim() : '';
+        const nameText = nameCell.textContent.trim();
         // Get only the first line (group name) before any badges/labels
         const name = nameText.split('\n')[0].trim();
 
         // Use only realized values for the chart
-        const realizedCell = row.querySelector('.group-realized');
-        const realizedValue = realizedCell ? (parseFloat(realizedCell.getAttribute('data-value')) || 0) : 0;
-
-        console.log('[getTop3ExpensesData] Group:', name, 'Realized:', realizedValue);
+        const realizedValue = parseFloat(row.querySelector('.group-realized').getAttribute('data-value')) || 0;
 
         if (realizedValue > 0) {
             expenses.push({ name, value: realizedValue });
@@ -431,16 +398,6 @@ function getTop3ExpensesData() {
     if (others > 0) {
         labels.push(window.DASHBOARD_CONFIG.i18n.others);
         values.push(others);
-    }
-
-    console.log('[getTop3ExpensesData] Result - Labels:', labels, 'Values:', values);
-
-    // If no data, return placeholder
-    if (labels.length === 0) {
-        return {
-            labels: ['No Data'],
-            values: [1]
-        };
     }
 
     return { labels, values };
@@ -619,13 +576,8 @@ window.toggleIncomeRealized = function(rowId) {
     const description = row.querySelector('.cell-description-display').textContent.trim();
     const fullDate = row.getAttribute('data-date');
 
-    // Get amount from input field (FlowGroup pattern)
-    // Find the input in the edit cell
-    const amountInput = row.querySelector('input[data-field="amount"]');
-    // If input exists, use its value (masked), otherwise fallback to data-amount
-    const amountText = amountInput 
-        ? getRawValue(amountInput.value, thousandSeparator, decimalSeparator)
-        : row.getAttribute('data-amount');
+    // Get amount from data attribute (always use stored value, not formatted input)
+    const amountText = row.getAttribute('data-amount');
     const isFixed = row.getAttribute('data-is-fixed') === 'true';
 
     const data = {
@@ -658,10 +610,7 @@ window.toggleIncomeRealized = function(rowId) {
 
             // Update data attributes
             row.setAttribute('data-realized', data.realized ? 'true' : 'false');
-            // Only use getRawValue if amount contains comma (locale format)
-            const amountStr = String(data.amount);
-            const normalizedAmount = amountStr.includes(',') ? getRawValue(amountStr, thousandSeparator, decimalSeparator) : amountStr;
-            row.setAttribute('data-amount', normalizedAmount);
+            row.setAttribute('data-amount', data.amount);
 
             // Update amount display with currency symbol
             if (data.amount && data.currency_symbol) {
@@ -991,10 +940,7 @@ window.saveItem = function(rowId) {
     .then(data => {
         if (data.status === 'success') {
             // Update row data
-            // Only use getRawValue if amount contains comma (locale format)
-            const amountStr = String(data.amount);
-            const normalizedAmount = amountStr.includes(',') ? getRawValue(amountStr, thousandSeparator, decimalSeparator) : amountStr;
-            row.setAttribute('data-amount', normalizedAmount);
+            row.setAttribute('data-amount', data.amount);
             row.querySelector('.cell-description-display').textContent = data.description;
             // Use currency_symbol from backend response
             const currencySymbol = data.currency_symbol || 'window.DASHBOARD_CONFIG.currencySymbol';

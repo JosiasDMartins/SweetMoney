@@ -512,6 +512,8 @@ function initializeWebSocket() {
     }
 
     // CRITICAL: Do NOT initialize WebSocket on configuration pages
+    // Database restore operations need exclusive access to the DB file
+    // WebSocket connections create locks that prevent file operations on Windows
     const currentPath = window.location.pathname;
     const isConfigPage = currentPath.includes('/configurations') || currentPath.includes('/settings');
 
@@ -521,32 +523,19 @@ function initializeWebSocket() {
     }
 
     // Store current user ID for comparison in RealtimeUI
-    // Ensure window.USER_ID is globally available and synced to body dataset
-    if (typeof window.USER_ID === 'undefined') {
-        const config = document.getElementById('base-config');
-        window.USER_ID = config?.dataset?.userId || '';
-    }
-    document.body.dataset.userId = window.USER_ID || '';
+    document.body.dataset.userId = window.USER_ID;
 
-    // Create or get WebSocket manager instance
+    // Create WebSocket manager instance (defined in websocket_manager.js)
     if (typeof WebSocketManager === 'undefined') {
         console.warn('[WebSocket] WebSocketManager not loaded');
         return;
     }
 
-    // Ensure we only have ONE instance globally
-    if (!window.wsManager) {
-        console.log('[WebSocket] Creating new WebSocketManager instance');
-        window.wsManager = new WebSocketManager();
-    } else {
-        console.log('[WebSocket] Using existing WebSocketManager instance');
-    }
-
-    // Connect if not already connected
-    window.wsManager.connect();
+    const wsManager = new WebSocketManager();
+    wsManager.connect();
 
     // Show connection status indicator (optional)
-    window.wsManager.onConnectionStatus(function (status) {
+    wsManager.onConnectionStatus(function (status) {
         const indicator = document.getElementById('ws-status-indicator');
         if (indicator) {
             indicator.className = 'ws-' + status;
@@ -555,71 +544,42 @@ function initializeWebSocket() {
     });
 
     // Register message handlers for real-time updates
-    // Note: wsManager.registerHandler only adds if not already present or replaces
-    window.wsManager.registerHandler('transaction_created', function (data) {
+    wsManager.registerHandler('transaction_created', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionCreated(data);
         }
     });
 
-    window.wsManager.registerHandler('transaction_updated', function (data) {
+    wsManager.registerHandler('transaction_updated', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionUpdated(data);
         }
     });
 
-    window.wsManager.registerHandler('transaction_deleted', function (data) {
+    wsManager.registerHandler('transaction_deleted', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionDeleted(data);
         }
     });
 
-    window.wsManager.registerHandler('flowgroup_updated', function (data) {
+    wsManager.registerHandler('flowgroup_updated', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleFlowGroupUpdated(data);
         }
     });
 
-    window.wsManager.registerHandler('balance_updated', function (data) {
+    wsManager.registerHandler('balance_updated', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleBalanceUpdated(data);
         }
     });
 
-    window.wsManager.registerHandler('bank_balance_updated', function (data) {
-        if (typeof window.RealtimeUI !== 'undefined') {
-            window.RealtimeUI.handleBankBalanceUpdated(data);
-        }
+    wsManager.registerHandler('notification', function (data) {
+        // Trigger custom event for notifications.js to handle
+        document.dispatchEvent(new CustomEvent('realtime:notification', {
+            detail: { data: data }
+        }));
     });
-
-    window.wsManager.registerHandler('bank_balance_deleted', function (data) {
-        if (typeof window.RealtimeUI !== 'undefined') {
-            window.RealtimeUI.handleBankBalanceDeleted(data);
-        }
-    });
-
-    window.wsManager.registerHandler('reconciliation_mode_changed', function (data) {
-        if (typeof window.RealtimeUI !== 'undefined') {
-            window.RealtimeUI.handleReconciliationModeChanged(data);
-        }
-    });
-
-    // Handle both 'notification' and 'notification_created' (backend uses both interchangeably)
-    const notificationHandler = function (data) {
-        if (typeof window.RealtimeUI !== 'undefined') {
-            window.RealtimeUI.handleNotification(data);
-        } else {
-            // Fallback for pages without RealtimeUI
-            document.dispatchEvent(new CustomEvent('realtime:notification', {
-                detail: { data: data }
-            }));
-        }
-    };
-
-    window.wsManager.registerHandler('notification', notificationHandler);
-    window.wsManager.registerHandler('notification_created', notificationHandler);
-
-    console.log('[WebSocket] Initialization complete');
 }
 
 // ===== 11. UI COMPONENTS (Sidebar, Period Dropdown) - Phase 4 =====

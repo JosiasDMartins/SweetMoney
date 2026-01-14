@@ -226,7 +226,7 @@ def dashboard_view(request):
     context['decimal_separator'] = get_decimal_separator()
     context['thousand_separator'] = get_thousand_separator()
     context.update(get_base_template_context(family, query_period, start_date))
-
+    
     return render(request, 'finances/dashboard.html', context)
 
 
@@ -611,9 +611,15 @@ def bank_reconciliation_view(request):
         # Use the calculated totals from get_balance_summary
         calculated_balance = total_income_calculated - total_expenses_calculated
         
-        tot_bank = bank_balances.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        total_bank_balance = Decimal(str(tot_bank.amount)) if hasattr(tot_bank, 'amount') else tot_bank
-        
+        tot_bank = bank_balances.aggregate(total=Sum('amount'))['total']
+        # Handle Money object or None
+        if tot_bank is None:
+            total_bank_balance = Decimal('0.00')
+        elif hasattr(tot_bank, 'amount'):
+            total_bank_balance = Decimal(str(tot_bank.amount))
+        else:
+            total_bank_balance = Decimal(str(tot_bank))
+
         discrepancy = total_bank_balance - calculated_balance
         discrepancy_percentage = abs(discrepancy / calculated_balance * 100) if calculated_balance != 0 else 0
         has_warning = discrepancy_percentage > tolerance
@@ -681,9 +687,19 @@ def bank_reconciliation_view(request):
                 'has_warning': member_has_warning,
             })
         
+        # Calculate total bank balance (all accounts, regardless of member)
+        tot_bank_all = bank_balances.aggregate(total=Sum('amount'))['total']
+        if tot_bank_all is None:
+            total_bank_balance_detailed = Decimal('0.00')
+        elif hasattr(tot_bank_all, 'amount'):
+            total_bank_balance_detailed = Decimal(str(tot_bank_all.amount))
+        else:
+            total_bank_balance_detailed = Decimal(str(tot_bank_all))
+
         reconciliation_data = {
             'mode': 'detailed',
             'members_data': members_data,
+            'total_bank_balance': total_bank_balance_detailed.quantize(Decimal('0.01'), rounding=ROUND_DOWN),
         }
 
     # Filtrar apenas membros PARENT para o seletor de usuário

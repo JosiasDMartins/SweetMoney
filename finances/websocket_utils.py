@@ -171,6 +171,14 @@ class WebSocketBroadcaster:
         assigned_members = list(flowgroup.assigned_members.values_list('id', flat=True))
         assigned_children = list(flowgroup.assigned_children.values_list('id', flat=True))
 
+        # Calculate budget warning (only for expense groups)
+        # Compare ESTIMATED (all transactions) vs budgeted, not just realized
+        budgeted = flowgroup.budgeted_amount.amount if flowgroup.budgeted_amount else Decimal('0.00')
+        budget_warning = False
+        if flowgroup.group_type in ['EXPENSE_MAIN', 'EXPENSE_SECONDARY']:
+            budget_warning = estimated_total > budgeted
+            print(f"[BROADCAST] FlowGroup {flowgroup.id} ({flowgroup.name}): estimated={estimated_total}, budgeted={budgeted}, budget_warning={budget_warning}")
+
         WebSocketBroadcaster.broadcast_to_family(
             family_id=flowgroup.family.id,
             message_type='flowgroup_updated',
@@ -181,6 +189,7 @@ class WebSocketBroadcaster:
                 'currency': flowgroup.budgeted_amount.currency.code if flowgroup.budgeted_amount else '',
                 'total_estimated': str(estimated_total),
                 'total_realized': str(realized_total),
+                'budget_warning': budget_warning,
                 'is_shared': flowgroup.is_shared,
                 'is_kids_group': flowgroup.is_kids_group,
                 'is_investment': flowgroup.is_investment,
@@ -197,6 +206,24 @@ class WebSocketBroadcaster:
     @staticmethod
     def broadcast_bank_balance_updated(bank_balance, actor_user):
         """Broadcast bank balance update"""
+        from django.db.models import Sum
+        from .models import BankBalance
+        from decimal import Decimal
+
+        # Calculate total bank balance for the period
+        tot_bank = BankBalance.objects.filter(
+            family=bank_balance.family,
+            period_start_date=bank_balance.period_start_date
+        ).aggregate(total=Sum('amount'))['total']
+
+        # Handle Money object or None
+        if tot_bank is None:
+            total_bank_balance = Decimal('0.00')
+        elif hasattr(tot_bank, 'amount'):
+            total_bank_balance = Decimal(str(tot_bank.amount))
+        else:
+            total_bank_balance = Decimal(str(tot_bank))
+
         WebSocketBroadcaster.broadcast_to_family(
             family_id=bank_balance.family.id,
             message_type='bank_balance_updated',
@@ -207,6 +234,7 @@ class WebSocketBroadcaster:
                 'date': bank_balance.date.strftime('%Y-%m-%d'),
                 'member_id': bank_balance.member.id if bank_balance.member else None,
                 'member_name': bank_balance.member.user.username if bank_balance.member else 'Family',
+                'total_bank_balance': str(total_bank_balance.quantize(Decimal('0.01'))),
             },
             actor_user=actor_user
         )

@@ -61,10 +61,10 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{% trans "Description" %}</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{% trans "Date" %}</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{% trans "Amount" %}</th>
                         {% if mode == 'detailed' %}
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{% trans "User" %}</th>
                         {% endif %}
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{% trans "Amount" %}</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{% trans "Actions" %}</th>
                     </tr>
                 </thead>
@@ -79,23 +79,20 @@
                             <span class="cell-date-display text-sm text-gray-600 dark:text-gray-400">{{ balance.date|date:"M d, Y" }}</span>
                             <input type="date" class="cell-date-edit hidden w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:text-white" value="{{ balance.date|date:"Y-m-d" }}">
                         </td>
-                        <td class="px-4 py-3 text-right">
-                            <span class="cell-amount-display text-sm text-green-600 dark:text-green-500 font-semibold">{{ balance.amount|intcomma }}</span>
-                            <input type="text" inputmode="decimal" class="cell-amount-edit hidden w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="{{ balance.amount.amount }}">
-                        </td>
                         {% if mode == 'detailed' %}
                         <td class="px-4 py-3">
                             <span class="cell-member-display text-sm text-gray-600 dark:text-gray-400" data-member-id="{{ balance.member.id|default_if_none:'' }}">{{ balance.member.user.username|default:"Family" }}</span>
                             <select class="cell-member-edit hidden w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:text-white">
-                                {% if mode != 'detailed' %}
-                                <option value="">{% trans "Family" %}</option>
-                                {% endif %}
                                 {% for member in family_members %}
                                 <option value="{{ member.id }}" {% if balance.member.id == member.id %}selected{% endif %}>{{ member.user.username }}</option>
                                 {% endfor %}
                             </select>
                         </td>
                         {% endif %}
+                        <td class="px-4 py-3 text-right">
+                            <span class="cell-amount-display text-sm text-green-600 dark:text-green-500 font-semibold">{{ balance.amount|intcomma }}</span>
+                            <input type="text" inputmode="decimal" class="cell-amount-edit hidden w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="{{ balance.amount.amount }}">
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <div class="actions-display flex justify-center space-x-2">
                                 <button type="button" data-action="edit-balance" data-row-id="balance-row-{{ balance.id }}" class="p-1 text-slate-500 hover:text-primary">
@@ -131,9 +128,6 @@
                         <td class="px-4 py-3">
                             <input type="date" class="cell-date-edit w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:text-white" value="{{ start_date|date:"Y-m-d" }}">
                         </td>
-                        <td class="px-4 py-3 text-right">
-                            <input type="text" inputmode="decimal" class="cell-amount-edit w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="0{{ decimal_separator }}00">
-                        </td>
                         {% if mode == 'detailed' %}
                         <td class="px-4 py-3">
                             <select class="cell-member-edit w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:text-white">
@@ -143,6 +137,9 @@
                             </select>
                         </td>
                         {% endif %}
+                        <td class="px-4 py-3 text-right">
+                            <input type="text" inputmode="decimal" class="cell-amount-edit w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="0{{ decimal_separator }}00">
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <div class="actions-edit flex justify-center space-x-2">
                                 <button type="button" data-action="save-balance" data-row-id="new-balance-template" class="p-1 text-green-500 hover:text-green-600">
@@ -335,6 +332,6 @@
 </style>
 
 <!-- PHASE 3 CSP Compliance: All inline scripts moved to external bank_reconciliation.js -->
-<script src="{% static 'finances/js/bank_reconciliation.js' %}?v=20251231-001" defer></script>
+<script src="{% static 'finances/js/bank_reconciliation.js' %}?v=20260114-004" defer></script>
 
 {% endblock %}
