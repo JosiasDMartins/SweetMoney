@@ -5,6 +5,21 @@
 (function() {
     'use strict';
 
+    // Local currency formatting function using DASHBOARD_CONFIG
+    function formatCurrencyLocal(amount) {
+        const config = window.DASHBOARD_CONFIG || {};
+        const currencySymbol = config.currencySymbol || '$';
+        const thousandSeparator = config.thousandSeparator || ',';
+        const decimalSeparator = config.decimalSeparator || '.';
+
+        const num = parseFloat(amount);
+        if (isNaN(num)) return currencySymbol + '0' + decimalSeparator + '00';
+
+        const parts = Math.abs(num).toFixed(2).split('.');
+        const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
+        return currencySymbol + integerPart + decimalSeparator + parts[1];
+    }
+
     // Dashboard Real-time Updates Namespace
     window.DashboardRealtime = {
         /**
@@ -115,7 +130,7 @@
                 if (transactionData.amount) {
                     const amountDisplay = row.querySelector('.cell-amount-display');
                     if (amountDisplay) {
-                        const formattedAmount = window.RealtimeUI.utils.formatCurrency(transactionData.amount);
+                        const formattedAmount = formatCurrencyLocal(transactionData.amount);
                         amountDisplay.textContent = formattedAmount;
                     }
                     const amountInput = row.querySelector('input[data-field="amount"]');
@@ -263,7 +278,7 @@
             }
 
             // Format amount
-            const formattedAmount = window.RealtimeUI.utils.formatCurrency(data.amount);
+            const formattedAmount = formatCurrencyLocal(data.amount);
 
             // SECURITY FIX (Phase 2 - Enhanced): Use createElement() to avoid innerHTML completely
             // This is the SAFEST approach - no string interpolation, no XSS risk
@@ -433,9 +448,8 @@
             newRow.className = 'draggable-row cursor-default hover:bg-gray-50 dark:hover:bg-gray-700/30 group-row-clickable';
             newRow.draggable = true;
 
-            const currencySymbol = window.currencySymbol || 'R$';
-            const estimatedFormatted = window.RealtimeUI.utils.formatCurrency(flowgroupData.budgeted_amount || '0.00');
-            const realizedFormatted = window.RealtimeUI.utils.formatCurrency('0.00');
+            const estimatedFormatted = formatCurrencyLocal(flowgroupData.budgeted_amount || '0.00');
+            const realizedFormatted = formatCurrencyLocal('0.00');
 
             // SECURITY FIX (Phase 2 - Enhanced): Use createElement() to avoid innerHTML completely
             // No string interpolation = No XSS risk
@@ -534,7 +548,7 @@
                 if (estimatedCell) {
                     // Show budgeted_amount normally, or total_estimated if over budget
                     const displayValue = hasBudgetWarning ? flowgroupData.total_estimated : flowgroupData.budgeted_amount;
-                    const formattedEstimated = window.RealtimeUI.utils.formatCurrency(displayValue || '0.00');
+                    const formattedEstimated = formatCurrencyLocal(displayValue || '0.00');
                     estimatedCell.textContent = formattedEstimated;
                     estimatedCell.dataset.value = displayValue || '0.00';
 
@@ -578,7 +592,7 @@
                 // Update realized (4th column)
                 const realizedCell = row.querySelector('.group-realized');
                 if (realizedCell) {
-                    const formattedRealized = window.RealtimeUI.utils.formatCurrency(flowgroupData.total_realized || '0.00');
+                    const formattedRealized = formatCurrencyLocal(flowgroupData.total_realized || '0.00');
                     realizedCell.textContent = formattedRealized;
                     realizedCell.dataset.value = flowgroupData.total_realized || '0.00';
                 }

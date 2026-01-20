@@ -1708,19 +1708,18 @@ function initMobileIncomeFeatures() {
         let startTime = 0;
         const swipeThreshold = 60; // Minimum pixels to trigger swipe
         const tapTimeThreshold = 200; // Max ms for tap detection
+        const tapMinTime = 50; // Min ms to register as intentional tap (avoid scroll touches)
+        const scrollThreshold = 15; // Vertical pixels to consider as scroll
 
-        // CORREÇÃO: Variáveis para detectar drag vertical vs swipe horizontal
         let startY = 0;
         let currentY = 0;
-        let isDragMode = false; // true = vertical drag, false = horizontal swipe
-        let isDecided = false; // se já decidimos o modo
+        let isScrolling = false; // true = vertical scroll detected, ignore all swipe/tap
 
         // Touch start
         row.addEventListener('touchstart', (e) => {
-            // CORREÇÃO: Se começou no drag handle, NÃO processar swipe
+            // Se começou no drag handle, NÃO processar swipe
             const isDragHandle = e.target.closest('.drag-handle-income');
             if (isDragHandle) {
-                // Drag handle vai cuidar, não processar swipe aqui
                 return;
             }
 
@@ -1734,14 +1733,13 @@ function initMobileIncomeFeatures() {
             currentY = startY;
             startTime = Date.now();
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Touch move
         row.addEventListener('touchmove', (e) => {
-            // Se já decidiu que é drag, ignora swipe
-            if (isDragMode) return;
+            // Se já detectou scroll, ignora tudo
+            if (isScrolling) return;
 
             if (e.target.closest('.mobile-action-btn-income')) return;
             if (e.target.closest('.edit-save-icon-income')) return;
@@ -1751,10 +1749,15 @@ function initMobileIncomeFeatures() {
             const deltaX = currentX - startX;
             const deltaY = currentY - startY;
 
-            // Processar apenas swipe horizontal
+            // Detect vertical scroll - if vertical movement is greater, it's a scroll
+            if (!isDragging && Math.abs(deltaY) > scrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                isScrolling = true;
+                return;
+            }
+
             // In edit mode: allow swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > 0) {
+                if (deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     const translateX = Math.min(deltaX, 120);
                     row.style.transform = `translateX(${translateX}px)`;
@@ -1762,7 +1765,8 @@ function initMobileIncomeFeatures() {
                 }
             } else {
                 // In display mode: allow swipe left to reveal actions
-                if (deltaX < 0) {
+                // Only start swipe if horizontal movement is dominant
+                if (deltaX < 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     const translateX = Math.max(deltaX, -120);
                     row.style.transform = `translateX(${translateX}px)`;
@@ -1773,16 +1777,20 @@ function initMobileIncomeFeatures() {
 
         // Touch end
         row.addEventListener('touchend', (e) => {
-            // Se foi drag, não processar swipe
-            if (isDragMode) return;
+            // Se foi scroll, não processar nada
+            if (isScrolling) {
+                isScrolling = false;
+                return;
+            }
 
             const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
             const deltaTime = Date.now() - startTime;
             row.style.transition = 'transform 0.3s ease-out';
 
             // In edit mode: swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > swipeThreshold) {
+                if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     console.log('[MOBILE INCOME SWIPE] Canceling edit mode for:', row.id);
                     // CRITICAL FIX: If it's the template, call cancelNewIncomeRow instead of toggleEditMode
                     if (row.id === 'new-income-template') {
@@ -1797,8 +1805,9 @@ function initMobileIncomeFeatures() {
                 // CRITICAL FIX: If actions are revealed, tap should close swipe instead of toggling realized
                 const hasActionsRevealed = row.classList.contains('actions-revealed-income');
 
-                // Tap detection
-                if (!isDragging && Math.abs(deltaX) < 10 && deltaTime < tapTimeThreshold) {
+                // Tap detection - with minimum time and vertical movement check to avoid scroll touches
+                if (!isDragging && Math.abs(deltaX) < 10 && Math.abs(deltaY) < scrollThreshold &&
+                    deltaTime >= tapMinTime && deltaTime < tapTimeThreshold) {
                     if (hasActionsRevealed) {
                         // Close swipe instead of toggling realized
                         console.log('[MOBILE INCOME TAP] Closing swipe for:', row.id);
@@ -1814,7 +1823,7 @@ function initMobileIncomeFeatures() {
                     }
                 }
                 // Swipe left to reveal actions
-                else if (deltaX < -swipeThreshold) {
+                else if (deltaX < -swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.style.transform = 'translateX(-120px)';
                     row.classList.add('actions-revealed-income');
                     // CRITICAL FIX: Disable drag when swipe is revealed
@@ -1828,8 +1837,7 @@ function initMobileIncomeFeatures() {
             }
 
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Close actions when tapping outside

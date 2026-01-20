@@ -515,7 +515,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <!-- Amount column - Desktop: Values only, Mobile: Values only -->
+                            <!-- Amount column - Desktop: Values only, Mobile: Labels + Values -->
                             <td class="py-3 text-right totals-amount-col">
                                 <!-- Desktop: Values only -->
                                 <div class="totals-amount-desktop flex flex-col gap-1 pl-2 pr-6">
@@ -526,12 +526,14 @@
                                         <span id="total-realized-desktop" class="totals-realized font-bold">{{ currency_symbol }} {{ total_realized|floatformat:2|intcomma }}</span>
                                     </div>
                                 </div>
-                                <!-- Mobile: Values only -->
-                                <div class="totals-amount-mobile flex flex-col gap-1 px-6">
-                                    <div class="text-sm">
+                                <!-- Mobile: Labels + Values together -->
+                                <div class="totals-amount-mobile flex flex-col gap-1 px-4">
+                                    <div class="text-sm flex justify-end items-center gap-2">
+                                        <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
                                         <span id="total-expenses-mobile" class="totals-value font-bold">{{ currency_symbol }} {{ total_estimated|floatformat:2|intcomma }}</span>
                                     </div>
-                                    <div class="text-sm">
+                                    <div class="text-sm flex justify-end items-center gap-2">
+                                        <span class="totals-label text-xs uppercase">{% trans "Realized:" %}</span>
                                         <span id="total-realized-mobile" class="totals-realized font-bold">{{ currency_symbol }} {{ total_realized|floatformat:2|intcomma }}</span>
                                     </div>
                                 </div>
@@ -694,6 +696,16 @@
 
         .date-short {
             display: inline;
+        }
+
+        /* Limit description cell width in edit mode on mobile */
+        .cell-description-edit {
+            max-width: 110px !important;
+            overflow: hidden;
+        }
+        .cell-description-edit input {
+            max-width: 100% !important;
+            width: 100% !important;
         }
 
         /* Swipeable row styles */
@@ -935,24 +947,36 @@
             text-align: center !important;
         }
 
-        /* Totals row - Labels in MEMBER column, Values in AMOUNT column */
+        /* Totals row - Hide member col, expand amount col */
         .totals-member-col {
-            display: table-cell !important;
-        }
-        .totals-member-col > div {
-            display: flex !important;
+            display: none !important;
         }
         .totals-fixed-col {
             display: none !important;
         }
+        #totals-row {
+            position: relative;
+        }
         .totals-amount-col {
             display: table-cell !important;
+            position: static;
         }
         .totals-amount-desktop {
             display: none !important;
         }
         .totals-amount-mobile {
             display: flex !important;
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            justify-content: center;
+            min-width: 200px;
+            padding-right: 8px;
+            background-color: rgb(249 250 251); /* bg-gray-50 */
+        }
+        .dark .totals-amount-mobile {
+            background-color: rgb(31 41 55); /* dark:bg-gray-800 */
         }
         .totals-actions-col {
             display: none !important;
@@ -1028,7 +1052,7 @@
 </style>
 
 <!-- PHASE 3 CSP Compliance: All inline scripts moved to external files -->
-<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260114-006" defer></script>
-<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260114-006" defer></script>
+<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260114-008" defer></script>
+<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260114-008" defer></script>
 
 {% endblock content %}

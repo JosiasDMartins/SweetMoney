@@ -661,7 +661,7 @@
                 // Update overbudget warning based on backend calculation
                 console.log('[FlowGroup RT] Budget warning from backend:', flowgroupData.budget_warning);
                 console.log('[FlowGroup RT] Estimated:', flowgroupData.total_estimated, 'Budgeted:', flowgroupData.budgeted_amount);
-                this.updateOverbudgetWarningFromBackend(flowgroupData.budget_warning || false);
+                this.updateOverbudgetWarningFromBackend(flowgroupData.budget_warning || false, flowgroupData.total_estimated);
 
                 console.log('[FlowGroup RT] FlowGroup updated successfully');
             } catch (error) {
@@ -751,25 +751,35 @@
 
         /**
          * Update overbudget warning based on backend calculation
-         * NO frontend calculations - backend sends budget_warning flag
+         * NO frontend calculations - backend sends budget_warning flag and total_estimated
          */
-        updateOverbudgetWarningFromBackend: function(showWarning) {
-            console.log('[FlowGroup RT] Updating overbudget warning, show:', showWarning);
-            
-            // Record the current time to prevent local overrides for 1 second
-            window.lastBackendBudgetBroadcast = Date.now();
+        updateOverbudgetWarningFromBackend: function(showWarning, totalEstimated) {
+            console.log('[FlowGroup RT] Updating overbudget warning, show:', showWarning, 'totalEstimated:', totalEstimated);
 
             // Find the budget warning container
             let warningContainer = document.getElementById('budget-warning-container');
             const warningText = document.getElementById('budget-warning-text');
 
             if (showWarning) {
-                // If it exists, just show it and update text if possible
+                // Format the total estimated value
+                let formattedTotal = '';
+                if (totalEstimated && window.RealtimeUI && window.RealtimeUI.utils) {
+                    formattedTotal = window.RealtimeUI.utils.formatCurrency(totalEstimated);
+                }
+
+                // Build the warning message
+                const estimatedExpenses = window.FLOWGROUP_CONFIG?.i18n?.estimatedExpenses || 'Estimated expenses';
+                const exceedBudget = window.FLOWGROUP_CONFIG?.i18n?.exceedBudget || 'exceed the budgeted amount';
+                const warningMessage = formattedTotal
+                    ? `${estimatedExpenses} (${formattedTotal}) ${exceedBudget}`
+                    : `${estimatedExpenses} ${exceedBudget}`;
+
+                // If it exists, just show it and update text
                 if (warningContainer) {
                     warningContainer.classList.remove('hidden');
-                    // Note: We don't have the full "Estimated expenses exceed..." string easily here
-                    // without knowing the actual values, but the backend sends budget_warning.
-                    // If we want to update the text, we'd need more data in the flowgroupData.
+                    if (warningText) {
+                        warningText.textContent = warningMessage;
+                    }
                 } else {
                     // Create it if it really doesn't exist (fallback)
                     const headerArea = document.querySelector('h1.text-3xl');
@@ -789,7 +799,7 @@
                             </div>
                             <div class="ml-3">
                                 <p class="text-sm text-yellow-700 dark:text-yellow-300">
-                                    <strong>${window.FLOWGROUP_CONFIG?.i18n?.budgetWarning || 'Budget Warning:'}</strong> <span id="budget-warning-text">${window.FLOWGROUP_CONFIG?.i18n?.estimatedExpenses || 'Estimated expenses'} ${window.FLOWGROUP_CONFIG?.i18n?.exceedBudget || 'exceed the budgeted amount'}</span>
+                                    <strong>${window.FLOWGROUP_CONFIG?.i18n?.budgetWarning || 'Budget Warning:'}</strong> <span id="budget-warning-text">${warningMessage}</span>
                                 </p>
                             </div>
                         </div>
@@ -797,6 +807,7 @@
                     warningContainer.innerHTML = innerHtml;
                     headerArea.parentNode.insertBefore(warningContainer, headerArea.nextSibling);
                 }
+                console.log('[FlowGroup RT] Overbudget warning shown');
             } else {
                 // Hide warning if it exists
                 if (warningContainer) {

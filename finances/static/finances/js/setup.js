@@ -74,6 +74,8 @@ function initSetup() {
             migrationWarning: config.dataset.i18nMigrationWarning || 'Note: Some migrations encountered warnings. Check console for details.',
             migrationSuccess: config.dataset.i18nMigrationSuccess || 'Database structure updated to latest version.',
             clickOkToLogin: config.dataset.i18nClickOkToLogin || 'Click OK to go to login page.',
+            waitingServerRestart: config.dataset.i18nWaitingServerRestart || 'Waiting for server to restart...',
+            serverReady: config.dataset.i18nServerReady || 'Server is ready! Redirecting...',
             restoreFailed: config.dataset.i18nRestoreFailed || 'Restore failed:',
             unknownError: config.dataset.i18nUnknownError || 'Unknown error',
             errorRestoringDatabase: config.dataset.i18nErrorRestoringDatabase || 'Error restoring database:',
@@ -179,6 +181,39 @@ function initSectionToggle() {
             btnShowSetup.click();
         });
     }
+}
+
+// ============================================
+// HEALTH CHECK POLLING
+// ============================================
+
+async function waitForServerReady(maxWaitTime = 30000, checkInterval = 1000) {
+    const startTime = Date.now();
+
+    while ((Date.now() - startTime) < maxWaitTime) {
+        try {
+            const response = await fetch('/api/health-check/', {
+                method: 'GET',
+                cache: 'no-store'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    console.log('[RESTORE] Server is ready');
+                    return true;
+                }
+            }
+        } catch (e) {
+            // Server not ready yet, continue polling
+            console.log('[RESTORE] Server not ready yet, retrying...');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+
+    console.warn('[RESTORE] Server did not become ready within timeout');
+    return false;
 }
 
 // ============================================
@@ -295,18 +330,28 @@ function initBackupRestore() {
                     console.log('Migration log:', data.migration_log);
                 }
 
-                // Show success and redirect option
-                let message = window.SETUP_CONFIG.i18n.dbRestoredSuccessfully;
-                if (data.migration_log && data.migration_log.includes('Warning')) {
-                    message += '\n\n' + window.SETUP_CONFIG.i18n.migrationWarning;
-                } else if (data.migration_log) {
-                    message += '\n\n' + window.SETUP_CONFIG.i18n.migrationSuccess;
-                }
+                // Update button to show waiting for server
+                btnUploadBackup.innerHTML = `<span class="material-symbols-outlined animate-spin">progress_activity</span> ${window.SETUP_CONFIG.i18n.waitingServerRestart}`;
 
-                message += '\n\n' + window.SETUP_CONFIG.i18n.clickOkToLogin;
+                // Wait for server to be ready and then redirect automatically
+                console.log('[RESTORE] Restore successful, waiting for server to be ready...');
+                const serverReady = await waitForServerReady(30000, 1000);
 
-                // Use GenericModal for confirmation
-                setTimeout(async () => {
+                if (serverReady) {
+                    btnUploadBackup.innerHTML = `<span class="material-symbols-outlined">check_circle</span> ${window.SETUP_CONFIG.i18n.serverReady}`;
+                    // Short delay to show success message before redirect
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    window.location.href = '/login/';
+                } else {
+                    // Server didn't respond in time, show manual redirect option
+                    let message = window.SETUP_CONFIG.i18n.dbRestoredSuccessfully;
+                    if (data.migration_log && data.migration_log.includes('Warning')) {
+                        message += '\n\n' + window.SETUP_CONFIG.i18n.migrationWarning;
+                    } else if (data.migration_log) {
+                        message += '\n\n' + window.SETUP_CONFIG.i18n.migrationSuccess;
+                    }
+                    message += '\n\n' + window.SETUP_CONFIG.i18n.clickOkToLogin;
+
                     const confirmed = await window.GenericModal.confirm(
                         message,
                         window.SETUP_CONFIG.i18n.restoreSuccessful
@@ -314,7 +359,7 @@ function initBackupRestore() {
                     if (confirmed) {
                         window.location.href = '/login/';
                     }
-                }, 1000);
+                }
 
             } else {
                 const errorMsg = window.SETUP_CONFIG.i18n.restoreFailed + ' ' + (data.error || window.SETUP_CONFIG.i18n.unknownError);

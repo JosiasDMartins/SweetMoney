@@ -763,60 +763,9 @@ function showSuccessMessage(message) {
 // Money mask functions
 // Money mask functions - using utils.js (applyMoneyMask, getRawValue, formatAmountForInput, formatCurrency)
 
-function updateBudgetWarning() {
-    if (!window.FLOWGROUP_CONFIG || !window.FLOWGROUP_CONFIG.i18n) return;
-
-    const budgetInput = document.querySelector('input[name="budgeted_amount"]');
-    if (!budgetInput) return;
-
-    const budgetValue = parseFloat(getRawValue(budgetInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
-    let totalEstimated = 0;
-    const rows = document.querySelectorAll('tr[id^="item-"]');
-    rows.forEach(row => {
-        const itemId = row.id.replace('item-', '');
-        if (itemId !== 'NEW' && itemId !== 'new-item-template') {
-            const amountInput = row.querySelector('input[data-field="amount"]');
-            if (amountInput && amountInput.value) {
-                const amount = parseFloat(getRawValue(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
-                totalEstimated += amount;
-            }
-        }
-    });
-
-    console.log(`[updateBudgetWarning] totalEstimated: ${totalEstimated}, budgetValue: ${budgetValue}`);
-
-    const warningContainer = document.getElementById('budget-warning-container');
-    const warningText = document.getElementById('budget-warning-text');
-
-    if (totalEstimated > budgetValue) {
-        console.log('[updateBudgetWarning] Over budget! Showing warning');
-        // Show warning and update text
-        if (warningContainer) {
-            warningContainer.classList.remove('hidden');
-        }
-        if (warningText) {
-            const formattedTotal = formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-            const msg = `${window.FLOWGROUP_CONFIG.i18n.estimatedExpenses} (${formattedTotal}) ${window.FLOWGROUP_CONFIG.i18n.exceedBudget}`;
-            warningText.textContent = msg;
-        }
-    } else {
-        // PRIORITY CHECK: If a backend broadcast happened in the last 1.5 seconds, 
-        // don't hide the warning locally yet. This prevents "flicker".
-        const now = Date.now();
-        const timeSinceBroadcast = now - (window.lastBackendBudgetBroadcast || 0);
-        
-        if (timeSinceBroadcast < 1500) {
-            console.log(`[updateBudgetWarning] Skipping hide - last broadcast was only ${timeSinceBroadcast}ms ago`);
-            return;
-        }
-
-        console.log('[updateBudgetWarning] Under budget. Hiding warning');
-        // Hide warning when total is below budget
-        if (warningContainer) {
-            warningContainer.classList.add('hidden');
-        }
-    }
-}
+// NOTE: Budget warning is now handled exclusively by backend broadcasts via FlowGroup_realtime.js
+// The updateOverbudgetWarningFromBackend() function in FlowGroup_realtime.js handles all budget warning UI updates
+// This ensures accurate calculations since backend has the saved data
 
 window.deleteFlowGroup = function() {
     const flowGroupId = document.getElementById('flow-group-form').getAttribute('data-flow-group-id');
@@ -1452,9 +1401,8 @@ window.saveItem = function(rowId) {
                     console.log('[saveItem] Empty state row hidden permanently (first item saved)');
                 }
 
-                // Update summary and warning
+                // Update summary (budget warning handled by backend broadcast)
                 updateSummary();
-                updateBudgetWarning();
 
                 // Re-initialize features
                 initializeDragAndDrop();
@@ -1467,7 +1415,7 @@ window.saveItem = function(rowId) {
                 const itemData = { id: data.transaction_id, description: data.description, amount: data.amount, date: data.date, member_id: data.member_id, realized: data.realized, fixed: data.is_fixed };
                 updateRowDisplay(rowId, itemData);
                 updateSummary();
-                updateBudgetWarning();
+                // Budget warning handled by backend broadcast
 
                 // Reset saving flag
                 row.dataset.saving = 'false';
@@ -1512,19 +1460,12 @@ function updateRowDisplay(rowId, data) {
     if (amountDisplay) {
         // Ensure data.amount is a valid number
         const amountValue = parseFloat(data.amount || 0);
-        
-        // Safe formatCurrency call - use RealtimeUI utils if available, or basic fallback
-        let formattedAmount;
-        if (typeof window.RealtimeUI !== 'undefined' && window.RealtimeUI.utils && window.RealtimeUI.utils.formatCurrency) {
-            formattedAmount = window.RealtimeUI.utils.formatCurrency(amountValue);
-        } else if (typeof formatCurrency === 'function') {
-            formattedAmount = formatCurrency(amountValue, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-        } else {
-            // Fallback
-            const symbol = window.FLOWGROUP_CONFIG.currencySymbol || '$';
-            formattedAmount = symbol + ' ' + amountValue.toFixed(2); 
-        }
-        
+
+        // Format amount using FLOWGROUP_CONFIG settings (always use local config, not RealtimeUI)
+        const parts = Math.abs(amountValue).toFixed(2).split('.');
+        const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, window.FLOWGROUP_CONFIG.thousandSeparator);
+        const formattedAmount = window.FLOWGROUP_CONFIG.currencySymbol + integerPart + window.FLOWGROUP_CONFIG.decimalSeparator + parts[1];
+
         // Preserve mobile action buttons if they exist
         const mobileActions = amountDisplay.querySelector('.mobile-actions-btns');
         if (mobileActions) {
@@ -1532,11 +1473,10 @@ function updateRowDisplay(rowId, data) {
             Array.from(amountDisplay.childNodes).forEach(node => {
                 if (node.nodeType === Node.TEXT_NODE) node.remove();
             });
-            // Insert formatted amount at start (stripped of currency symbol per design)
-            const cleanAmount = formattedAmount.replace(window.FLOWGROUP_CONFIG.currencySymbol, '').trim();
-            amountDisplay.insertBefore(document.createTextNode(cleanAmount + '\n'), amountDisplay.firstChild);
+            // Insert formatted amount at start
+            amountDisplay.insertBefore(document.createTextNode(formattedAmount + '\n'), amountDisplay.firstChild);
         } else {
-            amountDisplay.textContent = formattedAmount.replace(window.FLOWGROUP_CONFIG.currencySymbol, '').trim();
+            amountDisplay.textContent = formattedAmount;
         }
     }
 
@@ -1721,6 +1661,55 @@ window.toggleEditMode = function(rowId, startEdit) {
     }
 };
 
+/**
+ * Cancel edit mode and restore original values
+ */
+window.cancelEdit = function(rowId) {
+    console.log('[cancelEdit] Called with rowId:', rowId);
+    const row = document.getElementById(rowId);
+    if (!row) {
+        console.error('[cancelEdit] Row not found:', rowId);
+        return;
+    }
+
+    // Reset saving flag if it was set
+    row.dataset.saving = 'false';
+
+    // Restore input values from display values
+    const descDisplay = row.querySelector('.cell-description-display');
+    const descInput = row.querySelector('input[data-field="description"]');
+    if (descDisplay && descInput) {
+        descInput.value = descDisplay.textContent.trim();
+    }
+
+    const amountDisplay = row.querySelector('.cell-budget-display');
+    const amountInput = row.querySelector('input[data-field="amount"]');
+    if (amountDisplay && amountInput) {
+        // Get just the amount text without mobile action buttons
+        const amountText = amountDisplay.childNodes[0]?.textContent?.trim() || amountDisplay.textContent.trim();
+        amountInput.value = amountText;
+    }
+
+    const dateDisplay = row.querySelector('.cell-date-display .date-full');
+    const dateInput = row.querySelector('input[data-field="date"]');
+    if (dateDisplay && dateInput) {
+        dateInput.value = dateDisplay.textContent.trim();
+    }
+
+    const memberDisplay = row.querySelector('.cell-member-display');
+    const memberSelect = row.querySelector('select[data-field="member_id"]');
+    if (memberDisplay && memberSelect) {
+        const memberId = memberDisplay.getAttribute('data-member-id');
+        if (memberId) {
+            memberSelect.value = memberId;
+        }
+    }
+
+    // Exit edit mode
+    toggleEditMode(rowId, false);
+    console.log('[cancelEdit] Restored original values and exited edit mode for:', rowId);
+};
+
 window.cancelNewRow = function(rowId) {
     console.log('[cancelNewRow] Called with rowId:', rowId);
     const template = document.getElementById('new-item-template');
@@ -1817,7 +1806,7 @@ window.deleteItem = async function(rowId) {
         if (data.status === 'success') {
             row.remove();
             updateSummary();
-            updateBudgetWarning();
+            // Budget warning handled by backend broadcast
         } else {
             window.GenericModal.alert(data.error || window.FLOWGROUP_CONFIG.i18n.networkError);
         }
@@ -2068,11 +2057,12 @@ function initMobileExpenseFeatures() {
         let startTime = 0;
         const swipeThreshold = 60; // Minimum pixels to trigger swipe
         const tapTimeThreshold = 200; // Max ms for tap detection
+        const tapMinTime = 50; // Min ms to register as intentional tap (avoid scroll touches)
+        const scrollThreshold = 15; // Vertical pixels to consider as scroll
 
         let startY = 0;
         let currentY = 0;
-        let isDragMode = false; // true = vertical drag, false = horizontal swipe
-        let isDecided = false; // se já decidimos o modo
+        let isScrolling = false; // true = vertical scroll detected, ignore all swipe/tap
 
         // Touch start
         row.addEventListener('touchstart', (e) => {
@@ -2093,14 +2083,13 @@ function initMobileExpenseFeatures() {
             currentY = startY;
             startTime = Date.now();
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Touch move
         row.addEventListener('touchmove', (e) => {
-            // Se já decidiu que é drag, ignora swipe
-            if (isDragMode) return;
+            // Se já detectou scroll, ignora tudo
+            if (isScrolling) return;
 
             if (e.target.closest('.mobile-action-btn')) return;
             if (e.target.closest('.mobile-fixed-btn')) return;
@@ -2111,9 +2100,15 @@ function initMobileExpenseFeatures() {
             const deltaX = currentX - startX;
             const deltaY = currentY - startY;
 
+            // Detect vertical scroll - if vertical movement is greater, it's a scroll
+            if (!isDragging && Math.abs(deltaY) > scrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                isScrolling = true;
+                return;
+            }
+
             // In edit mode: allow swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > 0) {
+                if (deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     const translateX = Math.min(deltaX, 120);
                     row.style.transform = `translateX(${translateX}px)`;
@@ -2121,7 +2116,8 @@ function initMobileExpenseFeatures() {
                 }
             } else {
                 // In display mode: swipe left to reveal edit/delete, swipe right to reveal fixed button
-                if (Math.abs(deltaX) > 10) {
+                // Only start swipe if horizontal movement is dominant
+                if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     if (deltaX < 0) {
                         // Swipe left - reveal edit/delete buttons
@@ -2140,16 +2136,20 @@ function initMobileExpenseFeatures() {
 
         // Touch end
         row.addEventListener('touchend', (e) => {
-            // Se foi drag, não processar swipe
-            if (isDragMode) return;
+            // Se foi scroll, não processar nada
+            if (isScrolling) {
+                isScrolling = false;
+                return;
+            }
 
             const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
             const deltaTime = Date.now() - startTime;
             row.style.transition = 'transform 0.3s ease-out';
 
             // In edit mode: swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > swipeThreshold) {
+                if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     console.log('[MOBILE EXPENSE SWIPE] Canceling edit mode for:', row.id);
                     // CRITICAL FIX: If it's the template, call cancelNewRow instead of toggleEditMode
                     if (row.id === 'new-item-template') {
@@ -2167,7 +2167,9 @@ function initMobileExpenseFeatures() {
                 const hasRevealedActions = row.classList.contains('actions-revealed') || row.classList.contains('fixed-revealed');
 
                 // Tap detection for realized toggle - only if no revealed actions
-                if (!isDragging && Math.abs(deltaX) < 10 && deltaTime < tapTimeThreshold) {
+                // Added: minimum time check and vertical movement check to avoid scroll touches
+                if (!isDragging && Math.abs(deltaX) < 10 && Math.abs(deltaY) < scrollThreshold &&
+                    deltaTime >= tapMinTime && deltaTime < tapTimeThreshold) {
                     if (hasRevealedActions) {
                         // Row has revealed actions - reset position instead of toggling
                         console.log('[MOBILE EXPENSE TAP] Resetting position (actions revealed)');
@@ -2183,7 +2185,7 @@ function initMobileExpenseFeatures() {
                     }
                 }
                 // Swipe left to reveal edit/delete actions
-                else if (deltaX < -swipeThreshold) {
+                else if (deltaX < -swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.style.transform = 'translateX(-120px)';
                     row.classList.add('actions-revealed');
                     row.classList.remove('fixed-revealed');
@@ -2191,7 +2193,7 @@ function initMobileExpenseFeatures() {
                     row.setAttribute('draggable', 'false');
                 }
                 // Swipe right to reveal fixed button
-                else if (deltaX > swipeThreshold) {
+                else if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.style.transform = 'translateX(80px)';
                     row.classList.add('fixed-revealed');
                     row.classList.remove('actions-revealed');
@@ -2206,8 +2208,7 @@ function initMobileExpenseFeatures() {
             }
 
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Close actions when tapping outside

@@ -531,6 +531,16 @@
             transform: scale(0.95);
         }
 
+        /* Limit description cell width in edit mode on mobile */
+        .cell-description-edit {
+            max-width: 110px !important;
+            overflow: hidden;
+        }
+        .cell-description-edit input {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
         /* Realized status visual feedback */
         .row-realized-income {
             background-color: rgba(34, 197, 94, 0.15) !important;

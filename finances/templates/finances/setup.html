@@ -179,7 +179,7 @@
 
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                             <span class="material-symbols-outlined text-6xl text-gray-400 mb-4">upload_file</span>
-                            <input type="file" id="backup-file-input" name="backup_file" accept=".sqlite3,.db"
+                            <input type="file" id="backup-file-input" name="backup_file" accept=".sqlite3,.db,.dump"
                                 class="hidden">
                             <label for="backup-file-input"
                                 class="cursor-pointer inline-block px-6 py-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium transition-colors">
@@ -486,6 +486,8 @@
         data-i18n-migration-warning="{% trans 'Note: Some migrations encountered warnings. Check console for details.' %}"
         data-i18n-migration-success="{% trans 'Database structure updated to latest version.' %}"
         data-i18n-click-ok-to-login="{% trans 'Click OK to go to login page.' %}"
+        data-i18n-waiting-server-restart="{% trans 'Waiting for server...' %}"
+        data-i18n-server-ready="{% trans 'Server ready! Redirecting...' %}"
         data-i18n-restore-failed="{% trans 'Restore failed:' %}" data-i18n-unknown-error="{% trans 'Unknown error' %}"
         data-i18n-error-restoring-database="{% trans 'Error restoring database:' %}"
         data-i18n-restore-backup="{% trans 'Restore Backup' %}"

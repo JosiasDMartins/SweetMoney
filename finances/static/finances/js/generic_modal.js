@@ -125,14 +125,16 @@ window.GenericModal = {
         }
     },
 
-    alert: function(message, title, onClose) {
-        this.show({
-            type: 'info',
-            title: title || window.MODAL_I18N.notification,
-            message: message,
-            buttons: [
-                { text: window.MODAL_I18N.ok, primary: true, onClick: onClose }
-            ]
+    alert: function(message, title) {
+        return new Promise((resolve) => {
+            this.show({
+                type: 'info',
+                title: title || window.MODAL_I18N.notification,
+                message: message,
+                buttons: [
+                    { text: window.MODAL_I18N.ok, primary: true, onClick: () => resolve(true) }
+                ]
+            });
         });
     },
 
