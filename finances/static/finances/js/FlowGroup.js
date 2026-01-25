@@ -139,6 +139,12 @@ function initFlowGroup() {
         }
     };
 
+    console.log('[FlowGroup] Config loaded:', window.FLOWGROUP_CONFIG);
+    console.log('[FlowGroup] Currency Symbol:', window.FLOWGROUP_CONFIG.currencySymbol);
+    
+    console.log('[FlowGroup] Config loaded:', window.FLOWGROUP_CONFIG);
+    console.log('[FlowGroup] Currency Symbol:', window.FLOWGROUP_CONFIG.currencySymbol);
+
     // Get CSRF token
     const csrftoken = getCookie('csrftoken');
     window.FLOWGROUP_CSRF = csrftoken;
@@ -799,29 +805,45 @@ window.deleteFlowGroup = function() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                window.GenericModal.alert(
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeleted,
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Success',
-                    function() {
-                        window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
-                    }
-                );
+                window.GenericModal.show({
+                    title: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Success',
+                    message: window.FLOWGROUP_CONFIG.i18n.flowGroupDeleted,
+                    type: 'success',
+                    buttons: [{
+                        text: window.FLOWGROUP_CONFIG.i18n.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            console.log('[FlowGroup] Redirecting to Dashboard:', window.FLOWGROUP_CONFIG.urls.dashboard);
+                            window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
+                        }
+                    }]
+                });
             } else if (data.status === 'deleted_by_other') {
-                window.GenericModal.alert(
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedByUser.replace('{user}', data.deleted_by),
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
-                    function() {
-                        window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
-                    }
-                );
+                window.GenericModal.show({
+                    title: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
+                    message: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedByUser.replace('{user}', data.deleted_by),
+                    type: 'warning',
+                    buttons: [{
+                        text: window.FLOWGROUP_CONFIG.i18n.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
+                        }
+                    }]
+                });
             } else if (data.status === 'not_found') {
-                window.GenericModal.alert(
-                    window.FLOWGROUP_CONFIG.i18n.anotherUser,
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
-                    function() {
-                        window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
-                    }
-                );
+                window.GenericModal.show({
+                    title: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
+                    message: window.FLOWGROUP_CONFIG.i18n.anotherUser,
+                    type: 'warning',
+                    buttons: [{
+                        text: window.FLOWGROUP_CONFIG.i18n.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
+                        }
+                    }]
+                });
             } else {
                 window.GenericModal.alert(window.FLOWGROUP_CONFIG.i18n.errorDeletingFlowGroup + ' ' + (data.error || ''));
             }

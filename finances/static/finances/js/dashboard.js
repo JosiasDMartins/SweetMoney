@@ -257,7 +257,7 @@ function initPieChart() {
                             const value = context.parsed || 0;
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
                             const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: $${formatCurrency(value, '', thousandSeparator, decimalSeparator)} (${percentage}%)`;
+                            return `${label}: ${formatCurrency(value, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator)} (${percentage}%)`;
                         }
                     }
                 }
@@ -343,7 +343,7 @@ function initBarChart() {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return '$' + formatCurrency(value, '', thousandSeparator, decimalSeparator);
+                            return formatCurrency(value, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
                         }
                     }
                 },
@@ -373,9 +373,9 @@ function initBarChart() {
                     callbacks: {
                         label: function(context) {
                             if (context.datasetIndex === 0) {
-                                return 'Total: $' + formatCurrency(context.parsed.y, '', thousandSeparator, decimalSeparator);
+                                return 'Total: ' + formatCurrency(context.parsed.y, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
                             } else {
-                                return 'Trend: $' + formatCurrency(context.parsed.y, '', thousandSeparator, decimalSeparator);
+                                return 'Trend: ' + formatCurrency(context.parsed.y, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
                             }
                         }
                     }
@@ -467,7 +467,7 @@ function updateMetrics() {
             highestExpense = realizedValue;
         }
     });
-    document.getElementById('metric-highest').textContent = '$ ' + formatCurrency(highestExpense, '', thousandSeparator, decimalSeparator);
+    document.getElementById('metric-highest').textContent = formatCurrency(highestExpense, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
 
     // Current commitment percentage (current period only)
     const incomeElem = document.getElementById('balance-realized-income');
@@ -664,8 +664,8 @@ window.toggleIncomeRealized = function(rowId) {
             row.setAttribute('data-amount', normalizedAmount);
 
             // Update amount display with currency symbol
-            if (data.amount && data.currency_symbol) {
-                amountDisplay.textContent = data.currency_symbol + ' ' + formatCurrency(data.amount, '', thousandSeparator, decimalSeparator);
+            if (data.amount) {
+                amountDisplay.textContent = formatCurrency(data.amount, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
             }
 
             // Update amount input field

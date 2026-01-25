@@ -517,7 +517,7 @@
 
                         <div class="mt-6">
                             <div class="flex items-center mb-4">
-                                <input id="deleteConsentCheckbox" type="checkbox" data-action="toggle-delete-consent"
+                                <input id="deleteConsentCheckbox" type="checkbox" data-change-action="toggle-delete-consent"
                                     class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 cursor-pointer">
                                 <label for="deleteConsentCheckbox"
                                     class="ml-2 block text-sm text-gray-900 dark:text-gray-300 cursor-pointer">
@@ -607,10 +607,10 @@
     {% endif %}
 
     <!-- Common Utilities - Must load before other scripts -->
-    <script src="{% static 'finances/js/utils.js' %}?v=20251231-002" defer></script>
+    <script src="{% static 'finances/js/utils.js' %}?v=20260124-003" defer></script>
 
     <!-- PHASE 3: Generic Modal System (Promise-based API) -->
-    <script src="{% static 'finances/js/generic_modal.js' %}?v=20260101-002" defer></script>
+    <script src="{% static 'finances/js/generic_modal.js' %}?v=20260125-001" defer></script>
 
     <!-- PHASE 3: Event Delegation Manager -->
     <script src="{% static 'finances/js/event_delegation.js' %}?v=20251230-010" defer></script>
@@ -618,7 +618,7 @@
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to external base.js -->
     <!-- This file handles: Dark mode, DPI scaling, Periods, Admin warning, PWA, WebSocket, UI Components -->
     <!-- NOTE: NO defer - dark mode init must run immediately to prevent FOUC -->
-    <script src="{% static 'finances/js/base.js' %}?v=20260113-001"></script>
+    <script src="{% static 'finances/js/base.js' %}?v=20260125-006"></script>
 </body>
 
 </html>

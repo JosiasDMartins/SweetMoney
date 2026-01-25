@@ -4,7 +4,7 @@
  * Centralized utility functions used across multiple templates
  * to avoid code duplication and maintain consistency.
  *
- * Version: 1.0.0
+ * Version: 20260124-003
  * Created: 2025-12-31
  */
 
@@ -54,45 +54,87 @@
     }
 
     /**
-     * Apply money mask to input field
-     * Formats value as currency with thousand and decimal separators
-     * @param {Event} event - Input event
-     * @param {string} thousandSeparator - Thousand separator (default: '.')
-     * @param {string} decimalSeparator - Decimal separator (default: ',')
+     * Apply money mask to input field with robust cursor positioning
      */
     function applyMoneyMask(event, thousandSeparator = '.', decimalSeparator = ',') {
         const input = event.target;
-        const originalCursorPos = input.selectionStart;
-        const originalValue = input.value;
+        // The current cursor position AFTER the user typed/deleted but BEFORE we reformat
+        let cursorPos = input.selectionStart;
+        const currentValue = input.value;
+        const valueLength = currentValue.length;
 
-        let value = input.value;
+        // RIGHT ALIGNMENT STRATEGY:
+        // We calculate how many digits are AFTER the cursor in the input.
+        // We preserve this count in the formatted string.
+        // This ensures stability even if leading zeros are added/removed.
 
-        // Remove all non-digit characters
-        value = value.replace(/\D/g, '');
+        const textAfterCursor = currentValue.substring(cursorPos);
+        const digitsAfterCursor = (textAfterCursor.match(/\d/g) || []).length;
 
-        if (value === '') {
-            input.value = '0' + decimalSeparator + '00';
-            setTimeout(function() {
-                input.setSelectionRange(input.value.length, input.value.length);
-            }, 0);
-            return;
-        }
-
-        // Convert to cents
-        let cents = parseInt(value, 10);
-        let integerPart = Math.floor(cents / 100).toString();
-        let decimalPart = (cents % 100).toString().padStart(2, '0');
-
-        // Add thousand separators
+        // 1. Get current digits
+        const currentDigits = currentValue.replace(/\D/g, '');
+        
+        // Ensure we handle the "empty" or minimal cases
+        let digits = currentDigits;
+        if (!digits) digits = '0'; 
+        
+        // Pad with leading zeros for cents
+        // We need at least 3 digits (X,XX)
+        const cleanDigits = parseInt(digits, 10).toString(); // remove leading zeros from string '0042' -> '42'
+        const paddedDigits = cleanDigits.padStart(3, '0');
+        
+        // Check if we just have zeros
+        const totalCents = parseInt(paddedDigits, 10);
+        
+        // Construct formatted string
+        let integerPart = Math.floor(totalCents / 100).toString();
+        const decimalPart = (totalCents % 100).toString().padStart(2, '0');
         integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
-
-        input.value = integerPart + decimalSeparator + decimalPart;
-
-        // Restore cursor position
-        const newLength = input.value.length;
-        const oldLength = originalValue.length;
-        let newCursorPos = originalCursorPos + (newLength - oldLength);
-        if (newCursorPos < 0) { newCursorPos = 0; }
+        
+        const formatted = integerPart + decimalSeparator + decimalPart;
+        
+        // Update value
+        input.value = formatted;
+        
+        // --- CURSOR RESTORATION ---
+        
+        // Calculate new cursor position based on Digits After Cursor
+        const totalNewDigits = (formatted.match(/\d/g) || []).length;
+        
+        // Target: We want 'digitsAfterCursor' digits to the right.
+        // So we want 'totalNewDigits - digitsAfterCursor' digits to the left.
+        let targetDigitsBeforeCursor = totalNewDigits - digitsAfterCursor;
+        
+        // Clamp bounds
+        if (targetDigitsBeforeCursor < 0) targetDigitsBeforeCursor = 0;
+        if (targetDigitsBeforeCursor > totalNewDigits) targetDigitsBeforeCursor = totalNewDigits;
+        
+        let newCursorPos = 0;
+        let count = 0;
+        
+        // Scan the new formatted string to find position after N digits
+        // Special case: if target is 0, we want position minimal (0)
+        if (targetDigitsBeforeCursor === 0) {
+            newCursorPos = 0; // or find first digit? Usually 0 is fine.
+        } else {
+            for (let i = 0; i < formatted.length; i++) {
+                const char = formatted[i];
+                if (/\d/.test(char)) {
+                    count++;
+                }
+                
+                if (count === targetDigitsBeforeCursor) {
+                    newCursorPos = i + 1;
+                    break;
+                }
+            }
+        }
+        
+        // Store state for next time
+        input.setAttribute('data-prev-value', formatted);
+        input.setAttribute('data-prev-digits', formatted.replace(/\D/g, ''));
+        
+        // Set cursor
         input.setSelectionRange(newCursorPos, newCursorPos);
     }
 
@@ -148,27 +190,86 @@
     // ========== INPUT FOCUS/CURSOR UTILITIES ==========
 
     /**
-     * Initialize cursor positioning for amount input fields
-     * Positions cursor to the right on first focus, allows normal editing on subsequent focuses
-     * @param {string} selector - CSS selector for input fields (default: 'input[data-field="amount"]')
+     * Initialize money input fields with proper event handling
+     * Rule: First focus -> Cursor to end. Subsequent clicks -> Free movement.
      */
-    function initializeCursorPositioning(selector = 'input[data-field="amount"]') {
-        // Cursor positioned to the right only on first click/focus
+    function initializeMoneyInputs(selector, thousandSeparator = '.', decimalSeparator = ',') {
+        const initKey = 'data-money-init-' + selector.replace(/[^a-zA-Z0-9]/g, '_');
+        if (document.body.hasAttribute(initKey)) return;
+        document.body.setAttribute(initKey, 'true');
+
+        // Helper to update state without reformatting
+        const updateState = (input) => {
+             const digits = input.value.replace(/\D/g, '');
+             input.setAttribute('data-prev-value', input.value);
+             input.setAttribute('data-prev-digits', digits);
+        };
+
+        // INPUT event
+        document.addEventListener('input', function(event) {
+            if (event.target.matches(selector)) {
+                applyMoneyMask(event, thousandSeparator, decimalSeparator);
+            }
+        });
+
+        // FOCUS event - distinct from click
         document.addEventListener('focus', function(event) {
             if (event.target.matches(selector)) {
-                if (!event.target.hasAttribute('data-first-focus-done')) {
-                    event.target.setAttribute('data-first-focus-done', 'true');
-                    setTimeout(function() {
-                        event.target.setSelectionRange(event.target.value.length, event.target.value.length);
+                const input = event.target;
+                
+                // If this is the FIRST focus (or we returned from blur), move to end.
+                // We depend on 'blur' clearing the flag.
+                if (!input.hasAttribute('data-has-focused')) {
+                    input.setAttribute('data-has-focused', 'true');
+                    
+                    // Force cursor to end on initial entry
+                    // Use setTimeout to override browser default selection behavior on focus
+                    setTimeout(() => {
+                        const len = input.value.length;
+                        input.setSelectionRange(len, len);
+                        updateState(input);
                     }, 0);
                 }
             }
-        }, true);
+        }, true); // Capture phase to catch it early
 
-        // Reset flags when field loses focus
+        // BLUR event
         document.addEventListener('blur', function(event) {
             if (event.target.matches(selector)) {
-                event.target.removeAttribute('data-first-focus-done');
+                event.target.removeAttribute('data-has-focused');
+            }
+        }, true);
+        
+        // CLICK / KEY/ MOUSEUP support
+        document.addEventListener('keydown', function(event) {
+            if (event.target.matches(selector)) {
+                // Allow: backspace, delete, tab, escape, enter, home, end, arrows
+                const allowedKeys = [8, 46, 9, 27, 13, 35, 36, 37, 38, 39, 40];
+                if (allowedKeys.includes(event.keyCode)) return;
+                
+                // Allow: Ctrl/Cmd combinations
+                if (event.ctrlKey || event.metaKey) return;
+                
+                // Allow: Numbers
+                if ((event.keyCode >= 48 && event.keyCode <= 57) || 
+                    (event.keyCode >= 96 && event.keyCode <= 105)) return;
+                    
+                event.preventDefault();
+            }
+        });
+    }
+
+    /**
+     * Initialize cursor positioning for amount input fields (legacy/simple version)
+     * Positions cursor to the right on focus
+     * @param {string} selector - CSS selector for input fields (default: 'input[data-field="amount"]')
+     */
+    function initializeCursorPositioning(selector = 'input[data-field="amount"]') {
+        document.addEventListener('focus', function(event) {
+            if (event.target.matches(selector)) {
+                setTimeout(function() {
+                    event.target.setSelectionRange(event.target.value.length, event.target.value.length);
+                }, 0);
             }
         }, true);
     }
@@ -257,6 +358,7 @@
         formatCurrency: formatCurrency,
 
         // Input focus/cursor utilities
+        initializeMoneyInputs: initializeMoneyInputs,
         initializeCursorPositioning: initializeCursorPositioning,
 
         // UI feedback
@@ -270,10 +372,11 @@
     window.applyMoneyMask = applyMoneyMask;
     window.formatAmountForInput = formatAmountForInput;
     window.formatCurrency = formatCurrency;
+    window.initializeMoneyInputs = initializeMoneyInputs;
     window.initializeCursorPositioning = initializeCursorPositioning;
     window.showSuccessMessage = showSuccessMessage;
     window.showErrorMessage = showErrorMessage;
 
-    console.log('[FinancesUtils] Utility functions loaded successfully');
+    console.log('[FinancesUtils] Utility functions loaded successfully (v20260124-003)');
 
 })();

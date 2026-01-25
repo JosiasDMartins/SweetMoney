@@ -10,6 +10,13 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>{% block title %}{% trans "SweetMoney | Family Financial Flow" %}{% endblock title %}</title>
 
+    <link rel="icon" type="image/x-icon" href="{% static 'finances/images/favicons/favicon.ico' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static 'finances/images/favicons/favicon.svg' %}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{% static 'finances/images/favicons/favicon-96x96.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'finances/images/favicons/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'finances/images/favicons/android-chrome-192x192.png' %}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{% static 'finances/images/favicons/android-chrome-512x512.png' %}">
+
     <link href="{% static 'finances/css/tailwind.css' %}" rel="stylesheet"/>
     <link href="{% static 'finances/css/fonts.css' %}" rel="stylesheet"/>
     {% block head_extra %}{% endblock head_extra %}

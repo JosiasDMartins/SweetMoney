@@ -105,8 +105,10 @@ window.GenericModal = {
                 button.className = 'inline-flex w-full justify-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white ring-gray-300 dark:ring-gray-600 sm:w-auto';
             }
 
-            button.addEventListener('click', () => {
+            button.addEventListener('click', (e) => {
+                console.log('[GenericModal] Button clicked:', btn.text);
                 if (btn.onClick && typeof btn.onClick === 'function') {
+                    console.log('[GenericModal] Executing custom onClick handler');
                     btn.onClick();
                 }
                 window.GenericModal.hide();

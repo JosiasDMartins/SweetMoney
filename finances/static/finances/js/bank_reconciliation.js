@@ -54,6 +54,12 @@ function initBankReconciliation() {
     window.csrftoken = window.BANK_RECON_CONFIG.csrfToken;
 
     console.log('[BankReconciliation] Configuration loaded');
+    console.log('[BankReconciliation] CONFIG DUMP:', window.BANK_RECON_CONFIG);
+    console.log('[BankReconciliation] Global Separators:', { 
+        decimalSeparator: window.decimalSeparator, 
+        thousandSeparator: window.thousandSeparator, 
+        currencySymbol: window.currencySymbol 
+    });
 
     // Initialize money mask
     initMoneyMask();
@@ -70,7 +76,7 @@ function initMoneyMask() {
     // Input event listener
     document.addEventListener('input', function(event) {
         if (event.target.matches('.cell-amount-edit')) {
-            applyMoneyMask(event);
+            applyMoneyMask(event, window.thousandSeparator, window.decimalSeparator);
         }
     });
 
@@ -94,16 +100,22 @@ function initMoneyMask() {
     }, true);
 
     // Initialize existing inputs
+    // Template renders values - use getRawValue to properly parse regardless of format
+    // This follows the same pattern as dashboard.js initInputMasks()
     document.querySelectorAll('.cell-amount-edit').forEach(function(input) {
         if (input.value && input.value.trim() !== '') {
-            let value = input.value.replace(',', '.');
-            let num = parseFloat(value);
-            if (!isNaN(num)) {
-                let cents = Math.round(num * 100);
-                let integerPart = Math.floor(cents / 100).toString();
-                let decimalPart = (cents % 100).toString().padStart(2, '0');
-                integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
-                input.value = integerPart + decimalSeparator + decimalPart;
+            console.log('[initMoneyMask] Processing input:', input);
+            console.log('[initMoneyMask] Raw Value from DOM:', input.value);
+
+            // Use getRawValue to properly sanitize the value (handles both locale formats)
+            // This is the same pattern used in dashboard.js and FlowGroup.js
+            let raw = getRawValue(input.value, thousandSeparator, decimalSeparator);
+
+            if (!isNaN(raw) && raw !== null) {
+                // Format according to user's locale settings
+                const formatted = formatAmountForInput(raw, thousandSeparator, decimalSeparator);
+                console.log('[initMoneyMask] Formatted Value:', formatted);
+                input.value = formatted;
             } else {
                 input.value = '0' + decimalSeparator + '00';
             }
@@ -155,16 +167,10 @@ window.toggleEditBalance = function(rowId, edit) {
 
     if (edit) {
         const amountInput = row.querySelector('.cell-amount-edit');
-        // Remove thousand separators first, then replace decimal separator with dot
-        let rawValue = amountInput.value.replace(new RegExp('\\' + thousandSeparator, 'g'), '');
-        rawValue = rawValue.replace(decimalSeparator, '.');
-        const num = parseFloat(rawValue);
-        if (!isNaN(num)) {
-            const cents = Math.round(num * 100);
-            const integerPart = Math.floor(cents / 100).toString();
-            const decimalPart = (cents % 100).toString().padStart(2, '0');
-            const formatted = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator) + decimalSeparator + decimalPart;
-            amountInput.value = formatted;
+        if (amountInput) {
+            // Use standard utils functions to safely sanitize and format
+            const rawValue = getRawValue(amountInput.value, window.thousandSeparator, window.decimalSeparator);
+            amountInput.value = formatAmountForInput(rawValue, window.thousandSeparator, window.decimalSeparator);
         }
     }
 };
@@ -241,7 +247,7 @@ function updateRow(row, data) {
     // Update edit fields as well
     row.querySelector('.cell-description-edit').value = data.description;
     row.querySelector('.cell-date-edit').value = data.date;
-    row.querySelector('.cell-amount-edit').value = data.amount;
+    row.querySelector('.cell-amount-edit').value = formatAmountForInput(data.amount, window.thousandSeparator, window.decimalSeparator);
     if (row.querySelector('.cell-member-edit')) {
         row.querySelector('.cell-member-edit').value = data.member_id || '';
     }

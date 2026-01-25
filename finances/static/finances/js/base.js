@@ -272,18 +272,44 @@ function handleCreatePeriodSubmit(e) {
     })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                // Redirect to the new period
-                window.location.href = data.redirect_url;
+            console.log('[CreatePeriod] Response:', data);
+            // Backend returns message field with success text, not success: true
+            const isSuccess = data.message && data.message.includes('successfully');
+            
+            if (isSuccess || data.success) {
+                // Close the creation modal
+                window.closeCreatePeriodModal();
+                
+                // Show success message using GenericModal
+                if (window.GenericModal) {
+                    window.GenericModal.show({
+                        title: window.MODAL_I18N.success || 'Success',
+                        message: data.message || 'Period created successfully',
+                        type: 'success',
+                        buttons: [{
+                            text: window.MODAL_I18N.ok || 'OK',
+                            primary: true,
+                            onClick: function() {
+                                // Reload page to refresh period selector
+                                window.location.reload();
+                            }
+                        }]
+                    });
+                } else {
+                    alert(data.message || 'Period created successfully');
+                    window.location.reload();
+                }
             } else {
-                alert(window.PERIOD_I18N.errorCreating + ': ' + data.error);
+                const errorMsg = data.error || data.message || 'Unknown error';
+                console.error('[CreatePeriod] Error response:', data);
+                alert(window.PERIOD_I18N.errorCreating + ': ' + errorMsg);
                 createBtn.disabled = false;
                 createBtn.textContent = window.MODAL_I18N.continue;
             }
         })
         .catch(error => {
             console.error('Error creating period:', error);
-            alert(window.PERIOD_I18N.errorCreating);
+            alert(window.PERIOD_I18N.errorCreating + ': ' + (error.message || 'Network error'));
             createBtn.disabled = false;
             createBtn.textContent = window.MODAL_I18N.continue;
         });
@@ -296,10 +322,26 @@ function initializeDeletePeriodModal() {
 }
 
 // Exposed globally for event_delegation.js
-window.openDeletePeriodModal = function (periodId) {
+window.openDeletePeriodModal = function () {
     const modal = document.getElementById('deletePeriodModal');
+    const loadingDiv = document.getElementById('deletePeriodLoading');
+    const detailsDiv = document.getElementById('deletePeriodDetails');
+    
+    // Skip loading, show details directly (period details fetch not implemented in backend)
+    if (loadingDiv) loadingDiv.classList.add('hidden');
+    if (detailsDiv) detailsDiv.classList.remove('hidden');
+    
+    // Get current period from URL or page
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentPeriod = urlParams.get('period') || 'current';
+    
+    // Set basic info (actual deletion will be handled by backend)
+    const periodLabel = document.getElementById('deletePeriodLabel');
+    if (periodLabel) {
+        periodLabel.textContent = currentPeriod;
+    }
+    
     modal.classList.remove('hidden');
-    modal.dataset.periodId = periodId;
 };
 
 window.closeDeletePeriodModal = function () {
@@ -309,51 +351,66 @@ window.closeDeletePeriodModal = function () {
 };
 
 window.confirmDeletePeriod = function () {
-    const modal = document.getElementById('deletePeriodModal');
-    const periodId = modal.dataset.periodId;
-    const confirmBtn = document.getElementById('confirmDeletePeriodBtn');
-    const deleteButtonText = confirmBtn.querySelector('#deleteButtonText');
-    const deleteButtonIcon = confirmBtn.querySelector('#deleteButtonIcon');
-
-    if (!periodId) {
-        console.error('No period ID found');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const deleteButtonText = document.getElementById('deleteButtonText');
+    
+    if (!confirmBtn) {
+        console.error('[DeletePeriod] Confirm button not found');
         return;
     }
 
+    // Get current period start date from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const periodStart = urlParams.get('period');
+    
+    if (!periodStart) {
+        console.error('[DeletePeriod] No period parameter in URL - cannot determine which period to delete');
+        alert(window.PERIOD_I18N.errorDeleting + ': ' + 'No period selected. Please select a period from the dropdown first.');
+        confirmBtn.disabled = false;
+        return;
+    }
+
+    console.log('[DeletePeriod] Deleting period:', periodStart);
+
     // Disable button and show loading state
-    const originalText = deleteButtonText.textContent;
+    const originalText = deleteButtonText ? deleteButtonText.textContent : 'Delete Period';
     confirmBtn.disabled = true;
     confirmBtn.style.cursor = 'wait';
-    deleteButtonText.textContent = window.PERIOD_I18N.deleting;
-    deleteButtonIcon.textContent = 'progress_activity';
-    deleteButtonIcon.classList.add('animate-spin');
+    if (deleteButtonText) {
+        deleteButtonText.textContent = window.PERIOD_I18N.deleting || 'Deleting...';
+    }
 
-    fetch(`/api/period/${periodId}/delete/`, {
-        method: 'DELETE',
+    fetch('/api/period/delete/', {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCookie('csrftoken')
-        }
+        },
+        body: JSON.stringify({
+            period_start: periodStart
+        })
     })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                // Redirect to the default period or home
-                window.location.href = data.redirect_url || '/';
+            if (data.status === 'success') {
+                // Redirect to home/dashboard
+                window.location.href = data.redirect || '/';
             } else {
-                alert(window.PERIOD_I18N.errorDeleting + ': ' + data.error);
+                alert(window.PERIOD_I18N.errorDeleting + ': ' + (data.error || 'Unknown error'));
                 confirmBtn.disabled = false;
-                deleteButtonText.textContent = originalText;
-                deleteButtonIcon.textContent = 'delete';
-                deleteButtonIcon.classList.remove('animate-spin');
+                if (deleteButtonText) {
+                    deleteButtonText.textContent = originalText;
+                }
                 confirmBtn.style.cursor = 'pointer';
             }
         })
         .catch(error => {
             console.error('Error deleting period:', error);
-            alert(window.PERIOD_I18N.errorDeleting);
+            alert(window.PERIOD_I18N.errorDeleting + ': ' + (error.message || 'Network error'));
             confirmBtn.disabled = false;
-            confirmBtn.querySelector('#deleteButtonText').textContent = originalText;
+            if (deleteButtonText) {
+                deleteButtonText.textContent = originalText;
+            }
             confirmBtn.style.cursor = 'pointer';
         });
 };

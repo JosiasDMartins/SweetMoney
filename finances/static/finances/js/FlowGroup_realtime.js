@@ -156,14 +156,11 @@
             const formattedDate = `${dateObj.getFullYear()}-${month}-${day}`;
             const shortDate = `${day}/${month}`;
 
-            // Format amount
-            // Format amount with safety
+            // Format amount - explicitly use FLOWGROUP_CONFIG like dashboard.js does
             const amountValue = parseFloat(data.amount || 0);
-            const formattedAmount = window.RealtimeUI?.utils?.formatCurrency 
-                ? window.RealtimeUI.utils.formatCurrency(amountValue)
-                : (typeof window.formatCurrency === 'function' 
-                    ? window.formatCurrency(amountValue, currencySymbol, thousandSeparator, decimalSeparator)
-                    : amountValue.toFixed(2));
+            const formattedAmount = typeof window.formatCurrency === 'function'
+                ? window.formatCurrency(amountValue, currencySymbol, thousandSeparator, decimalSeparator)
+                : amountValue.toFixed(2);
             
             const rawAmount = amountValue.toFixed(2).replace('.', decimalSeparator);
             
@@ -321,11 +318,10 @@
                 const amountDisplay = row.querySelector('.cell-budget-display');
                 if (amountDisplay && transactionData.amount !== undefined) {
                     const amountValue = parseFloat(transactionData.amount || 0);
-                    const formattedAmount = window.RealtimeUI?.utils?.formatCurrency 
-                        ? window.RealtimeUI.utils.formatCurrency(amountValue)
-                        : (typeof window.formatCurrency === 'function' 
-                            ? window.formatCurrency(amountValue, window.FLOWGROUP_CONFIG?.currencySymbol, window.FLOWGROUP_CONFIG?.thousandSeparator, window.FLOWGROUP_CONFIG?.decimalSeparator)
-                            : amountValue.toFixed(2));
+                    // Explicitly use FLOWGROUP_CONFIG like dashboard.js toggleIncomeRealized does
+                    const formattedAmount = typeof window.formatCurrency === 'function'
+                        ? window.formatCurrency(amountValue, window.FLOWGROUP_CONFIG?.currencySymbol || '$', window.FLOWGROUP_CONFIG?.thousandSeparator || '.', window.FLOWGROUP_CONFIG?.decimalSeparator || ',')
+                        : amountValue.toFixed(2);
                     
                     // Don't use textContent as it removes mobile action buttons!
                     // Instead, find/create text node or update only the text part
@@ -642,10 +638,17 @@
                 }
 
                 // Update totals display in the totals row (both desktop and mobile)
+                // Use explicit FLOWGROUP_CONFIG like dashboard.js pattern
+                const currencySymbol = window.FLOWGROUP_CONFIG?.currencySymbol || '$';
+                const thousandSep = window.FLOWGROUP_CONFIG?.thousandSeparator || '.';
+                const decimalSep = window.FLOWGROUP_CONFIG?.decimalSeparator || ',';
+
                 const estimatedDisplayDesktop = document.getElementById('total-expenses-desktop');
                 const estimatedDisplayMobile = document.getElementById('total-expenses-mobile');
                 if (flowgroupData.total_estimated) {
-                    const formattedEstimated = window.RealtimeUI.utils.formatCurrency(flowgroupData.total_estimated);
+                    const formattedEstimated = typeof window.formatCurrency === 'function'
+                        ? window.formatCurrency(flowgroupData.total_estimated, currencySymbol, thousandSep, decimalSep)
+                        : flowgroupData.total_estimated;
                     if (estimatedDisplayDesktop) estimatedDisplayDesktop.textContent = formattedEstimated;
                     if (estimatedDisplayMobile) estimatedDisplayMobile.textContent = formattedEstimated;
                 }
@@ -653,7 +656,9 @@
                 const realizedDisplayDesktop = document.getElementById('total-realized-desktop');
                 const realizedDisplayMobile = document.getElementById('total-realized-mobile');
                 if (flowgroupData.total_realized) {
-                    const formattedRealized = window.RealtimeUI.utils.formatCurrency(flowgroupData.total_realized);
+                    const formattedRealized = typeof window.formatCurrency === 'function'
+                        ? window.formatCurrency(flowgroupData.total_realized, currencySymbol, thousandSep, decimalSep)
+                        : flowgroupData.total_realized;
                     if (realizedDisplayDesktop) realizedDisplayDesktop.textContent = formattedRealized;
                     if (realizedDisplayMobile) realizedDisplayMobile.textContent = formattedRealized;
                 }
@@ -695,11 +700,10 @@
             let title, message, iconColor, iconBgColor;
 
             if (isOwnAction) {
-                // Own action - success message
-                title = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeletedSuccess || 'FlowGroup Deleted Successfully';
-                message = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeleted || 'The FlowGroup was successfully deleted.';
-                iconColor = "text-green-600 dark:text-green-400";
-                iconBgColor = "bg-green-100 dark:bg-green-900/30";
+                // Own action - skip showing modal here as it's handled by the fetch response in FlowGroup.js
+                // This prevents duplicate modals and redirect issues
+                console.log('[FlowGroup RT] Own action detected, suppressing realtime modal for FlowGroup deletion');
+                return;
             } else {
                 // Another user's action - informational message
                 title = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeletedTitle || 'FlowGroup Deleted';
@@ -710,42 +714,28 @@
                 iconBgColor = "bg-red-100 dark:bg-red-900/30";
             }
 
-            // Show modal informing user
-            const modalHtml = `
-                <div id="flowgroup-deleted-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-                    <div class="relative mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-                        <div class="mt-3 text-center">
-                            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full ${iconBgColor}">
-                                <span class="material-symbols-outlined ${iconColor}">${isOwnAction ? 'check_circle' : 'delete'}</span>
-                            </div>
-                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mt-5">
-                                ${title}
-                            </h3>
-                            <div class="mt-2 px-7 py-3">
-                                <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    ${message}
-                                </p>
-                                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-2">${flowgroupName}</p>
-                            </div>
-                            <div class="items-center px-4 py-3">
-                                <button id="flowgroup-deleted-ok-btn"
-                                        class="px-4 py-2 bg-primary text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-primary">
-                                    ${window.FLOWGROUP_CONFIG?.i18n?.ok || 'OK'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-            // Add click handler to OK button
-            const okBtn = document.getElementById('flowgroup-deleted-ok-btn');
-            if (okBtn) {
-                okBtn.addEventListener('click', function() {
-                    window.location.href = window.FLOWGROUP_CONFIG?.urls?.dashboard || '/';
+            // Show modal informing user using standardized GenericModal
+            if (window.GenericModal) {
+                const modalType = isOwnAction ? 'success' : 'warning';
+                const okText = window.FLOWGROUP_CONFIG?.i18n?.ok || 'OK';
+                
+                window.GenericModal.show({
+                    title: title,
+                    message: message,
+                    type: modalType,
+                    buttons: [{
+                        text: okText,
+                        primary: true,
+                        onClick: function() {
+                            console.log('[FlowGroup RT] OK clicked, redirecting to dashboard');
+                            window.location.href = window.FLOWGROUP_CONFIG?.urls?.dashboard || '/';
+                        }
+                    }]
                 });
+            } else {
+                console.error('[FlowGroup RT] GenericModal not available, falling back to alert');
+                alert(message);
+                window.location.href = window.FLOWGROUP_CONFIG?.urls?.dashboard || '/';
             }
         },
 
@@ -761,10 +751,15 @@
             const warningText = document.getElementById('budget-warning-text');
 
             if (showWarning) {
-                // Format the total estimated value
+                // Format the total estimated value using explicit FLOWGROUP_CONFIG
                 let formattedTotal = '';
-                if (totalEstimated && window.RealtimeUI && window.RealtimeUI.utils) {
-                    formattedTotal = window.RealtimeUI.utils.formatCurrency(totalEstimated);
+                if (totalEstimated) {
+                    const currencySymbol = window.FLOWGROUP_CONFIG?.currencySymbol || '$';
+                    const thousandSep = window.FLOWGROUP_CONFIG?.thousandSeparator || '.';
+                    const decimalSep = window.FLOWGROUP_CONFIG?.decimalSeparator || ',';
+                    formattedTotal = typeof window.formatCurrency === 'function'
+                        ? window.formatCurrency(totalEstimated, currencySymbol, thousandSep, decimalSep)
+                        : totalEstimated;
                 }
 
                 // Build the warning message

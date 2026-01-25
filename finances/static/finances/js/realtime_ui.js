@@ -13,19 +13,32 @@
     const baseConfig = document.getElementById('base-config');
     const currentUserId = baseConfig ? parseInt(baseConfig.dataset.userId) : null;
 
-    // Locale settings for money formatting
-    const decimalSeparator = window.decimalSeparator || ',';
-    const thousandSeparator = window.thousandSeparator || '.';
-    const currencySymbol = window.currencySymbol || 'R$';
+    /**
+     * Get locale settings dynamically at call time
+     * This ensures we use the correct values even if they're set after this file loads
+     */
+    function getLocaleSettings() {
+        // Try page-specific config first, then fall back to global window settings
+        const config = window.FLOWGROUP_CONFIG || window.DASHBOARD_CONFIG || window.BANK_RECON_CONFIG || {};
+        return {
+            decimalSeparator: config.decimalSeparator || window.decimalSeparator || ',',
+            thousandSeparator: config.thousandSeparator || window.thousandSeparator || '.',
+            currencySymbol: config.currencySymbol || window.currencySymbol || '$'
+        };
+    }
 
     /**
      * Format currency value with locale settings
+     * Reads locale settings dynamically at call time
      */
     function formatCurrency(value) {
         if (value === null || value === undefined) return '';
 
         const num = parseFloat(value);
         if (isNaN(num)) return '';
+
+        // Get locale settings at call time (not at load time!)
+        const { decimalSeparator, thousandSeparator, currencySymbol } = getLocaleSettings();
 
         // Format with 2 decimal places
         const parts = Math.abs(num).toFixed(2).split('.');
