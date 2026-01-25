@@ -448,6 +448,19 @@
             newRow.className = 'draggable-row cursor-default hover:bg-gray-50 dark:hover:bg-gray-700/30 group-row-clickable';
             newRow.draggable = true;
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPeriod = urlParams.get('period');
+            let groupUrl = `/flow-group/${flowgroupData.id}/edit/`;
+            if (currentPeriod) {
+                groupUrl += `?period=${encodeURIComponent(currentPeriod)}`;
+            }
+            newRow.dataset.groupUrl = groupUrl;
+
+            // Child group styling
+            if (flowgroupData.is_kids_group) {
+                newRow.style.color = '#DAA520';
+            }
+
             const estimatedFormatted = formatCurrencyLocal(flowgroupData.budgeted_amount || '0.00');
             const realizedFormatted = formatCurrencyLocal('0.00');
 
@@ -496,6 +509,26 @@
             newRow.appendChild(td3);
             newRow.appendChild(td4);
 
+            // ATTACH CLICK HANDLER IMMEDIATELY (since dashboard.js uses direct attachment not delegation)
+            newRow.addEventListener('click', function(e) {
+                // Don't navigate if clicking on drag handle
+                if (e.target.closest('.drag-handle-cell') || e.target.closest('.drag-handle')) {
+                    return;
+                }
+
+                const url = this.getAttribute('data-group-url');
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+
+            // Add cursor pointer on hover
+            newRow.addEventListener('mouseover', function(e) {
+                if (!e.target.closest('.drag-handle-cell') && !e.target.closest('.drag-handle')) {
+                    this.style.cursor = 'pointer';
+                }
+            });
+
             // Insert at the end (before "empty" message row if exists)
             const emptyRow = tbody.querySelector('tr td[colspan]');
             if (emptyRow) {
@@ -518,7 +551,7 @@
                 updatePieChart();
             }
 
-            console.log('[Dashboard RT] FlowGroup added successfully');
+            console.log('[Dashboard RT] FlowGroup added successfully and click handler attached');
         },
 
         /**
@@ -643,7 +676,7 @@
                         const emptyCell = document.createElement('td');
                         emptyCell.setAttribute('colspan', '4');
                         emptyCell.className = 'py-4 px-4 text-center text-gray-500';
-                        emptyCell.textContent = 'window.DASHBOARD_CONFIG.i18n.noExpenseGroups';
+                        emptyCell.textContent = window.DASHBOARD_CONFIG?.i18n?.noExpenseGroups || 'No expense groups defined.';
                         emptyRow.appendChild(emptyCell);
                         tbody.appendChild(emptyRow);
                     }

@@ -603,7 +603,7 @@
     <!-- WebSocket Real-time Updates -->
     {% if user.is_authenticated %}
     <script src="{% static 'finances/js/websocket_manager.js' %}"></script>
-    <script src="{% static 'finances/js/realtime_ui.js' %}?v=20260101-001"></script>
+    <script src="{% static 'finances/js/realtime_ui.js' %}?v=20260125-002"></script>
     {% endif %}
 
     <!-- Common Utilities - Must load before other scripts -->
@@ -618,7 +618,7 @@
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to external base.js -->
     <!-- This file handles: Dark mode, DPI scaling, Periods, Admin warning, PWA, WebSocket, UI Components -->
     <!-- NOTE: NO defer - dark mode init must run immediately to prevent FOUC -->
-    <script src="{% static 'finances/js/base.js' %}?v=20260125-006"></script>
+    <script src="{% static 'finances/js/base.js' %}?v=20260125-013"></script>
 </body>
 
 </html>

@@ -678,45 +678,40 @@
          * Handle FlowGroup deletion
          */
         handleFlowGroupDeleted: function(data) {
-            console.log('[FlowGroup RT] FlowGroup deleted:', data);
+            console.log('[FlowGroup RT] FlowGroup deleted event received:', data);
 
             // Extract FlowGroup data from WebSocket message structure
             const flowgroupData = data.data || data;
             const flowgroupId = flowgroupData.id;
             const flowgroupName = flowgroupData.name || '';
 
+            console.log('[FlowGroup RT] Target FlowGroup ID:', flowgroupId);
+
             // Check if this is the current FlowGroup
             const currentFlowGroupId = document.getElementById('flow-group-form')?.getAttribute('data-flow-group-id');
+            console.log('[FlowGroup RT] Current page FlowGroup ID:', currentFlowGroupId);
+
             if (!currentFlowGroupId || flowgroupId != currentFlowGroupId) {
+                console.log('[FlowGroup RT] Deletion is for a different group, ignoring');
                 return;
             }
-
-            // Check if current user deleted it
-            const baseConfig = document.getElementById('base-config');
-            const currentUserId = baseConfig?.dataset?.userId ? parseInt(baseConfig.dataset.userId) : null;
-            const isOwnAction = data.actor && data.actor.id && currentUserId && data.actor.id === currentUserId;
 
             // Prepare message based on who deleted
             let title, message, iconColor, iconBgColor;
 
-            if (isOwnAction) {
-                // Own action - skip showing modal here as it's handled by the fetch response in FlowGroup.js
-                // This prevents duplicate modals and redirect issues
-                console.log('[FlowGroup RT] Own action detected, suppressing realtime modal for FlowGroup deletion');
-                return;
-            } else {
-                // Another user's action - informational message
-                title = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeletedTitle || 'FlowGroup Deleted';
-                const actorName = data.actor ? data.actor.username : (window.FLOWGROUP_CONFIG?.i18n?.anotherUser || 'another user');
-                const deletedBy = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeletedByUser || 'This FlowGroup was deleted by';
-                message = `${deletedBy} <strong>${actorName}</strong>.`;
-                iconColor = "text-red-600 dark:text-red-400";
-                iconBgColor = "bg-red-100 dark:bg-red-900/30";
-            }
+            // REMOVED isOwnAction check - we want the modal to appear in all tabs 
+            // if they are viewing the deleted group, regardless of user ID (e.g. same user in 2 tabs)
+            
+            title = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeletedTitle || 'FlowGroup Deleted';
+            const actorName = data.actor ? data.actor.username : (window.FLOWGROUP_CONFIG?.i18n?.anotherUser || 'another user');
+            const deletedByText = window.FLOWGROUP_CONFIG?.i18n?.flowGroupDeletedByUser || 'This FlowGroup was deleted by';
+            message = `${deletedByText} <strong>${actorName}</strong>.`;
+            iconColor = "text-red-600 dark:text-red-400";
+            iconBgColor = "bg-red-100 dark:bg-red-900/30";
 
             // Show modal informing user using standardized GenericModal
             if (window.GenericModal) {
-                const modalType = isOwnAction ? 'success' : 'warning';
+                const modalType = 'warning';
                 const okText = window.FLOWGROUP_CONFIG?.i18n?.ok || 'OK';
                 
                 window.GenericModal.show({
@@ -844,7 +839,8 @@
     // Listen for FlowGroup deletion events
     document.addEventListener('realtime:flowgroup:deleted', function(event) {
         if (window.FlowGroupRealtime && window.FlowGroupRealtime.handleFlowGroupDeleted) {
-            window.FlowGroupRealtime.handleFlowGroupDeleted(event.detail.data);
+            // Pass the full event.detail which contains data and actor
+            window.FlowGroupRealtime.handleFlowGroupDeleted(event.detail);
         }
     });
 

@@ -1144,6 +1144,23 @@ def delete_period_ajax(request):
                 period_start_date=period_start
             ).delete()
 
+            # Broadcast period deletion to all family members
+            try:
+                db_transaction.on_commit(
+                    lambda: WebSocketBroadcaster.broadcast_to_family(
+                        family_id=family.id,
+                        message_type='period_deleted',
+                        data={
+                            'period_start': period_start.strftime('%Y-%m-%d'),
+                            'action': 'cleared',
+                            'message': _('Current period cleared by %(user)s') % {'user': request.user.username}
+                        },
+                        actor_user=request.user
+                    )
+                )
+            except Exception as e:
+                print(f"[WebSocket] Broadcast error: {e}")
+
             return JsonResponse({
                 'status': 'success',
                 'action': 'cleared',
@@ -1184,6 +1201,23 @@ def delete_period_ajax(request):
                 family=family,
                 start_date=period_start
             ).delete()
+
+            # Broadcast period deletion to all family members
+            try:
+                db_transaction.on_commit(
+                    lambda: WebSocketBroadcaster.broadcast_to_family(
+                        family_id=family.id,
+                        message_type='period_deleted',
+                        data={
+                            'period_start': period_start.strftime('%Y-%m-%d'),
+                            'action': 'deleted',
+                            'message': _('Period deleted by %(user)s') % {'user': request.user.username}
+                        },
+                        actor_user=request.user
+                    )
+                )
+            except Exception as e:
+                print(f"[WebSocket] Broadcast error: {e}")
 
             return JsonResponse({
                 'status': 'success',

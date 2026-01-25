@@ -315,13 +315,14 @@
     };
 
     window.RealtimeUI.handleFlowGroupDeleted = function(data) {
-        console.log('[RealtimeUI] FlowGroup deleted:', data);
+        console.log('[RealtimeUI] FlowGroup deleted handler called with data:', data);
 
         // Trigger custom event
         triggerCustomEvent('realtime:flowgroup:deleted', data);
 
         // Try page-specific handler (dashboard)
         if (typeof window.DashboardRealtime !== 'undefined' && window.DashboardRealtime.removeFlowGroup) {
+            console.log('[RealtimeUI] Calling DashboardRealtime.removeFlowGroup for:', data.data.id);
             window.DashboardRealtime.removeFlowGroup(data.data.id);
         }
     };

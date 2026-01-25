@@ -273,10 +273,9 @@ function handleCreatePeriodSubmit(e) {
         .then(response => response.json())
         .then(data => {
             console.log('[CreatePeriod] Response:', data);
-            // Backend returns message field with success text, not success: true
-            const isSuccess = data.message && data.message.includes('successfully');
             
-            if (isSuccess || data.success) {
+            // Backend returns status: 'success' or status: 'error'
+            if (data.status === 'success') {
                 // Close the creation modal
                 window.closeCreatePeriodModal();
                 
@@ -300,6 +299,7 @@ function handleCreatePeriodSubmit(e) {
                     window.location.reload();
                 }
             } else {
+                // Error case
                 const errorMsg = data.error || data.message || 'Unknown error';
                 console.error('[CreatePeriod] Error response:', data);
                 alert(window.PERIOD_I18N.errorCreating + ': ' + errorMsg);
@@ -327,21 +327,81 @@ window.openDeletePeriodModal = function () {
     const loadingDiv = document.getElementById('deletePeriodLoading');
     const detailsDiv = document.getElementById('deletePeriodDetails');
     
-    // Skip loading, show details directly (period details fetch not implemented in backend)
-    if (loadingDiv) loadingDiv.classList.add('hidden');
-    if (detailsDiv) detailsDiv.classList.remove('hidden');
-    
-    // Get current period from URL or page
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentPeriod = urlParams.get('period') || 'current';
-    
-    // Set basic info (actual deletion will be handled by backend)
-    const periodLabel = document.getElementById('deletePeriodLabel');
-    if (periodLabel) {
-        periodLabel.textContent = currentPeriod;
-    }
+    // Show loading state
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
+    if (detailsDiv) detailsDiv.classList.add('hidden');
     
     modal.classList.remove('hidden');
+    
+    // Get current period from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const periodStart = urlParams.get('period');
+    
+    if (!periodStart) {
+        // No period selected, show error
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (detailsDiv) {
+            detailsDiv.classList.remove('hidden');
+            document.getElementById('deletePeriodLabel').textContent = 'No period selected';
+        }
+        return;
+    }
+    
+    // Fetch period details
+    fetch(`/api/period/details/?period_start=${encodeURIComponent(periodStart)}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Hide loading, show details
+            if (loadingDiv) loadingDiv.classList.add('hidden');
+            if (detailsDiv) detailsDiv.classList.remove('hidden');
+            
+            // Populate period info
+            const periodLabel = document.getElementById('deletePeriodLabel');
+            if (periodLabel) {
+                periodLabel.textContent = data.period.label;
+            }
+            
+            // Populate summary counts
+            document.getElementById('deleteFlowGroupCount').textContent = data.summary.flow_group_count;
+            document.getElementById('deleteTransactionCount').textContent = data.summary.transaction_count;
+            
+            // Populate metrics with currency symbol
+            const currencySymbol = data.summary.currency_symbol;
+            document.getElementById('deleteCurrencySymbol1').textContent = currencySymbol;
+            document.getElementById('deleteCurrencySymbol2').textContent = currencySymbol;
+            document.getElementById('deleteCurrencySymbol3').textContent = currencySymbol;
+            document.getElementById('deleteCurrencySymbol4').textContent = currencySymbol;
+            
+            // Format and populate amounts
+            document.getElementById('deleteIncomeEstimated').textContent = parseFloat(data.summary.total_income_estimated).toFixed(2);
+            document.getElementById('deleteIncomeRealized').textContent = parseFloat(data.summary.total_income_realized).toFixed(2);
+            document.getElementById('deleteExpenseEstimated').textContent = parseFloat(data.summary.total_expense_estimated).toFixed(2);
+            document.getElementById('deleteExpenseRealized').textContent = parseFloat(data.summary.total_expense_realized).toFixed(2);
+        } else {
+            console.error('[DeletePeriod] Error fetching details:', data.error);
+            // Show error in modal
+            if (loadingDiv) loadingDiv.classList.add('hidden');
+            if (detailsDiv) {
+                detailsDiv.classList.remove('hidden');
+                document.getElementById('deletePeriodLabel').textContent = 'Error loading period';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('[DeletePeriod] Fetch error:', error);
+        // Show error in modal
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (detailsDiv) {
+            detailsDiv.classList.remove('hidden');
+            document.getElementById('deletePeriodLabel').textContent = 'Error loading period';
+        }
+    });
 };
 
 window.closeDeletePeriodModal = function () {
@@ -661,6 +721,18 @@ function initializeWebSocket() {
         }
     });
 
+    window.wsManager.registerHandler('flowgroup_created', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleFlowGroupCreated(data);
+        }
+    });
+
+    window.wsManager.registerHandler('flowgroup_deleted', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleFlowGroupDeleted(data);
+        }
+    });
+
     // Handle both 'notification' and 'notification_created' (backend uses both interchangeably)
     const notificationHandler = function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
@@ -675,6 +747,38 @@ function initializeWebSocket() {
 
     window.wsManager.registerHandler('notification', notificationHandler);
     window.wsManager.registerHandler('notification_created', notificationHandler);
+
+    // Handle period deletion broadcasts
+    window.wsManager.registerHandler('period_deleted', function (data) {
+        console.log('[WebSocket] Period deleted:', data);
+        
+        // Check if user is currently viewing the deleted period
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPeriod = urlParams.get('period');
+        
+        if (currentPeriod === data.data.period_start) {
+            // User is viewing the deleted period, show modal and redirect
+            // REMOVED currentUserId check - show to all tabs viewing this period
+            if (window.GenericModal) {
+                window.GenericModal.show({
+                    title: window.MODAL_I18N?.warning || 'Period Deleted',
+                    message: data.data.message || 'This period has been deleted or cleared by another user.',
+                    type: 'warning',
+                    buttons: [{
+                        text: window.MODAL_I18N?.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            // Redirect to dashboard without period parameter
+                            window.location.href = '/';
+                        }
+                    }]
+                });
+            } else {
+                alert(data.data.message || 'This period has been deleted.');
+                window.location.href = '/';
+            }
+        }
+    });
 
     console.log('[WebSocket] Initialization complete');
 }
