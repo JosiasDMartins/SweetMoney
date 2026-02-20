@@ -1,1 +1,1 @@
-# Django management commands
+# finances/management/commands/__init__.py

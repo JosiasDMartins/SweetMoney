@@ -191,7 +191,7 @@ def dashboard_view(request):
     if member_role_for_period == 'CHILD':
         child_manual_sum = Transaction.objects.filter(
             flow_group__group_type=FLOW_TYPE_INCOME,
-            date__range=(start_date, end_date),
+            flow_group__period_start_date=start_date,
             member=current_member,
             is_child_manual_income=True
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
@@ -199,7 +199,9 @@ def dashboard_view(request):
         child_manual_income_total = Decimal(str(child_manual_sum.amount)) if hasattr(child_manual_sum, 'amount') else child_manual_sum
         child_can_create_groups = child_manual_income_total > Decimal('0.00')
 
-    periods_history = get_periods_history(family, start_date)
+    # Trend chart should always be based on actual current period (today), not selected period
+    actual_current_start, _, _ = get_current_period_dates(family, None)
+    periods_history = get_periods_history(family, actual_current_start)
     ytd_metrics = get_year_to_date_metrics(family, end_date, current_member)
 
     context = {
@@ -775,7 +777,7 @@ def create_flow_group_view(request):
                 child_manual_sum = Transaction.objects.filter(
                     flow_group__group_type=FLOW_TYPE_INCOME,
                     flow_group__family=family,
-                    date__range=(start_date, end_date),
+                    flow_group__period_start_date=start_date,
                     member=current_member,
                     is_child_manual_income=True
                 ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
@@ -799,37 +801,26 @@ def create_flow_group_view(request):
             
             flow_group.save()
 
-            # Real-time WebSocket broadcast for FlowGroup creation
-            try:
-                from ..websocket_utils import WebSocketBroadcaster
-                WebSocketBroadcaster.broadcast_to_family(
-                    family_id=family.id,
-                    message_type='flowgroup_created',
-                    data={
-                        'id': flow_group.id,
-                        'name': flow_group.name,
-                        'budgeted_amount': str(flow_group.budgeted_amount.amount) if flow_group.budgeted_amount else '0.00',
-                        'currency': flow_group.budgeted_amount.currency.code if flow_group.budgeted_amount else '',
-                        'order': flow_group.order,
-                        'is_shared': flow_group.is_shared,
-                        'is_kids_group': flow_group.is_kids_group,
-                        'is_investment': flow_group.is_investment,
-                        'is_credit_card': flow_group.is_credit_card,
-                    },
-                    actor_user=request.user
-                )
-            except Exception as e:
-                print(f"[WebSocket] Broadcast error on FlowGroup creation: {e}")
-
             config = getattr(family, 'configuration', None)
             if config:
                 ensure_period_exists(family, start_date, end_date, config.period_type)
-            
+
             if current_member.role == 'CHILD':
                 parents_admins = FamilyMember.objects.filter(family=family, role__in=['ADMIN', 'PARENT'])
                 flow_group.assigned_members.set(parents_admins)
             else:
                 form.save_m2m()
+
+            # Real-time WebSocket broadcast for FlowGroup creation
+            # CRITICAL: Send AFTER saving M2M relationships so assigned_members/assigned_children are included
+            try:
+                from ..websocket_utils import WebSocketBroadcaster
+                WebSocketBroadcaster.broadcast_flowgroup_updated(
+                    flowgroup=flow_group,
+                    actor_user=request.user
+                )
+            except Exception as e:
+                print(f"[WebSocket] Broadcast error on FlowGroup creation: {e}")
 
             messages.success(request, _("Flow Group '%(name)s' created.") % {'name': flow_group.name})
             redirect_url = f"?period={start_date.strftime('%Y-%m-%d')}"
@@ -844,10 +835,10 @@ def create_flow_group_view(request):
         child_sum = Transaction.objects.filter(
             flow_group__group_type=FLOW_TYPE_INCOME,
             flow_group__family=family,
-            date__range=(start_date, end_date),
+            flow_group__period_start_date=start_date,
             member=current_member,
             is_child_manual_income=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.GET')
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         child_max_budget = Decimal(str(child_sum.amount)) if hasattr(child_sum, 'amount') else child_sum
 
@@ -857,6 +848,7 @@ def create_flow_group_view(request):
         'is_new': True,
         'family_members': family_members,
         'current_member': current_member,
+        'current_user_id': request.user.id,  # Current user ID for comparison
         'today_date': default_date.strftime('%Y-%m-%d'),
         'start_date': start_date,
         'end_date': end_date,
@@ -1003,9 +995,11 @@ def edit_flow_group_view(request, group_id):
         'form': form,
         'is_new': False,
         'flow_group': group,
+        'flow_group_owner': group.owner,  # Owner of the FlowGroup
         'transactions': transactions,
         'family_members': family_members,
         'current_member': current_member,
+        'current_user_id': request.user.id,  # Current user ID for comparison
         'today_date': default_date.strftime('%Y-%m-%d'),
         'total_estimated': total_estimated,
         'total_realized': total_realized,
@@ -1301,7 +1295,7 @@ def investments_view(request):
     investment_balance = Transaction.objects.filter(
         flow_group__family=family,
         flow_group__is_investment=True,
-        date__range=(year_start, end_date),
+        flow_group__period_start_date__range=(year_start, end_date),
         realized=True
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 

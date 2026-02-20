@@ -203,6 +203,35 @@ def user_profile_view(request):
                 update_session_auth_hash(request, request.user)
                 messages.success(request, _('Password changed successfully.'))
 
+        elif action == 'update_email_notifications':
+            email_notifications_enabled = request.POST.get('email_notifications_enabled') == 'on'
+            request.user.email_notifications_enabled = email_notifications_enabled
+
+            if email_notifications_enabled:
+                request.user.email_notify_overdue = request.POST.get('email_notify_overdue') == 'on'
+                request.user.email_notify_overbudget = request.POST.get('email_notify_overbudget') == 'on'
+                request.user.email_notify_new_transaction = request.POST.get('email_notify_new_transaction') == 'on'
+
+                # Save days_before setting to FamilyMember (not User)
+                days_before_str = request.POST.get('email_notify_overdue_days_before', '0').strip()
+                try:
+                    days_before = int(days_before_str)
+                    if days_before < 0:
+                        days_before = 0
+                    elif days_before > 30:
+                        days_before = 30
+                    current_member.email_notify_overdue_days_before = days_before
+                    current_member.save()
+                except (ValueError, TypeError):
+                    messages.error(request, _('Invalid value for days before. Must be a number between 0 and 30.'))
+            else:
+                request.user.email_notify_overdue = False
+                request.user.email_notify_overbudget = False
+                request.user.email_notify_new_transaction = False
+
+            request.user.save()
+            messages.success(request, _('Notification preferences updated successfully.'))
+
         elif action == 'change_language':
             language = request.POST.get('language', '').strip()
             valid_languages = ['en', 'pt-br']

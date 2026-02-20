@@ -185,6 +185,7 @@ class WebSocketBroadcaster:
             data={
                 'id': flowgroup.id,
                 'name': flowgroup.name,
+                'owner_id': flowgroup.owner_id if hasattr(flowgroup, 'owner_id') else None,  # For accessibility check
                 'budgeted_amount': str(flowgroup.budgeted_amount.amount) if flowgroup.budgeted_amount else '0.00',
                 'currency': flowgroup.budgeted_amount.currency.code if flowgroup.budgeted_amount else '',
                 'total_estimated': str(estimated_total),

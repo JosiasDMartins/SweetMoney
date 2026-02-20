@@ -272,18 +272,44 @@ function handleCreatePeriodSubmit(e) {
     })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                // Redirect to the new period
-                window.location.href = data.redirect_url;
+            console.log('[CreatePeriod] Response:', data);
+            
+            // Backend returns status: 'success' or status: 'error'
+            if (data.status === 'success') {
+                // Close the creation modal
+                window.closeCreatePeriodModal();
+                
+                // Show success message using GenericModal
+                if (window.GenericModal) {
+                    window.GenericModal.show({
+                        title: window.MODAL_I18N.success || 'Success',
+                        message: data.message || 'Period created successfully',
+                        type: 'success',
+                        buttons: [{
+                            text: window.MODAL_I18N.ok || 'OK',
+                            primary: true,
+                            onClick: function() {
+                                // Reload page to refresh period selector
+                                window.location.reload();
+                            }
+                        }]
+                    });
+                } else {
+                    alert(data.message || 'Period created successfully');
+                    window.location.reload();
+                }
             } else {
-                alert(window.PERIOD_I18N.errorCreating + ': ' + data.error);
+                // Error case
+                const errorMsg = data.error || data.message || 'Unknown error';
+                console.error('[CreatePeriod] Error response:', data);
+                alert(window.PERIOD_I18N.errorCreating + ': ' + errorMsg);
                 createBtn.disabled = false;
                 createBtn.textContent = window.MODAL_I18N.continue;
             }
         })
         .catch(error => {
             console.error('Error creating period:', error);
-            alert(window.PERIOD_I18N.errorCreating);
+            alert(window.PERIOD_I18N.errorCreating + ': ' + (error.message || 'Network error'));
             createBtn.disabled = false;
             createBtn.textContent = window.MODAL_I18N.continue;
         });
@@ -296,10 +322,86 @@ function initializeDeletePeriodModal() {
 }
 
 // Exposed globally for event_delegation.js
-window.openDeletePeriodModal = function (periodId) {
+window.openDeletePeriodModal = function () {
     const modal = document.getElementById('deletePeriodModal');
+    const loadingDiv = document.getElementById('deletePeriodLoading');
+    const detailsDiv = document.getElementById('deletePeriodDetails');
+    
+    // Show loading state
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
+    if (detailsDiv) detailsDiv.classList.add('hidden');
+    
     modal.classList.remove('hidden');
-    modal.dataset.periodId = periodId;
+    
+    // Get current period from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const periodStart = urlParams.get('period');
+    
+    if (!periodStart) {
+        // No period selected, show error
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (detailsDiv) {
+            detailsDiv.classList.remove('hidden');
+            document.getElementById('deletePeriodLabel').textContent = 'No period selected';
+        }
+        return;
+    }
+    
+    // Fetch period details
+    fetch(`/api/period/details/?period_start=${encodeURIComponent(periodStart)}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Hide loading, show details
+            if (loadingDiv) loadingDiv.classList.add('hidden');
+            if (detailsDiv) detailsDiv.classList.remove('hidden');
+            
+            // Populate period info
+            const periodLabel = document.getElementById('deletePeriodLabel');
+            if (periodLabel) {
+                periodLabel.textContent = data.period.label;
+            }
+            
+            // Populate summary counts
+            document.getElementById('deleteFlowGroupCount').textContent = data.summary.flow_group_count;
+            document.getElementById('deleteTransactionCount').textContent = data.summary.transaction_count;
+            
+            // Populate metrics with currency symbol
+            const currencySymbol = data.summary.currency_symbol;
+            document.getElementById('deleteCurrencySymbol1').textContent = currencySymbol;
+            document.getElementById('deleteCurrencySymbol2').textContent = currencySymbol;
+            document.getElementById('deleteCurrencySymbol3').textContent = currencySymbol;
+            document.getElementById('deleteCurrencySymbol4').textContent = currencySymbol;
+            
+            // Format and populate amounts
+            document.getElementById('deleteIncomeEstimated').textContent = parseFloat(data.summary.total_income_estimated).toFixed(2);
+            document.getElementById('deleteIncomeRealized').textContent = parseFloat(data.summary.total_income_realized).toFixed(2);
+            document.getElementById('deleteExpenseEstimated').textContent = parseFloat(data.summary.total_expense_estimated).toFixed(2);
+            document.getElementById('deleteExpenseRealized').textContent = parseFloat(data.summary.total_expense_realized).toFixed(2);
+        } else {
+            console.error('[DeletePeriod] Error fetching details:', data.error);
+            // Show error in modal
+            if (loadingDiv) loadingDiv.classList.add('hidden');
+            if (detailsDiv) {
+                detailsDiv.classList.remove('hidden');
+                document.getElementById('deletePeriodLabel').textContent = 'Error loading period';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('[DeletePeriod] Fetch error:', error);
+        // Show error in modal
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (detailsDiv) {
+            detailsDiv.classList.remove('hidden');
+            document.getElementById('deletePeriodLabel').textContent = 'Error loading period';
+        }
+    });
 };
 
 window.closeDeletePeriodModal = function () {
@@ -309,51 +411,66 @@ window.closeDeletePeriodModal = function () {
 };
 
 window.confirmDeletePeriod = function () {
-    const modal = document.getElementById('deletePeriodModal');
-    const periodId = modal.dataset.periodId;
-    const confirmBtn = document.getElementById('confirmDeletePeriodBtn');
-    const deleteButtonText = confirmBtn.querySelector('#deleteButtonText');
-    const deleteButtonIcon = confirmBtn.querySelector('#deleteButtonIcon');
-
-    if (!periodId) {
-        console.error('No period ID found');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const deleteButtonText = document.getElementById('deleteButtonText');
+    
+    if (!confirmBtn) {
+        console.error('[DeletePeriod] Confirm button not found');
         return;
     }
 
+    // Get current period start date from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const periodStart = urlParams.get('period');
+    
+    if (!periodStart) {
+        console.error('[DeletePeriod] No period parameter in URL - cannot determine which period to delete');
+        alert(window.PERIOD_I18N.errorDeleting + ': ' + 'No period selected. Please select a period from the dropdown first.');
+        confirmBtn.disabled = false;
+        return;
+    }
+
+    console.log('[DeletePeriod] Deleting period:', periodStart);
+
     // Disable button and show loading state
-    const originalText = deleteButtonText.textContent;
+    const originalText = deleteButtonText ? deleteButtonText.textContent : 'Delete Period';
     confirmBtn.disabled = true;
     confirmBtn.style.cursor = 'wait';
-    deleteButtonText.textContent = window.PERIOD_I18N.deleting;
-    deleteButtonIcon.textContent = 'progress_activity';
-    deleteButtonIcon.classList.add('animate-spin');
+    if (deleteButtonText) {
+        deleteButtonText.textContent = window.PERIOD_I18N.deleting || 'Deleting...';
+    }
 
-    fetch(`/api/period/${periodId}/delete/`, {
-        method: 'DELETE',
+    fetch('/api/period/delete/', {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCookie('csrftoken')
-        }
+        },
+        body: JSON.stringify({
+            period_start: periodStart
+        })
     })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                // Redirect to the default period or home
-                window.location.href = data.redirect_url || '/';
+            if (data.status === 'success') {
+                // Redirect to home/dashboard
+                window.location.href = data.redirect || '/';
             } else {
-                alert(window.PERIOD_I18N.errorDeleting + ': ' + data.error);
+                alert(window.PERIOD_I18N.errorDeleting + ': ' + (data.error || 'Unknown error'));
                 confirmBtn.disabled = false;
-                deleteButtonText.textContent = originalText;
-                deleteButtonIcon.textContent = 'delete';
-                deleteButtonIcon.classList.remove('animate-spin');
+                if (deleteButtonText) {
+                    deleteButtonText.textContent = originalText;
+                }
                 confirmBtn.style.cursor = 'pointer';
             }
         })
         .catch(error => {
             console.error('Error deleting period:', error);
-            alert(window.PERIOD_I18N.errorDeleting);
+            alert(window.PERIOD_I18N.errorDeleting + ': ' + (error.message || 'Network error'));
             confirmBtn.disabled = false;
-            confirmBtn.querySelector('#deleteButtonText').textContent = originalText;
+            if (deleteButtonText) {
+                deleteButtonText.textContent = originalText;
+            }
             confirmBtn.style.cursor = 'pointer';
         });
 };
@@ -512,8 +629,6 @@ function initializeWebSocket() {
     }
 
     // CRITICAL: Do NOT initialize WebSocket on configuration pages
-    // Database restore operations need exclusive access to the DB file
-    // WebSocket connections create locks that prevent file operations on Windows
     const currentPath = window.location.pathname;
     const isConfigPage = currentPath.includes('/configurations') || currentPath.includes('/settings');
 
@@ -523,19 +638,32 @@ function initializeWebSocket() {
     }
 
     // Store current user ID for comparison in RealtimeUI
-    document.body.dataset.userId = window.USER_ID;
+    // Ensure window.USER_ID is globally available and synced to body dataset
+    if (typeof window.USER_ID === 'undefined') {
+        const config = document.getElementById('base-config');
+        window.USER_ID = config?.dataset?.userId || '';
+    }
+    document.body.dataset.userId = window.USER_ID || '';
 
-    // Create WebSocket manager instance (defined in websocket_manager.js)
+    // Create or get WebSocket manager instance
     if (typeof WebSocketManager === 'undefined') {
         console.warn('[WebSocket] WebSocketManager not loaded');
         return;
     }
 
-    const wsManager = new WebSocketManager();
-    wsManager.connect();
+    // Ensure we only have ONE instance globally
+    if (!window.wsManager) {
+        console.log('[WebSocket] Creating new WebSocketManager instance');
+        window.wsManager = new WebSocketManager();
+    } else {
+        console.log('[WebSocket] Using existing WebSocketManager instance');
+    }
+
+    // Connect if not already connected
+    window.wsManager.connect();
 
     // Show connection status indicator (optional)
-    wsManager.onConnectionStatus(function (status) {
+    window.wsManager.onConnectionStatus(function (status) {
         const indicator = document.getElementById('ws-status-indicator');
         if (indicator) {
             indicator.className = 'ws-' + status;
@@ -544,42 +672,115 @@ function initializeWebSocket() {
     });
 
     // Register message handlers for real-time updates
-    wsManager.registerHandler('transaction_created', function (data) {
+    // Note: wsManager.registerHandler only adds if not already present or replaces
+    window.wsManager.registerHandler('transaction_created', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionCreated(data);
         }
     });
 
-    wsManager.registerHandler('transaction_updated', function (data) {
+    window.wsManager.registerHandler('transaction_updated', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionUpdated(data);
         }
     });
 
-    wsManager.registerHandler('transaction_deleted', function (data) {
+    window.wsManager.registerHandler('transaction_deleted', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionDeleted(data);
         }
     });
 
-    wsManager.registerHandler('flowgroup_updated', function (data) {
+    window.wsManager.registerHandler('flowgroup_updated', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleFlowGroupUpdated(data);
         }
     });
 
-    wsManager.registerHandler('balance_updated', function (data) {
+    window.wsManager.registerHandler('balance_updated', function (data) {
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleBalanceUpdated(data);
         }
     });
 
-    wsManager.registerHandler('notification', function (data) {
-        // Trigger custom event for notifications.js to handle
-        document.dispatchEvent(new CustomEvent('realtime:notification', {
-            detail: { data: data }
-        }));
+    window.wsManager.registerHandler('bank_balance_updated', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleBankBalanceUpdated(data);
+        }
     });
+
+    window.wsManager.registerHandler('bank_balance_deleted', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleBankBalanceDeleted(data);
+        }
+    });
+
+    window.wsManager.registerHandler('reconciliation_mode_changed', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleReconciliationModeChanged(data);
+        }
+    });
+
+    window.wsManager.registerHandler('flowgroup_created', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleFlowGroupCreated(data);
+        }
+    });
+
+    window.wsManager.registerHandler('flowgroup_deleted', function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleFlowGroupDeleted(data);
+        }
+    });
+
+    // Handle both 'notification' and 'notification_created' (backend uses both interchangeably)
+    const notificationHandler = function (data) {
+        if (typeof window.RealtimeUI !== 'undefined') {
+            window.RealtimeUI.handleNotification(data);
+        } else {
+            // Fallback for pages without RealtimeUI
+            document.dispatchEvent(new CustomEvent('realtime:notification', {
+                detail: { data: data }
+            }));
+        }
+    };
+
+    window.wsManager.registerHandler('notification', notificationHandler);
+    window.wsManager.registerHandler('notification_created', notificationHandler);
+
+    // Handle period deletion broadcasts
+    window.wsManager.registerHandler('period_deleted', function (data) {
+        console.log('[WebSocket] Period deleted:', data);
+        
+        // Check if user is currently viewing the deleted period
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPeriod = urlParams.get('period');
+        
+        if (currentPeriod === data.data.period_start) {
+            // User is viewing the deleted period, show modal and redirect
+            // REMOVED currentUserId check - show to all tabs viewing this period
+            if (window.GenericModal) {
+                window.GenericModal.show({
+                    title: window.MODAL_I18N?.warning || 'Period Deleted',
+                    message: data.data.message || 'This period has been deleted or cleared by another user.',
+                    type: 'warning',
+                    buttons: [{
+                        text: window.MODAL_I18N?.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            // Redirect to dashboard without period parameter
+                            window.location.href = '/';
+                        }
+                    }]
+                });
+            } else {
+                alert(data.data.message || 'This period has been deleted.');
+                window.location.href = '/';
+            }
+        }
+    });
+
+    console.log('[WebSocket] Initialization complete');
 }
 
 // ===== 11. UI COMPONENTS (Sidebar, Period Dropdown) - Phase 4 =====

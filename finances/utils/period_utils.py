@@ -477,7 +477,7 @@ def current_period_has_data(family):
 
     return Transaction.objects.filter(
         flow_group__family=family,
-        date__range=(current_start, current_end)
+        flow_group__period_start_date=current_start
     ).exists()
 
 

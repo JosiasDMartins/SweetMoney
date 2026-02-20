@@ -66,6 +66,15 @@ function initBankReconciliation() {
 
     // Initialize real-time listeners
     initRealtimeListeners();
+
+    // Initialize calculator for amount fields
+    if (window.FinancesCalculator) {
+        window.FinancesCalculator.init('.cell-amount-edit');
+        console.log('[BankReconciliation] Calculator initialized');
+    }
+
+    // Mobile keyboard handling
+    initMobileKeyboardHandling();
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -73,20 +82,44 @@ function initBankReconciliation() {
 // getCookie, applyMoneyMask, getRawValue, formatCurrency - using utils.js
 
 function initMoneyMask() {
+    const selector = '.cell-amount-edit';
+
+    // Helper to capture cursor state before any modification (Android cursor fix)
+    const captureBeforeState = (input) => {
+        input.setAttribute('data-before-cursor', input.selectionStart.toString());
+        input.setAttribute('data-before-value', input.value);
+    };
+
+    // Capture state on keydown (fires before value changes)
+    document.addEventListener('keydown', function(event) {
+        if (event.target.matches(selector)) {
+            captureBeforeState(event.target);
+        }
+    });
+
+    // Capture state on touchstart (for mobile touch before keyboard input)
+    document.addEventListener('touchstart', function(event) {
+        if (event.target.matches(selector)) {
+            captureBeforeState(event.target);
+        }
+    }, { passive: true });
+
     // Input event listener
     document.addEventListener('input', function(event) {
-        if (event.target.matches('.cell-amount-edit')) {
+        if (event.target.matches(selector)) {
             applyMoneyMask(event, window.thousandSeparator, window.decimalSeparator);
         }
     });
 
     // Focus event listener
     document.addEventListener('focus', function(event) {
-        if (event.target.matches('.cell-amount-edit')) {
+        if (event.target.matches(selector)) {
+            captureBeforeState(event.target);
             if (!event.target.hasAttribute('data-first-focus-done')) {
                 event.target.setAttribute('data-first-focus-done', 'true');
                 setTimeout(function() {
                     event.target.setSelectionRange(event.target.value.length, event.target.value.length);
+                    captureBeforeState(event.target);
                 }, 0);
             }
         }
@@ -94,7 +127,7 @@ function initMoneyMask() {
 
     // Blur event listener
     document.addEventListener('blur', function(event) {
-        if (event.target.matches('.cell-amount-edit')) {
+        if (event.target.matches(selector)) {
             event.target.removeAttribute('data-first-focus-done');
         }
     }, true);
@@ -166,11 +199,38 @@ window.toggleEditBalance = function(rowId, edit) {
     editElements.forEach(el => el.classList.toggle('hidden', !edit));
 
     if (edit) {
+        // CRITICAL: Restore input values from display values when entering edit mode
+        // This ensures we always edit the saved value, not a cached/stale value
+        const descDisplay = row.querySelector('.cell-description-display');
+        const descInput = row.querySelector('.cell-description-edit');
+        if (descDisplay && descInput) {
+            descInput.value = descDisplay.textContent.trim();
+        }
+
+        const amountDisplay = row.querySelector('.cell-amount-display');
         const amountInput = row.querySelector('.cell-amount-edit');
-        if (amountInput) {
-            // Use standard utils functions to safely sanitize and format
-            const rawValue = getRawValue(amountInput.value, window.thousandSeparator, window.decimalSeparator);
-            amountInput.value = formatAmountForInput(rawValue, window.thousandSeparator, window.decimalSeparator);
+        if (amountDisplay && amountInput) {
+            // Get the amount text and remove currency symbol
+            const amountText = amountDisplay.textContent.trim();
+            const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
+            amountInput.value = formatAmountForInput(getRawValue(numericPart, window.thousandSeparator, window.decimalSeparator), window.thousandSeparator, window.decimalSeparator);
+        }
+
+        const dateInput = row.querySelector('.cell-date-edit');
+        if (dateInput) {
+            const fullDate = row.getAttribute('data-date');
+            if (fullDate) {
+                dateInput.value = fullDate;
+            }
+        }
+
+        const memberDisplay = row.querySelector('.cell-member-display');
+        const memberSelect = row.querySelector('.cell-member-edit');
+        if (memberDisplay && memberSelect) {
+            const memberId = memberDisplay.getAttribute('data-member-id');
+            if (memberId) {
+                memberSelect.value = memberId;
+            }
         }
     }
 };
@@ -588,6 +648,7 @@ window.BankReconciliationRealtime = {
         tr.id = `balance-row-${data.id}`;
         tr.dataset.balanceId = data.id;
         tr.dataset.mode = 'display';
+        tr.dataset.date = data.date;
         tr.style.backgroundColor = 'rgba(34, 197, 94, 0.1)'; // Highlight new row
 
         // Escape function
@@ -766,6 +827,35 @@ function initRealtimeListeners() {
     });
 
     console.log('[BankReconciliation] Real-time listeners initialized');
+}
+
+// Mobile keyboard handling - scroll input into view when keyboard opens
+function initMobileKeyboardHandling() {
+    if (window.innerWidth > 768) return;
+
+    document.addEventListener('focus', function(e) {
+        const input = e.target;
+        if (!input.matches('input, select, textarea')) return;
+
+        setTimeout(() => {
+            if (window.visualViewport) {
+                const keyboardHeight = window.innerHeight - window.visualViewport.height;
+                if (keyboardHeight > 50) {
+                    input.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'nearest'
+                    });
+                }
+            } else {
+                input.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'nearest'
+                });
+            }
+        }, 300);
+    }, true);
 }
 
 console.log('[BankReconciliation.js] Loaded successfully');

@@ -89,10 +89,16 @@ class EventDelegationManager {
                 }
             },
             'cancel': () => {
-                if (typeof window.toggleEditMode === 'function') {
+                // Use cancelEditIncome for income items, cancelEdit for expenses
+                if (typeof window.cancelEditIncome === 'function' && rowId && rowId.includes('income')) {
+                    window.cancelEditIncome(rowId);
+                } else if (typeof window.cancelEdit === 'function') {
+                    window.cancelEdit(rowId);
+                } else if (typeof window.toggleEditMode === 'function') {
+                    // Fallback for backwards compatibility
                     window.toggleEditMode(rowId, false);
                 } else {
-                    console.error('[EventDelegation] window.toggleEditMode is not defined');
+                    console.error('[EventDelegation] No cancel function available');
                 }
             },
 

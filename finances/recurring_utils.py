@@ -10,13 +10,40 @@ from django.db.models import Q
 from .models import FlowGroup, Transaction
 
 
+def _get_previous_period_date(family, current_period_start):
+    """
+    Gets the start date of the immediate previous period from the database.
+
+    This looks at actual FlowGroup records to find the most recent period
+    that exists before the current period, regardless of configuration changes.
+
+    Args:
+        family: Family instance
+        current_period_start: date object for current period start
+
+    Returns:
+        date object for the previous period start, or None if no previous period exists
+    """
+    # Find the most recent period start date that is before the current period
+    # This looks at actual FlowGroup records, not calculated periods
+    previous_period = FlowGroup.objects.filter(
+        family=family,
+        period_start_date__lt=current_period_start
+    ).order_by('-period_start_date').values_list('period_start_date', flat=True).first()
+
+    return previous_period
+
+
 def ensure_recurring_data_for_period(family, period_start_date):
     """
     Ensures that recurring FlowGroups and fixed transactions exist for the given period.
-    If they don't exist, creates them from the most recent previous period.
+    If they don't exist, creates them from the IMMEDIATE previous period only.
 
     This is called when accessing a period to make sure recurring data is up to date.
     Only creates data if it doesn't already exist (idempotent).
+
+    IMPORTANT: Only checks the IMMEDIATE previous period for performance.
+    Recurring status must be maintained across periods by unmarking when deletion occurs.
 
     Args:
         family: Family instance
@@ -30,12 +57,22 @@ def ensure_recurring_data_for_period(family, period_start_date):
         }
     """
 
-    # Check if there are any recurring groups from previous periods
+    # Calculate the IMMEDIATE previous period date
+    previous_period_date = _get_previous_period_date(family, period_start_date)
+
+    if not previous_period_date:
+        return {
+            'groups_created': 0,
+            'transactions_created': 0,
+            'already_existed': True
+        }
+
+    # Check if there are any recurring groups from the IMMEDIATE previous period only
     previous_recurring_groups = FlowGroup.objects.filter(
         family=family,
-        period_start_date__lt=period_start_date,
+        period_start_date=previous_period_date,
         is_recurring=True
-    ).order_by('-period_start_date')
+    )
 
     if not previous_recurring_groups.exists():
         return {
@@ -52,17 +89,12 @@ def ensure_recurring_data_for_period(family, period_start_date):
         ).values_list('name', flat=True)
     )
 
-    # Find the most recent version of each recurring group
-    seen_groups = set()
-    groups_to_check = []
-
-    for group in previous_recurring_groups:
-        group_key = (group.name, group.group_type)
-        if group_key not in seen_groups:
-            seen_groups.add(group_key)
-            # Only add if doesn't exist in current period
-            if group.name not in existing_group_names:
-                groups_to_check.append(group)
+    # Only process groups from the immediate previous period
+    # that don't already exist in the current period
+    groups_to_check = [
+        group for group in previous_recurring_groups
+        if group.name not in existing_group_names
+    ]
 
     if not groups_to_check:
         return {

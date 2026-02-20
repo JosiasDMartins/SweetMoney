@@ -15,9 +15,13 @@
         const num = parseFloat(amount);
         if (isNaN(num)) return currencySymbol + '0' + decimalSeparator + '00';
 
+        // Check if value is negative BEFORE using Math.abs()
+        const isNegative = num < 0;
+
         const parts = Math.abs(num).toFixed(2).split('.');
         const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
-        return currencySymbol + integerPart + decimalSeparator + parts[1];
+        // Format as "CA$ -5,00" for negative, "CA$ 5,00" for positive
+        return currencySymbol + ' ' + (isNegative ? '-' : '') + integerPart + decimalSeparator + parts[1];
     }
 
     // Dashboard Real-time Updates Namespace
@@ -298,9 +302,10 @@
             const dragIcon = createEl('span', 'material-symbols-outlined text-gray-400 dark:text-gray-500 drag-handle-income cursor-grab active:cursor-grabbing', 'drag_indicator');
             const saveBtn = document.createElement('button');
             saveBtn.type = 'button';
+            saveBtn.dataset.action = 'save';
+            saveBtn.dataset.itemId = itemId;
             saveBtn.className = 'edit-save-icon-income';
             saveBtn.style.display = 'none';
-            saveBtn.onclick = () => saveItem(itemId);
             saveBtn.appendChild(createEl('span', 'material-symbols-outlined text-green-500 text-2xl', 'check_circle'));
             td1.appendChild(dragIcon);
             td1.appendChild(saveBtn);
@@ -352,13 +357,15 @@
             const mobileActions = createEl('div', 'mobile-actions-btns-income');
             const mobileEditBtn = document.createElement('button');
             mobileEditBtn.type = 'button';
+            mobileEditBtn.dataset.action = 'edit';
+            mobileEditBtn.dataset.itemId = itemId;
             mobileEditBtn.className = 'mobile-action-btn-income edit-btn-income';
-            mobileEditBtn.onclick = () => toggleEditMode(itemId, true);
             mobileEditBtn.appendChild(createEl('span', 'material-symbols-outlined', 'edit'));
             const mobileDeleteBtn = document.createElement('button');
             mobileDeleteBtn.type = 'button';
+            mobileDeleteBtn.dataset.action = 'delete';
+            mobileDeleteBtn.dataset.itemId = itemId;
             mobileDeleteBtn.className = 'mobile-action-btn-income delete-btn-income';
-            mobileDeleteBtn.onclick = () => deleteItem(itemId);
             mobileDeleteBtn.appendChild(createEl('span', 'material-symbols-outlined', 'delete'));
             mobileActions.appendChild(mobileEditBtn);
             mobileActions.appendChild(mobileDeleteBtn);
@@ -371,7 +378,8 @@
             const td5 = createEl('td', 'py-3 px-2 text-center mobile-hide-column');
             const toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
-            toggleBtn.onclick = () => toggleIncomeRealized(itemId);
+            toggleBtn.dataset.toggle = 'income-realized';
+            toggleBtn.dataset.itemId = itemId;
             toggleBtn.className = `income-realized-toggle relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer ${data.realized ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`;
             toggleBtn.appendChild(createEl('span', `absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full ${data.realized ? 'translate-x-4' : ''}`));
             td5.appendChild(toggleBtn);
@@ -381,13 +389,15 @@
             const actionsDisplay = createEl('div', 'actions-display flex justify-center gap-1');
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
+            editBtn.dataset.action = 'edit';
+            editBtn.dataset.itemId = itemId;
             editBtn.className = 'p-1 text-slate-500 hover:text-primary';
-            editBtn.onclick = () => toggleEditMode(itemId, true);
             editBtn.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'edit'));
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
+            deleteBtn.dataset.action = 'delete';
+            deleteBtn.dataset.itemId = itemId;
             deleteBtn.className = 'p-1 text-slate-500 hover:text-red-500';
-            deleteBtn.onclick = () => deleteItem(itemId);
             deleteBtn.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'delete'));
             actionsDisplay.appendChild(editBtn);
             actionsDisplay.appendChild(deleteBtn);
@@ -395,13 +405,15 @@
             const actionsEdit = createEl('div', 'actions-edit hidden flex justify-center gap-1');
             const saveBtn2 = document.createElement('button');
             saveBtn2.type = 'button';
+            saveBtn2.dataset.action = 'save';
+            saveBtn2.dataset.itemId = itemId;
             saveBtn2.className = 'p-1 text-primary hover:text-primary/80';
-            saveBtn2.onclick = () => saveItem(itemId);
             saveBtn2.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'check'));
             const cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
+            cancelBtn.dataset.action = 'cancel';
+            cancelBtn.dataset.itemId = itemId;
             cancelBtn.className = 'p-1 text-slate-500 hover:text-red-500';
-            cancelBtn.onclick = () => toggleEditMode(itemId, false);
             cancelBtn.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'close'));
             actionsEdit.appendChild(saveBtn2);
             actionsEdit.appendChild(cancelBtn);
@@ -567,10 +579,140 @@
             }
 
             try {
+                // DETERMINE ACCESSIBILITY for current user based on broadcast data
+                const memberRole = window.DASHBOARD_CONFIG?.memberRole || null;
+                const currentUserId = parseInt(document.getElementById('base-config')?.dataset?.userId || window.USER_ID || '0');
+                const assignedMembers = (flowgroupData.assigned_members || []).map(id => parseInt(id));
+                const assignedChildren = (flowgroupData.assigned_children || []).map(id => parseInt(id));
+                const isShared = flowgroupData.is_shared || false;
+                const isKidsGroup = flowgroupData.is_kids_group || false;
+                const ownerId = flowgroupData.owner_id ? parseInt(flowgroupData.owner_id) : null;
+
+                let isAccessible = false;
+
+                // Same logic as backend can_access_flow_group()
+                if (ownerId && currentUserId === ownerId) {
+                    isAccessible = true;
+                } else if (memberRole === 'ADMIN') {
+                    isAccessible = true;
+                } else if (memberRole === 'PARENT') {
+                    if (isShared && assignedMembers.includes(currentUserId)) {
+                        isAccessible = true;
+                    } else if (isKidsGroup) {
+                        isAccessible = true;
+                    }
+                } else if (memberRole === 'CHILD') {
+                    if (isKidsGroup && assignedChildren.includes(currentUserId)) {
+                        isAccessible = true;
+                    }
+                }
+
+                console.log('[Dashboard RT] Accessibility check:', {
+                    memberRole,
+                    currentUserId,
+                    ownerId,
+                    assignedMembers,
+                    assignedChildren,
+                    isShared,
+                    isKidsGroup,
+                    isAccessible
+                });
+
+                // UPDATE ACCESSIBILITY VISUAL STATE
+                const currentAccessible = row.dataset.accessible === 'true';
+
+                if (isAccessible !== currentAccessible) {
+                    console.log('[Dashboard RT] Accessibility changed, updating UI:', { from: currentAccessible, to: isAccessible });
+
+                    // Update data-accessible attribute
+                    row.dataset.accessible = isAccessible ? 'true' : 'false';
+
+                    // Update opacity-50 class on row
+                    if (isAccessible) {
+                        row.classList.remove('opacity-50');
+                        row.classList.add('group-row-clickable');
+                    } else {
+                        row.classList.add('opacity-50');
+                        row.classList.remove('group-row-clickable');
+                    }
+
+                    // Update or remove "No Access" badge
+                    const nameBadgeContainer = row.querySelector('td:nth-child(2) .flex.items-center.gap-2');
+                    if (nameBadgeContainer) {
+                        let noAccessBadge = nameBadgeContainer.querySelector('.bg-gray-200.dark\\:bg-gray-700');
+                        if (!isAccessible && !noAccessBadge) {
+                            // Add "No Access" badge
+                            const badge = document.createElement('span');
+                            badge.className = 'text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full mobile-hide-badge';
+                            badge.textContent = window.DASHBOARD_CONFIG?.i18n?.noAccess || 'No Access';
+                            nameBadgeContainer.appendChild(badge);
+                        } else if (isAccessible && noAccessBadge) {
+                            // Remove "No Access" badge
+                            noAccessBadge.remove();
+                        }
+                    }
+
+                    // Update name cell text color
+                    const nameCellText = row.querySelector('td:nth-child(2)');
+                    if (nameCellText) {
+                        if (isAccessible) {
+                            nameCellText.classList.remove('text-gray-400', 'dark:text-gray-500');
+                            nameCellText.classList.add('text-[#0d171b]', 'dark:text-white');
+                        } else {
+                            nameCellText.classList.remove('text-[#0d171b]', 'dark:text-white');
+                            nameCellText.classList.add('text-gray-400', 'dark:text-gray-500');
+                        }
+                    }
+
+                    // ATTACH OR REMOVE CLICK HANDLER based on accessibility
+                    if (isAccessible) {
+                        // Attach click handler if not already attached
+                        if (!row.dataset.clickHandlerAttached) {
+                            // Create named handler function so we can remove it later if needed
+                            const clickHandler = function(e) {
+                                // Don't navigate if clicking on drag handle
+                                if (e.target.closest('.drag-handle-cell') || e.target.closest('.drag-handle')) {
+                                    return;
+                                }
+
+                                const url = row.getAttribute('data-group-url');
+                                if (url) {
+                                    window.location.href = url;
+                                }
+                            };
+
+                            const hoverHandler = function(e) {
+                                if (!e.target.closest('.drag-handle-cell') && !e.target.closest('.drag-handle')) {
+                                    row.style.cursor = 'pointer';
+                                }
+                            };
+
+                            row.addEventListener('click', clickHandler);
+                            row.addEventListener('mouseover', hoverHandler);
+
+                            // Store reference to handlers for later removal
+                            row._flowGroupClickHandler = clickHandler;
+                            row._flowGroupHoverHandler = hoverHandler;
+                            row.dataset.clickHandlerAttached = 'true';
+                            console.log('[Dashboard RT] Click handler attached to FlowGroup:', flowgroupData.id);
+                        }
+                    } else {
+                        // Remove click handler if attached
+                        if (row._flowGroupClickHandler) {
+                            row.removeEventListener('click', row._flowGroupClickHandler);
+                            row.removeEventListener('mouseover', row._flowGroupHoverHandler);
+                            delete row._flowGroupClickHandler;
+                            delete row._flowGroupHoverHandler;
+                            delete row.dataset.clickHandlerAttached;
+                            console.log('[Dashboard RT] Click handler removed from FlowGroup:', flowgroupData.id);
+                        }
+                    }
+                }
+
                 // Update name (2nd column)
-                const nameCell = row.querySelector('td:nth-child(2) span');
-                if (nameCell) {
-                    nameCell.textContent = flowgroupData.name;
+                const nameSpan = row.querySelector('td:nth-child(2) .flex.items-center.gap-2 > span:first-child');
+                if (nameSpan) {
+                    nameSpan.textContent = flowgroupData.name;
                 }
 
                 // Use budget_warning from backend - NO frontend calculation!
@@ -585,10 +727,16 @@
                     estimatedCell.textContent = formattedEstimated;
                     estimatedCell.dataset.value = displayValue || '0.00';
 
-                    // Update CSS classes for budget warning
-                    estimatedCell.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-yellow-600', 'dark:text-yellow-500', 'font-semibold');
-                    if (hasBudgetWarning) {
+                    // Update CSS classes considering accessibility
+                    // Priority: child_group > budget_warning > not_accessible > default
+                    estimatedCell.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-yellow-600', 'dark:text-yellow-500', 'font-semibold', 'text-gray-400', 'dark:text-gray-500', 'font-medium');
+
+                    if (flowgroupData.is_kids_group) {
+                        estimatedCell.classList.add('font-medium');
+                    } else if (hasBudgetWarning) {
                         estimatedCell.classList.add('text-yellow-600', 'dark:text-yellow-500', 'font-semibold');
+                    } else if (!isAccessible) {
+                        estimatedCell.classList.add('text-gray-400', 'dark:text-gray-500');
                     } else {
                         estimatedCell.classList.add('text-gray-500', 'dark:text-gray-400');
                     }
@@ -628,6 +776,20 @@
                     const formattedRealized = formatCurrencyLocal(flowgroupData.total_realized || '0.00');
                     realizedCell.textContent = formattedRealized;
                     realizedCell.dataset.value = flowgroupData.total_realized || '0.00';
+
+                    // Update CSS classes considering accessibility
+                    // Priority: child_group > credit_card_pending > not_accessible > default
+                    realizedCell.classList.remove('text-red-600', 'dark:text-red-500', 'text-orange-600', 'dark:text-orange-500', 'font-semibold', 'text-gray-400', 'dark:text-gray-500', 'font-medium');
+
+                    if (flowgroupData.is_kids_group) {
+                        realizedCell.classList.add('font-medium');
+                    } else if (flowgroupData.is_credit_card && !flowgroupData.closed) {
+                        realizedCell.classList.add('text-orange-600', 'dark:text-orange-500', 'font-semibold');
+                    } else if (!isAccessible) {
+                        realizedCell.classList.add('text-gray-400', 'dark:text-gray-500');
+                    } else {
+                        realizedCell.classList.add('text-red-600', 'dark:text-red-500');
+                    }
                 }
 
                 // Highlight the updated row

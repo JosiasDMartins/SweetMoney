@@ -45,7 +45,8 @@
         const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
         const formattedValue = integerPart + decimalSeparator + parts[1];
 
-        return (num < 0 ? '-' : '') + currencySymbol + ' ' + formattedValue;
+        // Format as "CA$ -5,00" for negative, "CA$ 5,00" for positive
+        return currencySymbol + ' ' + (num < 0 ? '-' : '') + formattedValue;
     }
 
     /**

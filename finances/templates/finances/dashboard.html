@@ -13,6 +13,7 @@
      data-thousand-separator="{{ thousand_separator }}"
      data-currency-symbol="{{ currency_symbol }}"
      data-periods-history='{{ periods_history_json|safe }}'
+     data-income-commitment="{{ summary_totals.income_commitment|default:'0.0' }}"
      data-url-delete-item="{% url 'delete_flow_item_ajax' %}"
      data-url-save-item="{% url 'save_flow_item_ajax' %}"
      data-url-reorder-income="{% url 'reorder_income_items_ajax' %}"
@@ -31,6 +32,7 @@
      data-i18n-only-parents-change="{% trans 'Only Parents/Admins can change this status' %}"
      data-i18n-others="{% trans 'Others' %}"
      data-i18n-total-expenses="{% trans 'Total Expenses' %}"
+     data-i18n-investments="{% trans 'Investments' %}"
      data-i18n-trend="{% trans 'Trend' %}"
      data-i18n-over-budget="{% trans '⚠ Over budget' %}"
      data-i18n-no-expense-groups="{% trans 'No expense groups defined. Click \"Add Group\" to start.' %}">
@@ -438,15 +440,18 @@
                             <td id="balance-realized-result" class="py-4 px-4 text-sm {% if summary_totals.realized_result >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} font-bold">{{ currency_symbol }} {{ summary_totals.realized_result|default:"0.00"|intcomma }}</td>
                         </tr>
                     </tbody>
-                </table>             
+                </table>
+                <span id="balance-realized-investment" class="hidden">{{ summary_totals.total_realized_investment|default:"0.00" }}</span>
             </div>
-        </div> 
+        </div>
     </div>
 </div>
 
 <script src="{% static 'finances/js/chart.umd.min.js' %}" defer></script>
-<script src="{% static 'finances/js/dashboard.js' %}?v=20260125-001" defer></script>
-<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20260125-003" defer></script>
+<script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
+<script src="{% static 'finances/js/calculator.js' %}?v=20260219-3" defer></script>
+<script src="{% static 'finances/js/dashboard.js' %}?v=20260216-001" defer></script>
+<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20260219-6" defer></script>
 
 <!-- REMOVED INLINE SCRIPTS - CSP Phase 3 Complete -->
 <!-- All JavaScript code moved to external files for CSP compliance -->

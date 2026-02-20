@@ -29,6 +29,22 @@ class CustomUser(AbstractUser):
         ],
         help_text=_("User's preferred language")
     )
+    email_notifications_enabled = models.BooleanField(
+        default=False,
+        help_text=_("Enable email notifications")
+    )
+    email_notify_overdue = models.BooleanField(
+        default=False,
+        help_text=_("Receive email for overdue transactions")
+    )
+    email_notify_overbudget = models.BooleanField(
+        default=False,
+        help_text=_("Receive email for over budget alerts")
+    )
+    email_notify_new_transaction = models.BooleanField(
+        default=False,
+        help_text=_("Receive email for new transactions")
+    )
 
 # --- Core Finance Models ---
 
@@ -119,10 +135,18 @@ class FamilyMember(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='memberships')
     family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='members')
     role = models.CharField(max_length=10, choices=ROLES, default='PARENT')
-    
+
+    # Email notification: days before due date to send warning
+    # 0 = only when already overdue (current behavior)
+    # 1+ = send warning X days before due date
+    email_notify_overdue_days_before = models.IntegerField(
+        default=0,
+        help_text=_("Send overdue warning X days before due date (0 = only when already overdue)")
+    )
+
     class Meta:
         unique_together = ('user', 'family')
-        
+
     def __str__(self):
         return f"{self.user.username} ({self.get_role_display()}) in {self.family.name}"
 
@@ -428,6 +452,7 @@ class Notification(models.Model):
     """
     NOTIFICATION_TYPES = [
         ('OVERDUE', _('Overdue Transaction')),
+        ('OVERDUE_WARNING', _('Upcoming Due Date')),
         ('OVERBUDGET', _('Over Budget')),
         ('NEW_TRANSACTION', _('New Transaction')),
     ]
@@ -461,7 +486,28 @@ class Notification(models.Model):
     # Status control
     is_acknowledged = models.BooleanField(default=False)
     acknowledged_at = models.DateTimeField(null=True, blank=True)
-    
+
+    # Email tracking
+    last_email_sent_at = models.DateTimeField(null=True, blank=True)
+
+    # Email unsubscribe tracking
+    email_opted_out = models.BooleanField(
+        default=False,
+        help_text=_("User clicked 'stop receiving emails' for this notification")
+    )
+    email_opted_out_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When user opted out of emails for this notification")
+    )
+    unsubscribe_token = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text=_("Token for email unsubscribe link")
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -474,10 +520,36 @@ class Notification(models.Model):
         return f"{self.get_notification_type_display()} - {self.member.user.username} - {'Ack' if self.is_acknowledged else 'New'}"
     
     def acknowledge(self):
-        """Marca a notificação como reconhecida."""
+        """Marks notification as acknowledged."""
         self.is_acknowledged = True
         self.acknowledged_at = timezone.now()
         self.save()
+
+    def _generate_unsubscribe_token(self):
+        """
+        Generate a random unsubscribe token for this notification.
+        Uses secrets for cryptographically secure random tokens.
+        Can be called before save() (doesn't require self.id).
+        """
+        import secrets
+
+        # Generate 32 bytes (256 bits) of random data, hex encoded = 64 characters
+        return secrets.token_hex(32)
+
+    def verify_unsubscribe_token(self, token):
+        """
+        Verify unsubscribe token using constant-time comparison.
+        """
+        import hmac
+
+        expected = self.unsubscribe_token
+        return hmac.compare_digest(expected, token)
+
+    def save(self, *args, **kwargs):
+        # Generate token before first save to avoid second UPDATE inside atomic blocks
+        if not self.unsubscribe_token:
+            self.unsubscribe_token = self._generate_unsubscribe_token()
+        super().save(*args, **kwargs)
 
 
 class PasswordResetCode(models.Model):

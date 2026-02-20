@@ -107,29 +107,72 @@ def migrate_sqlite_to_postgres(sqlite_path):
         del settings.DATABASES[sqlite_db_alias]
         connections.close_all() # Important to close connections after settings change
 
-        # STEP 3.5: Clear existing PostgreSQL data before loading
-        logger.info(f"[DATA_MIGRATION] Clearing existing PostgreSQL database")
+        # STEP 3.5: Clear all data from PostgreSQL database before loading (keep structure)
+        logger.info(f"[DATA_MIGRATION] Clearing all data from PostgreSQL database")
         try:
-            from django.apps import apps
-            from django.db import transaction
+            import psycopg2
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+            from psycopg2 import sql
 
-            with transaction.atomic():
-                # Get all models from finances app in reverse dependency order
-                app_models = apps.get_app_config('finances').get_models()
+            # Get PostgreSQL connection parameters
+            db_config = settings.DATABASES['default']
+            db_name = db_config.get('NAME')
+            db_user = db_config.get('USER')
+            db_password = db_config.get('PASSWORD')
+            db_host = db_config.get('HOST', 'localhost')
+            db_port = db_config.get('PORT', '5432')
 
-                # Disable foreign key checks temporarily for PostgreSQL
-                with connection.cursor() as cursor:
-                    cursor.execute('SET CONSTRAINTS ALL DEFERRED;')
+            # Connect to PostgreSQL and clear all data
+            conn = psycopg2.connect(
+                dbname=db_name,
+                user=db_user,
+                password=db_password,
+                host=db_host,
+                port=db_port
+            )
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            cursor = conn.cursor()
 
-                # Delete all data from each model
-                for model in app_models:
-                    model_name = model.__name__
-                    count = model.objects.count()
-                    if count > 0:
-                        logger.info(f"[DATA_MIGRATION] Deleting {count} records from {model_name}")
-                        model.objects.all().delete()
+            # Clear all data by truncating all tables in public schema
+            # This keeps the table structure but removes all data
+            logger.info(f"[DATA_MIGRATION] Executing TRUNCATE on all tables")
 
-                logger.info(f"[DATA_MIGRATION] PostgreSQL database cleared successfully")
+            # Get all table names in public schema
+            cursor.execute("""
+                SELECT tablename
+                FROM pg_tables
+                WHERE schemaname = 'public'
+                ORDER BY tablename;
+            """)
+            tables = [row[0] for row in cursor.fetchall()]
+
+            if tables:
+                # Truncate all tables with CASCADE to handle foreign keys
+                cursor.execute(
+                    sql.SQL("TRUNCATE TABLE {} CASCADE;").format(
+                        sql.SQL(', ').join(sql.Identifier(table) for table in tables)
+                    )
+                )
+                logger.info(f"[DATA_MIGRATION] Truncated {len(tables)} tables")
+
+            # Also reset all sequences to start from 1
+            logger.info(f"[DATA_MIGRATION] Resetting all sequences")
+            cursor.execute("""
+                SELECT sequence_name
+                FROM information_schema.sequences
+                WHERE sequence_schema = 'public';
+            """)
+            sequences = [row[0] for row in cursor.fetchall()]
+
+            if sequences:
+                for seq in sequences:
+                    cursor.execute(sql.SQL("ALTER SEQUENCE {} RESTART WITH 1;").format(sql.Identifier(seq)))
+                logger.info(f"[DATA_MIGRATION] Reset {len(sequences)} sequences")
+
+            cursor.close()
+            conn.close()
+            logger.info(f"[DATA_MIGRATION] PostgreSQL database cleared successfully")
+
         except Exception as e:
             logger.error(f"[DATA_MIGRATION] Failed to clear PostgreSQL database: {e}")
             raise

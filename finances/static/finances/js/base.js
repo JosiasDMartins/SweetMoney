@@ -733,20 +733,10 @@ function initializeWebSocket() {
         }
     });
 
-    // Handle both 'notification' and 'notification_created' (backend uses both interchangeably)
-    const notificationHandler = function (data) {
-        if (typeof window.RealtimeUI !== 'undefined') {
-            window.RealtimeUI.handleNotification(data);
-        } else {
-            // Fallback for pages without RealtimeUI
-            document.dispatchEvent(new CustomEvent('realtime:notification', {
-                detail: { data: data }
-            }));
-        }
-    };
-
-    window.wsManager.registerHandler('notification', notificationHandler);
-    window.wsManager.registerHandler('notification_created', notificationHandler);
+    // Notification handlers are already registered in websocket_manager.js
+    // Do not duplicate here to avoid triggering multiple events
+    // The websocket_manager.js registers handlers that dispatch 'realtime:notification' events
+    // which are then handled by notifications.js
 
     // Handle period deletion broadcasts
     window.wsManager.registerHandler('period_deleted', function (data) {

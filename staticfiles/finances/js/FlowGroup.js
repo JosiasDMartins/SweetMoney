@@ -1,7 +1,7 @@
 /**
  * FlowGroup.js - FlowGroup page functionality
  * PHASE 3 CSP Compliance: All inline scripts moved to external file
- * Version: 20251231-002 - Fixed money mask parameters
+ * Version: 20260219-9 - Fix regex syntax error in reformatNegativeAmountsOnLoad() and use English with i18n
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -59,6 +59,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initFlowGroup() {
+    // Initialize synchronization variables
+    window.lastBackendBudgetBroadcast = 0;
+
     const config = document.getElementById('flowgroup-config');
     if (!config) {
         console.error('[FlowGroup] Config element not found');
@@ -91,8 +94,10 @@ function initFlowGroup() {
 
         // i18n strings
         i18n: {
+            budgetWarning: config.dataset.i18nBudgetWarning,
             estimatedExpenses: config.dataset.i18nEstimatedExpenses,
             exceedBudget: config.dataset.i18nExceedBudget,
+            overBudget: config.dataset.i18nOverBudget,
             markedAsGiven: config.dataset.i18nMarkedAsGiven,
             notGivenYet: config.dataset.i18nNotGivenYet,
             budgetMarkedAsGiven: config.dataset.i18nBudgetMarkedAsGiven,
@@ -123,6 +128,7 @@ function initFlowGroup() {
             errorDeletingFlowGroup: config.dataset.i18nErrorDeletingFlowGroup,
             confirmDeleteItem: config.dataset.i18nConfirmDeleteItem,
             descriptionAmountDateRequired: config.dataset.i18nDescriptionAmountDateRequired,
+            descriptionRequired: config.dataset.i18nDescriptionRequired,
             duplicateName: config.dataset.i18nDuplicateName,
             anotherUser: config.dataset.i18nAnotherUser,
             flowGroupDeletedByUser: config.dataset.i18nFlowGroupDeletedByUser,
@@ -133,6 +139,12 @@ function initFlowGroup() {
         }
     };
 
+    console.log('[FlowGroup] Config loaded:', window.FLOWGROUP_CONFIG);
+    console.log('[FlowGroup] Currency Symbol:', window.FLOWGROUP_CONFIG.currencySymbol);
+    
+    console.log('[FlowGroup] Config loaded:', window.FLOWGROUP_CONFIG);
+    console.log('[FlowGroup] Currency Symbol:', window.FLOWGROUP_CONFIG.currencySymbol);
+
     // Get CSRF token
     const csrftoken = getCookie('csrftoken');
     window.FLOWGROUP_CSRF = csrftoken;
@@ -142,26 +154,121 @@ function initFlowGroup() {
     initializeDragAndDrop();
     initializeNewItemToggle();
 
+    // FIX: Reformat negative values on page load (Django renders as "-CA$ 50.00")
+    // This fixes the format to "CA$ -50.00" for values rendered by the template
+    function reformatNegativeAmountsOnLoad() {
+        const amountDisplays = document.querySelectorAll('.cell-budget-display');
+        const currencySymbol = window.FLOWGROUP_CONFIG.currencySymbol;
+        const thousandSeparator = window.FLOWGROUP_CONFIG.thousandSeparator;
+        const decimalSeparator = window.FLOWGROUP_CONFIG.decimalSeparator;
+
+        amountDisplays.forEach(function(display) {
+            const text = display.textContent.trim();
+            // Check if it starts with negative sign followed by currency symbol (e.g., "-CA$ 50.00")
+            // Match pattern: -CA$ 50.00 or -CA$ 50,00 or -CA$ 1.234,56
+            // Escape special regex characters in currencySymbol
+            const escapedSymbol = currencySymbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const negativeCurrencyPattern = new RegExp('^-' + escapedSymbol + '\\s+[\\d\\' + thousandSeparator + decimalSeparator + ']+');
+
+            if (negativeCurrencyPattern.test(text)) {
+                // Extract the numeric part (after currency symbol)
+                const numericPart = text.substring(currencySymbol.length + 2); // +2 for "- " after currency symbol
+                // Format as "CA$ -50.00"
+                display.childNodes.forEach(function(node) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        node.textContent = currencySymbol + ' -' + numericPart;
+                    }
+                });
+            }
+        });
+    }
+    reformatNegativeAmountsOnLoad();
+
     // Check if bill is closed and block fields accordingly
     if (window.FLOWGROUP_CONFIG.isCreditCard && window.FLOWGROUP_CONFIG.isClosed) {
         blockAllFields(true);
         console.log('[DOMContentLoaded] Bill is closed, fields blocked');
     }
 
+    // Helper to capture cursor state before any modification
+    const captureBeforeState = (input) => {
+        input.setAttribute('data-before-cursor', input.selectionStart.toString());
+        input.setAttribute('data-before-value', input.value);
+    };
+
+    // Capture state on keydown (fires before value changes)
+    document.addEventListener('keydown', function(event) {
+        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
+            captureBeforeState(event.target);
+
+            // Handle negative sign - ONLY allowed for Credit Card FlowGroups
+            if (event.key === '-') {
+                // Block negative sign for non-CreditCard FlowGroups
+                if (!window.FLOWGROUP_CONFIG.isCreditCard) {
+                    console.log('[FlowGroup] Negative sign blocked - not a Credit Card FlowGroup');
+                    event.preventDefault();
+                    return;
+                }
+
+                // Credit Card FlowGroups can have negative values (refunds)
+                const input = event.target;
+                const currentValue = input.value;
+
+                // Check if current value has negative sign
+                const hasNegativeSign = currentValue.startsWith('-');
+
+                // Toggle negative sign or make it negative
+                if (hasNegativeSign) {
+                    // Remove negative sign - make value positive
+                    input.value = currentValue.substring(1);
+                } else {
+                    // Add negative sign - make value negative
+                    input.value = '-' + currentValue;
+                }
+
+                // Prevent default since we manually set the value
+                event.preventDefault();
+
+                // Trigger input event to apply money mask
+                const inputEvent = new Event('input', { bubbles: true });
+                input.dispatchEvent(inputEvent);
+
+                // Move cursor to end after the change
+                setTimeout(() => {
+                    input.setSelectionRange(input.value.length, input.value.length);
+                }, 0);
+
+                return;
+            }
+        }
+    });
+
+    // Capture state on touchstart (for mobile touch before keyboard input)
+    document.addEventListener('touchstart', function(event) {
+        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
+            captureBeforeState(event.target);
+        }
+    }, { passive: true });
+
     // Add money mask to all amount fields using event delegation
     document.addEventListener('input', function(event) {
-        if (event.target.matches('input[data-field="amount"]')) {
+        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
             applyMoneyMask(event, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
         }
     });
 
     // Cursor positioned to the right only on first click/focus
     document.addEventListener('focus', function(event) {
-        if (event.target.matches('input[data-field="amount"]')) {
+        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
+            // Capture state on focus
+            captureBeforeState(event.target);
+
             if (!event.target.hasAttribute('data-first-focus-done')) {
                 event.target.setAttribute('data-first-focus-done', 'true');
                 setTimeout(function() {
                     event.target.setSelectionRange(event.target.value.length, event.target.value.length);
+                    // Update before state after focus positioning
+                    captureBeforeState(event.target);
                 }, 0);
             }
         }
@@ -169,7 +276,7 @@ function initFlowGroup() {
 
     // Reset flags when field loses focus
     document.addEventListener('blur', function(event) {
-        if (event.target.matches('input[data-field="amount"]')) {
+        if (event.target && typeof event.target.matches === 'function' && event.target.matches('input[data-field="amount"]')) {
             event.target.removeAttribute('data-first-focus-done');
         }
     }, true);
@@ -192,6 +299,12 @@ function initFlowGroup() {
             input.value = '0' + window.FLOWGROUP_CONFIG.decimalSeparator + '00';
         }
     });
+
+    // Initialize calculator for amount fields
+    if (window.FinancesCalculator) {
+        window.FinancesCalculator.init('input[data-field="amount"]');
+        console.log('[FlowGroup] Calculator initialized');
+    }
 
     // Prevent Enter key from submitting form in item input fields
     const flowGroupForm = document.getElementById('flow-group-form');
@@ -757,43 +870,9 @@ function showSuccessMessage(message) {
 // Money mask functions
 // Money mask functions - using utils.js (applyMoneyMask, getRawValue, formatAmountForInput, formatCurrency)
 
-function updateBudgetWarning() {
-    const budgetInput = document.querySelector('input[name="budgeted_amount"]');
-    if (!budgetInput) return;
-
-    const budgetValue = parseFloat(getRawValue(budgetInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
-    let totalEstimated = 0;
-    const rows = document.querySelectorAll('tr[id^="item-"]');
-    rows.forEach(row => {
-        const itemId = row.id.replace('item-', '');
-        if (itemId !== 'NEW' && itemId !== 'new-item-template') {
-            const amountInput = row.querySelector('input[data-field="amount"]');
-            if (amountInput && amountInput.value) {
-                const amount = parseFloat(getRawValue(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
-                totalEstimated += amount;
-            }
-        }
-    });
-
-    // FIXED: Use the template container as per user request
-    const warningContainer = document.getElementById('budget-warning-container');
-    const warningText = document.getElementById('budget-warning-text');
-
-    if (totalEstimated > budgetValue) {
-        // Show warning and update text
-        if (warningContainer) {
-            warningContainer.classList.remove('hidden');
-        }
-        if (warningText) {
-            warningText.textContent = window.FLOWGROUP_CONFIG.i18n.estimatedExpenses + ' (' + formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator) + ') ' + window.FLOWGROUP_CONFIG.i18n.exceedBudget;
-        }
-    } else {
-        // Hide warning when total is below budget
-        if (warningContainer) {
-            warningContainer.classList.add('hidden');
-        }
-    }
-}
+// NOTE: Budget warning is now handled exclusively by backend broadcasts via FlowGroup_realtime.js
+// The updateOverbudgetWarningFromBackend() function in FlowGroup_realtime.js handles all budget warning UI updates
+// This ensures accurate calculations since backend has the saved data
 
 window.deleteFlowGroup = function() {
     const flowGroupId = document.getElementById('flow-group-form').getAttribute('data-flow-group-id');
@@ -827,29 +906,45 @@ window.deleteFlowGroup = function() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                window.GenericModal.alert(
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeleted,
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Success',
-                    function() {
-                        window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
-                    }
-                );
+                window.GenericModal.show({
+                    title: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Success',
+                    message: window.FLOWGROUP_CONFIG.i18n.flowGroupDeleted,
+                    type: 'success',
+                    buttons: [{
+                        text: window.FLOWGROUP_CONFIG.i18n.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            console.log('[FlowGroup] Redirecting to Dashboard:', window.FLOWGROUP_CONFIG.urls.dashboard);
+                            window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
+                        }
+                    }]
+                });
             } else if (data.status === 'deleted_by_other') {
-                window.GenericModal.alert(
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedByUser.replace('{user}', data.deleted_by),
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
-                    function() {
-                        window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
-                    }
-                );
+                window.GenericModal.show({
+                    title: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
+                    message: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedByUser.replace('{user}', data.deleted_by),
+                    type: 'warning',
+                    buttons: [{
+                        text: window.FLOWGROUP_CONFIG.i18n.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
+                        }
+                    }]
+                });
             } else if (data.status === 'not_found') {
-                window.GenericModal.alert(
-                    window.FLOWGROUP_CONFIG.i18n.anotherUser,
-                    window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
-                    function() {
-                        window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
-                    }
-                );
+                window.GenericModal.show({
+                    title: window.FLOWGROUP_CONFIG.i18n.flowGroupDeletedTitle || 'Notice',
+                    message: window.FLOWGROUP_CONFIG.i18n.anotherUser,
+                    type: 'warning',
+                    buttons: [{
+                        text: window.FLOWGROUP_CONFIG.i18n.ok || 'OK',
+                        primary: true,
+                        onClick: function() {
+                            window.location.href = window.FLOWGROUP_CONFIG.urls.dashboard;
+                        }
+                    }]
+                });
             } else {
                 window.GenericModal.alert(window.FLOWGROUP_CONFIG.i18n.errorDeletingFlowGroup + ' ' + (data.error || ''));
             }
@@ -903,7 +998,7 @@ window.toggleRealized = function(rowId, currentStatus) {
     const dateInput = row.querySelector('input[data-field="date"]');
     const dateText = dateInput ? dateInput.value : '';
 
-    const memberSelect = row.querySelector('select[data-field="member"]');
+    const memberSelect = row.querySelector('select[data-field="member_id"]');
     const memberId = memberSelect ? memberSelect.value : '';
 
     const isFixed = row.getAttribute('data-fixed') === 'true';
@@ -1172,9 +1267,10 @@ window.saveItem = function(rowId) {
     const descInput = row.querySelector('input[data-field="description"]');
     const amountInput = row.querySelector('input[data-field="amount"]');
     const dateInput = row.querySelector('input[data-field="date"]');
-    const memberSelect = row.querySelector('select[data-field="member"]');
+    const memberSelect = row.querySelector('select[data-field="member_id"]');
     if (!descInput || !amountInput || !dateInput) {
-        alert(window.FLOWGROUP_CONFIG.i18n.descriptionAmountDateRequired);
+        row.dataset.saving = 'false';
+        window.GenericModal.alert(window.FLOWGROUP_CONFIG.i18n.descriptionAmountDateRequired);
         return;
     }
     const description = descInput.value.trim();
@@ -1200,8 +1296,10 @@ window.saveItem = function(rowId) {
         fixed = row.getAttribute('data-fixed') === 'true';
     }
 
-    if (!description || !amount || !date) {
-        alert(window.FLOWGROUP_CONFIG.i18n.descriptionAmountDateRequired);
+    // Validate only description is required (amount can be 0)
+    if (!description) {
+        row.dataset.saving = 'false';
+        window.GenericModal.alert(window.FLOWGROUP_CONFIG.i18n.descriptionRequired || 'Description is required.');
         return;
     }
 
@@ -1252,6 +1350,7 @@ window.saveItem = function(rowId) {
                 // Update row ID and attributes
                 newRow.id = 'item-' + data.transaction_id;
                 newRow.setAttribute('data-item-id', data.transaction_id);
+                newRow.dataset.saving = 'false';
                 newRow.setAttribute('data-mode', 'display');
                 newRow.setAttribute('data-realized', data.realized ? 'true' : 'false');
                 newRow.setAttribute('data-fixed', data.is_fixed ? 'true' : 'false');
@@ -1307,9 +1406,14 @@ window.saveItem = function(rowId) {
                     actionsDisplay.classList.remove('hidden');
                 }
 
-                // Hide action edit buttons
+                // Update action edit buttons with correct row ID and actions
                 const actionsEdit = newRow.querySelector('.actions-edit');
                 if (actionsEdit) {
+                    actionsEdit.innerHTML =
+                        '<button type="button" data-action="save" data-row-id="item-' + data.transaction_id + '" class="p-1 text-primary hover:text-primary/80">' +
+                        '<span class="material-symbols-outlined text-lg">check</span></button>' +
+                        '<button type="button" data-action="cancel" data-row-id="item-' + data.transaction_id + '" class="p-1 text-slate-500 hover:text-red-500">' +
+                        '<span class="material-symbols-outlined text-lg">close</span></button>';
                     actionsEdit.classList.add('hidden');
                 }
 
@@ -1320,7 +1424,7 @@ window.saveItem = function(rowId) {
                     const bgClass = data.realized ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600';
                     const translateClass = data.realized ? 'translate-x-4' : '';
                     realizedCell.innerHTML =
-                        '<div class="flex items-center justify-center">' +
+                        '<div class="flex items-center justify-center w-full">' +
                         '<button type="button" data-toggle="realized" data-item-id="item-' + data.transaction_id + '" data-current-state="' + (data.realized ? 'true' : 'false') + '" ' +
                         'class="realized-toggle relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer ' + bgClass + '">' +
                         '<span class="absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full ' + translateClass + '"></span>' +
@@ -1333,7 +1437,7 @@ window.saveItem = function(rowId) {
                     const fixedCell = fixedToggleNew.closest('td');
                     const bgClass = data.is_fixed ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-blue-200 dark:hover:bg-blue-900/30';
                     fixedCell.innerHTML =
-                        '<div class="flex items-center justify-center">' +
+                        '<div class="flex items-center justify-center w-full">' +
                         '<button type="button" data-action="toggle-transaction-fixed" data-row-id="item-' + data.transaction_id + '" ' +
                         'class="fixed-toggle-btn inline-flex items-center justify-center w-8 h-8 rounded transition-all duration-200 ' + bgClass + '" ' +
                         'title="Mark as recurring expense">' +
@@ -1353,7 +1457,16 @@ window.saveItem = function(rowId) {
                         '<span class="date-short">' + day + '/' + month + '</span>';
                 }
 
-                // Add mobile action buttons to amount cell
+                // Clean up budget edit cell: remove stale template mobile actions
+                // (server-rendered edit cells don't have mobile action buttons)
+                const budgetEditCell = newRow.querySelector('.cell-budget-edit');
+                if (budgetEditCell) {
+                    const staleMobileActions = budgetEditCell.querySelector('.mobile-actions-btns');
+                    if (staleMobileActions) staleMobileActions.remove();
+                    budgetEditCell.classList.remove('amount-cell-with-actions');
+                }
+
+                // Add mobile action buttons to amount display cell
                 const budgetDisplayCell = newRow.querySelector('.cell-budget-display');
                 if (budgetDisplayCell) {
                     budgetDisplayCell.classList.add('amount-cell-with-actions');
@@ -1372,7 +1485,16 @@ window.saveItem = function(rowId) {
 
                 // Switch to display mode and populate values
                 toggleEditMode('item-' + data.transaction_id, false);
-                updateRowDisplay('item-' + data.transaction_id, { id: data.transaction_id, description: data.description, amount: data.amount, date: data.date, member_id: data.member_id, realized: data.realized, fixed: data.is_fixed });
+                updateRowDisplay('item-' + data.transaction_id, { 
+                    id: data.transaction_id, 
+                    description: data.description, 
+                    amount: data.amount, 
+                    date: data.date, 
+                    member_id: data.member_id, 
+                    member_name: data.member_name, // Added member_name to fix blank field
+                    realized: data.realized, 
+                    fixed: data.is_fixed 
+                });
 
                 // Reset and hide the template row
                 const descInput = templateRow.querySelector('input[data-field="description"]');
@@ -1417,9 +1539,8 @@ window.saveItem = function(rowId) {
                     console.log('[saveItem] Empty state row hidden permanently (first item saved)');
                 }
 
-                // Update summary and warning
+                // Update summary (budget warning handled by backend broadcast)
                 updateSummary();
-                updateBudgetWarning();
 
                 // Re-initialize features
                 initializeDragAndDrop();
@@ -1432,7 +1553,7 @@ window.saveItem = function(rowId) {
                 const itemData = { id: data.transaction_id, description: data.description, amount: data.amount, date: data.date, member_id: data.member_id, realized: data.realized, fixed: data.is_fixed };
                 updateRowDisplay(rowId, itemData);
                 updateSummary();
-                updateBudgetWarning();
+                // Budget warning handled by backend broadcast
 
                 // Reset saving flag
                 row.dataset.saving = 'false';
@@ -1461,11 +1582,64 @@ function updateRowDisplay(rowId, data) {
     const descInput = row.querySelector('input[data-field="description"]');
     const amountInput = row.querySelector('input[data-field="amount"]');
     const dateInput = row.querySelector('input[data-field="date"]');
-    const memberSelect = row.querySelector('select[data-field="member"]');
+    const memberSelect = row.querySelector('select[data-field="member"], select[data-field="member_id"]');
+    
+    // Update input values (edit mode)
     if (descInput) descInput.value = data.description;
     if (amountInput) amountInput.value = formatAmountForInput(data.amount, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
     if (dateInput) dateInput.value = data.date;
     if (memberSelect) memberSelect.value = data.member_id || '';
+
+    // Update display spans (display mode) - CRITICAL FIX for blank fields
+    const descDisplay = row.querySelector('.cell-description-display');
+    if (descDisplay) descDisplay.textContent = data.description || '';
+
+    const amountDisplay = row.querySelector('.cell-budget-display');
+    if (amountDisplay) {
+        // Ensure data.amount is a valid number
+        const amountValue = parseFloat(data.amount || 0);
+
+        // Check if value is negative BEFORE using Math.abs()
+        const isNegative = amountValue < 0;
+
+        // Format amount using FLOWGROUP_CONFIG settings (always use local config, not RealtimeUI)
+        const parts = Math.abs(amountValue).toFixed(2).split('.');
+        const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, window.FLOWGROUP_CONFIG.thousandSeparator);
+
+        // Format as "CA$ -5,00" for negative, "CA$ 5,00" for positive
+        const formattedAmount = window.FLOWGROUP_CONFIG.currencySymbol + ' ' + (isNegative ? '-' : '') + integerPart + window.FLOWGROUP_CONFIG.decimalSeparator + parts[1];
+
+        // Preserve mobile action buttons if they exist
+        const mobileActions = amountDisplay.querySelector('.mobile-actions-btns');
+        if (mobileActions) {
+            // Remove text nodes only
+            Array.from(amountDisplay.childNodes).forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE) node.remove();
+            });
+            // Insert formatted amount at start
+            amountDisplay.insertBefore(document.createTextNode(formattedAmount + '\n'), amountDisplay.firstChild);
+        } else {
+            amountDisplay.textContent = formattedAmount;
+        }
+    }
+
+    const memberDisplay = row.querySelector('.cell-member-display');
+    if (memberDisplay) {
+        if (data.member_name) {
+            memberDisplay.textContent = data.member_name;
+        } else if (data.member) {
+            memberDisplay.textContent = data.member;
+        } else if (memberSelect) {
+            const selectedOption = memberSelect.options[memberSelect.selectedIndex];
+            memberDisplay.textContent = selectedOption ? selectedOption.text : '-';
+        }
+        
+        // Always sync the data attribute if possible
+        const mid = data.member_id || (data.member && typeof data.member === 'object' ? data.member.id : '');
+        if (mid) {
+            memberDisplay.setAttribute('data-member-id', mid);
+        }
+    }
 
     // Update date display (date-full and date-short spans)
     const dateDisplayCell = row.querySelector('.cell-date-display');
@@ -1592,6 +1766,39 @@ window.toggleEditMode = function(rowId, startEdit) {
         if (actionsDisplay) actionsDisplay.classList.add('hidden');
         if (actionsEdit) actionsEdit.classList.remove('hidden');
 
+        // CRITICAL: Restore input values from display values when entering edit mode
+        // This ensures we always edit the saved value, not a cached/stale value
+        const descDisplay = row.querySelector('.cell-description-display');
+        const descInput = row.querySelector('input[data-field="description"]');
+        if (descDisplay && descInput) {
+            descInput.value = descDisplay.textContent.trim();
+        }
+
+        const amountDisplay = row.querySelector('.cell-budget-display');
+        const amountInput = row.querySelector('input[data-field="amount"]');
+        if (amountDisplay && amountInput) {
+            // Get just the amount text without mobile action buttons
+            const amountText = amountDisplay.childNodes[0]?.textContent?.trim() || amountDisplay.textContent.trim();
+            // Remove currency symbol
+            const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
+            amountInput.value = numericPart;
+        }
+
+        const dateDisplay = row.querySelector('.cell-date-display .date-full');
+        const dateInput = row.querySelector('input[data-field="date"]');
+        if (dateDisplay && dateInput) {
+            dateInput.value = dateDisplay.textContent.trim();
+        }
+
+        const memberDisplay = row.querySelector('.cell-member-display');
+        const memberSelect = row.querySelector('select[data-field="member_id"]');
+        if (memberDisplay && memberSelect) {
+            const memberId = memberDisplay.getAttribute('data-member-id');
+            if (memberId) {
+                memberSelect.value = memberId;
+            }
+        }
+
         console.log('[toggleEditMode] Entered edit mode for:', rowId);
     } else {
         // Exit edit mode
@@ -1628,6 +1835,55 @@ window.toggleEditMode = function(rowId, startEdit) {
 
         console.log('[toggleEditMode] Exited edit mode for:', rowId);
     }
+};
+
+/**
+ * Cancel edit mode and restore original values
+ */
+window.cancelEdit = function(rowId) {
+    console.log('[cancelEdit] Called with rowId:', rowId);
+    const row = document.getElementById(rowId);
+    if (!row) {
+        console.error('[cancelEdit] Row not found:', rowId);
+        return;
+    }
+
+    // Reset saving flag if it was set
+    row.dataset.saving = 'false';
+
+    // Restore input values from display values
+    const descDisplay = row.querySelector('.cell-description-display');
+    const descInput = row.querySelector('input[data-field="description"]');
+    if (descDisplay && descInput) {
+        descInput.value = descDisplay.textContent.trim();
+    }
+
+    const amountDisplay = row.querySelector('.cell-budget-display');
+    const amountInput = row.querySelector('input[data-field="amount"]');
+    if (amountDisplay && amountInput) {
+        // Get just the amount text without mobile action buttons
+        const amountText = amountDisplay.childNodes[0]?.textContent?.trim() || amountDisplay.textContent.trim();
+        amountInput.value = amountText;
+    }
+
+    const dateDisplay = row.querySelector('.cell-date-display .date-full');
+    const dateInput = row.querySelector('input[data-field="date"]');
+    if (dateDisplay && dateInput) {
+        dateInput.value = dateDisplay.textContent.trim();
+    }
+
+    const memberDisplay = row.querySelector('.cell-member-display');
+    const memberSelect = row.querySelector('select[data-field="member_id"]');
+    if (memberDisplay && memberSelect) {
+        const memberId = memberDisplay.getAttribute('data-member-id');
+        if (memberId) {
+            memberSelect.value = memberId;
+        }
+    }
+
+    // Exit edit mode
+    toggleEditMode(rowId, false);
+    console.log('[cancelEdit] Restored original values and exited edit mode for:', rowId);
 };
 
 window.cancelNewRow = function(rowId) {
@@ -1726,7 +1982,7 @@ window.deleteItem = async function(rowId) {
         if (data.status === 'success') {
             row.remove();
             updateSummary();
-            updateBudgetWarning();
+            // Budget warning handled by backend broadcast
         } else {
             window.GenericModal.alert(data.error || window.FLOWGROUP_CONFIG.i18n.networkError);
         }
@@ -1936,29 +2192,14 @@ function updateSummary(customBudget, customRealized) {
             }
         });
     }
-    const estimatedSpan = document.getElementById('total-estimated');
-    const realizedSpan = document.getElementById('total-realized');
-    const remainingSpan = document.getElementById('total-remaining');
-    if (estimatedSpan) {
-        estimatedSpan.textContent = formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-    }
-    if (realizedSpan) {
-        realizedSpan.textContent = formatCurrency(totalRealized, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-    }
-    if (remainingSpan) {
-        const remaining = budgetValue - totalRealized;
-        remainingSpan.textContent = formatCurrency(remaining, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
-        const remainingContainer = remainingSpan.closest('.flex');
-        if (remainingContainer) {
-            if (remaining < 0) {
-                remainingContainer.classList.remove('text-green-600', 'dark:text-green-400');
-                remainingContainer.classList.add('text-red-600', 'dark:text-red-400');
-            } else {
-                remainingContainer.classList.remove('text-red-600', 'dark:text-red-400');
-                remainingContainer.classList.add('text-green-600', 'dark:text-green-400');
-            }
-        }
-    }
+    const estimatedDisplays = [document.getElementById('total-expenses-desktop'), document.getElementById('total-expenses-mobile')];
+    const realizedDisplays = [document.getElementById('total-realized-desktop'), document.getElementById('total-realized-mobile')];
+
+    const formattedEstimated = formatCurrency(totalEstimated, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+    const formattedRealized = formatCurrency(totalRealized, window.FLOWGROUP_CONFIG.currencySymbol, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+
+    estimatedDisplays.forEach(el => { if (el) el.textContent = formattedEstimated; });
+    realizedDisplays.forEach(el => { if (el) el.textContent = formattedRealized; });
 
     // Totals row is now updated via backend calculation and WebSocket broadcasts
     // No need to calculate totals in JavaScript anymore
@@ -1992,11 +2233,12 @@ function initMobileExpenseFeatures() {
         let startTime = 0;
         const swipeThreshold = 60; // Minimum pixels to trigger swipe
         const tapTimeThreshold = 200; // Max ms for tap detection
+        const tapMinTime = 50; // Min ms to register as intentional tap (avoid scroll touches)
+        const scrollThreshold = 15; // Vertical pixels to consider as scroll
 
         let startY = 0;
         let currentY = 0;
-        let isDragMode = false; // true = vertical drag, false = horizontal swipe
-        let isDecided = false; // se já decidimos o modo
+        let isScrolling = false; // true = vertical scroll detected, ignore all swipe/tap
 
         // Touch start
         row.addEventListener('touchstart', (e) => {
@@ -2017,14 +2259,13 @@ function initMobileExpenseFeatures() {
             currentY = startY;
             startTime = Date.now();
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Touch move
         row.addEventListener('touchmove', (e) => {
-            // Se já decidiu que é drag, ignora swipe
-            if (isDragMode) return;
+            // Se já detectou scroll, ignora tudo
+            if (isScrolling) return;
 
             if (e.target.closest('.mobile-action-btn')) return;
             if (e.target.closest('.mobile-fixed-btn')) return;
@@ -2035,9 +2276,15 @@ function initMobileExpenseFeatures() {
             const deltaX = currentX - startX;
             const deltaY = currentY - startY;
 
+            // Detect vertical scroll - if vertical movement is greater, it's a scroll
+            if (!isDragging && Math.abs(deltaY) > scrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                isScrolling = true;
+                return;
+            }
+
             // In edit mode: allow swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > 0) {
+                if (deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     const translateX = Math.min(deltaX, 120);
                     row.style.transform = `translateX(${translateX}px)`;
@@ -2045,7 +2292,8 @@ function initMobileExpenseFeatures() {
                 }
             } else {
                 // In display mode: swipe left to reveal edit/delete, swipe right to reveal fixed button
-                if (Math.abs(deltaX) > 10) {
+                // Only start swipe if horizontal movement is dominant
+                if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     if (deltaX < 0) {
                         // Swipe left - reveal edit/delete buttons
@@ -2064,23 +2312,26 @@ function initMobileExpenseFeatures() {
 
         // Touch end
         row.addEventListener('touchend', (e) => {
-            // Se foi drag, não processar swipe
-            if (isDragMode) return;
+            // Se foi scroll, não processar nada
+            if (isScrolling) {
+                isScrolling = false;
+                return;
+            }
 
             const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
             const deltaTime = Date.now() - startTime;
             row.style.transition = 'transform 0.3s ease-out';
 
             // In edit mode: swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > swipeThreshold) {
+                if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     console.log('[MOBILE EXPENSE SWIPE] Canceling edit mode for:', row.id);
-                    // CRITICAL FIX: If it's the template, call cancelNewRow instead of toggleEditMode
+                    // CRITICAL FIX: If it's the template, call cancelNewRow, otherwise cancelEdit
                     if (row.id === 'new-item-template') {
                         window.cancelNewRow('new-item-template');
                     } else {
-                        toggleEditMode(row.id, false);
-                        // toggleEditMode already re-enables drag
+                        window.cancelEdit(row.id);
                     }
                 } else {
                     row.style.transform = 'translateX(0)';
@@ -2091,7 +2342,9 @@ function initMobileExpenseFeatures() {
                 const hasRevealedActions = row.classList.contains('actions-revealed') || row.classList.contains('fixed-revealed');
 
                 // Tap detection for realized toggle - only if no revealed actions
-                if (!isDragging && Math.abs(deltaX) < 10 && deltaTime < tapTimeThreshold) {
+                // Added: minimum time check and vertical movement check to avoid scroll touches
+                if (!isDragging && Math.abs(deltaX) < 10 && Math.abs(deltaY) < scrollThreshold &&
+                    deltaTime >= tapMinTime && deltaTime < tapTimeThreshold) {
                     if (hasRevealedActions) {
                         // Row has revealed actions - reset position instead of toggling
                         console.log('[MOBILE EXPENSE TAP] Resetting position (actions revealed)');
@@ -2107,7 +2360,7 @@ function initMobileExpenseFeatures() {
                     }
                 }
                 // Swipe left to reveal edit/delete actions
-                else if (deltaX < -swipeThreshold) {
+                else if (deltaX < -swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.style.transform = 'translateX(-120px)';
                     row.classList.add('actions-revealed');
                     row.classList.remove('fixed-revealed');
@@ -2115,7 +2368,7 @@ function initMobileExpenseFeatures() {
                     row.setAttribute('draggable', 'false');
                 }
                 // Swipe right to reveal fixed button
-                else if (deltaX > swipeThreshold) {
+                else if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.style.transform = 'translateX(80px)';
                     row.classList.add('fixed-revealed');
                     row.classList.remove('actions-revealed');
@@ -2130,8 +2383,7 @@ function initMobileExpenseFeatures() {
             }
 
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Close actions when tapping outside
@@ -2169,7 +2421,37 @@ function initMobileExpenseFeatures() {
     });
 }
 
+// Mobile keyboard handling - scroll input into view when keyboard opens
+function initMobileKeyboardHandling() {
+    if (window.innerWidth > 768) return;
+
+    document.addEventListener('focus', function(e) {
+        const input = e.target;
+        if (!input.matches('input, select, textarea')) return;
+
+        setTimeout(() => {
+            if (window.visualViewport) {
+                const keyboardHeight = window.innerHeight - window.visualViewport.height;
+                if (keyboardHeight > 50) {
+                    input.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'nearest'
+                    });
+                }
+            } else {
+                input.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'nearest'
+                });
+            }
+        }, 300);
+    }, true);
+}
+
 // Initialize mobile features on page load
 document.addEventListener('DOMContentLoaded', function() {
     initMobileExpenseFeatures();
+    initMobileKeyboardHandling();
 });

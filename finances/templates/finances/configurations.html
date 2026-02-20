@@ -497,13 +497,13 @@
                         </div>
 
                         <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
-                            <input type="file" id="restore-file-input" accept=".sqlite3,.dump" class="hidden">
+                            <input type="file" id="restore-file-input" accept=".sqlite3,.json,.sql" class="hidden">
                             <label for="restore-file-input" class="cursor-pointer">
                                 <span class="material-symbols-outlined text-4xl text-gray-400 mb-2 block">cloud_upload</span>
                                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">
                                     {% trans "Click to select a backup file" %}
                                 </p>
-                                <p class="text-xs text-gray-500">{% trans "SQLite (.sqlite3) or PostgreSQL (.dump) files" %}</p>
+                                <p class="text-xs text-gray-500">{% trans "SQLite (.sqlite3) or PostgreSQL (.json or .sql) files" %}</p>
                             </label>
                         </div>
 

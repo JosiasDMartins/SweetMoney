@@ -4,7 +4,7 @@
  * Centralized utility functions used across multiple templates
  * to avoid code duplication and maintain consistency.
  *
- * Version: 20260124-003
+ * Version: 20260219-6
  * Created: 2025-12-31
  */
 
@@ -38,6 +38,7 @@
     /**
      * Get raw numeric value from masked money input
      * Removes thousand separators and converts decimal separator to dot
+     * Preserves negative sign for credit card refunds
      * @param {string} maskedValue - Formatted money value
      * @param {string} thousandSeparator - Thousand separator character (default: '.')
      * @param {string} decimalSeparator - Decimal separator character (default: ',')
@@ -46,96 +47,145 @@
     function getRawValue(maskedValue, thousandSeparator = '.', decimalSeparator = ',') {
         if (!maskedValue || maskedValue === '') return '0';
 
+        // Check for negative sign at the start and preserve it
+        const isNegative = maskedValue.startsWith('-');
+        let value = maskedValue.substring(isNegative ? 1 : 0);
+
         // Escape special regex characters in the separator
         const escapedSeparator = thousandSeparator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        let value = maskedValue.replace(new RegExp(escapedSeparator, 'g'), '');
+        value = value.replace(new RegExp(escapedSeparator, 'g'), '');
         value = value.replace(decimalSeparator, '.');
+
+        // Restore negative sign if present
+        if (isNegative) {
+            value = '-' + value;
+        }
+
         return value;
     }
 
     /**
      * Apply money mask to input field with robust cursor positioning
+     * Now supports negative values for credit card refunds
      */
     function applyMoneyMask(event, thousandSeparator = '.', decimalSeparator = ',') {
         const input = event.target;
         // The current cursor position AFTER the user typed/deleted but BEFORE we reformat
         let cursorPos = input.selectionStart;
         const currentValue = input.value;
-        const valueLength = currentValue.length;
 
-        // RIGHT ALIGNMENT STRATEGY:
-        // We calculate how many digits are AFTER the cursor in the input.
-        // We preserve this count in the formatted string.
-        // This ensures stability even if leading zeros are added/removed.
+        console.log('[MoneyMask] Input value:', currentValue, 'thousandSep:', thousandSeparator, 'decimalSep:', decimalSeparator);
 
-        const textAfterCursor = currentValue.substring(cursorPos);
-        const digitsAfterCursor = (textAfterCursor.match(/\d/g) || []).length;
+        // Check for negative sign at the beginning
+        const hasNegativeSign = currentValue.startsWith('-');
+        const valueWithoutSign = hasNegativeSign ? currentValue.substring(1) : currentValue;
 
-        // 1. Get current digits
-        const currentDigits = currentValue.replace(/\D/g, '');
-        
+        console.log('[MoneyMask] hasNegativeSign:', hasNegativeSign, 'valueWithoutSign:', valueWithoutSign);
+
+        // Get data captured by keydown/touchstart event (BEFORE the modification happened)
+        const beforeCursor = parseInt(input.getAttribute('data-before-cursor') || '-1', 10);
+        const beforeValue = input.getAttribute('data-before-value') || '';
+        const beforeValueLength = beforeValue.length;
+
+        // Detect if this was a delete operation (value got shorter in digits)
+        const currentDigitsRaw = valueWithoutSign.replace(/\D/g, '');
+        const beforeDigitsRaw = beforeValue.replace(/\D/g, '');
+        const isDelete = currentDigitsRaw.length < beforeDigitsRaw.length;
+
+        // Was cursor at the end before the operation?
+        const wasAtEnd = beforeCursor >= beforeValueLength;
+
+        // Calculate digitsAfterCursor (adjust for negative sign)
+        let digitsAfterCursor;
+
+        if (isDelete && wasAtEnd && beforeCursor !== -1) {
+            // Cursor was at the end before delete, keep it at the end
+            digitsAfterCursor = 0;
+        } else {
+            // Normal calculation - use reported cursor position
+            const textAfterCursor = valueWithoutSign.substring(cursorPos - (hasNegativeSign ? 1 : 0));
+            digitsAfterCursor = (textAfterCursor.match(/\d/g) || []).length;
+        }
+
+        // 1. Get current digits (from value without sign)
+        const currentDigits = valueWithoutSign.replace(/\D/g, '');
+
         // Ensure we handle the "empty" or minimal cases
         let digits = currentDigits;
-        if (!digits) digits = '0'; 
-        
+        if (!digits) digits = '0';
+
         // Pad with leading zeros for cents
         // We need at least 3 digits (X,XX)
         const cleanDigits = parseInt(digits, 10).toString(); // remove leading zeros from string '0042' -> '42'
         const paddedDigits = cleanDigits.padStart(3, '0');
-        
+
         // Check if we just have zeros
         const totalCents = parseInt(paddedDigits, 10);
-        
-        // Construct formatted string
+
+        // Construct formatted string (without sign)
         let integerPart = Math.floor(totalCents / 100).toString();
         const decimalPart = (totalCents % 100).toString().padStart(2, '0');
         integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
-        
-        const formatted = integerPart + decimalSeparator + decimalPart;
-        
+
+        let formatted = integerPart + decimalSeparator + decimalPart;
+
+        // Add negative sign if the original value had it
+        // We preserve the negative sign even for zero values to allow entering negative amounts
+        if (hasNegativeSign) {
+            formatted = '-' + formatted;
+        }
+
+        console.log('[MoneyMask] Final formatted value:', formatted);
+
         // Update value
         input.value = formatted;
-        
+
+        console.log('[MoneyMask] Input value after update:', input.value);
+
         // --- CURSOR RESTORATION ---
-        
+
         // Calculate new cursor position based on Digits After Cursor
         const totalNewDigits = (formatted.match(/\d/g) || []).length;
-        
+
         // Target: We want 'digitsAfterCursor' digits to the right.
         // So we want 'totalNewDigits - digitsAfterCursor' digits to the left.
         let targetDigitsBeforeCursor = totalNewDigits - digitsAfterCursor;
-        
+
+        console.log('[MoneyMask] Cursor calculation - totalNewDigits:', totalNewDigits, 'digitsAfterCursor:', digitsAfterCursor, 'targetDigitsBeforeCursor:', targetDigitsBeforeCursor, 'hasNegativeSign:', hasNegativeSign);
+
         // Clamp bounds
         if (targetDigitsBeforeCursor < 0) targetDigitsBeforeCursor = 0;
         if (targetDigitsBeforeCursor > totalNewDigits) targetDigitsBeforeCursor = totalNewDigits;
-        
+
         let newCursorPos = 0;
         let count = 0;
-        
+
         // Scan the new formatted string to find position after N digits
-        // Special case: if target is 0, we want position minimal (0)
+        // Special case: if target is 0, we want position minimal (account for negative sign)
         if (targetDigitsBeforeCursor === 0) {
-            newCursorPos = 0; // or find first digit? Usually 0 is fine.
+            newCursorPos = hasNegativeSign ? 1 : 0; // After negative sign if present
+            console.log('[MoneyMask] Special case: targetDigitsBeforeCursor === 0, newCursorPos:', newCursorPos);
         } else {
             for (let i = 0; i < formatted.length; i++) {
                 const char = formatted[i];
                 if (/\d/.test(char)) {
                     count++;
                 }
-                
+
                 if (count === targetDigitsBeforeCursor) {
                     newCursorPos = i + 1;
                     break;
                 }
             }
+            console.log('[MoneyMask] Normal case: counted', count, 'digits, newCursorPos:', newCursorPos);
         }
-        
-        // Store state for next time
-        input.setAttribute('data-prev-value', formatted);
-        input.setAttribute('data-prev-digits', formatted.replace(/\D/g, ''));
-        
-        // Set cursor
-        input.setSelectionRange(newCursorPos, newCursorPos);
+
+        // Use setTimeout to set cursor AFTER browser finishes its own cursor handling
+        // This is critical on Android where the browser repositions cursor after our setSelectionRange
+        setTimeout(() => {
+            input.setSelectionRange(newCursorPos, newCursorPos);
+            console.log('[MoneyMask] Cursor position set to:', newCursorPos, 'value:', input.value);
+        }, 10);
     }
 
     /**
@@ -177,14 +227,19 @@
         const num = parseFloat(amount);
         if (isNaN(num)) return amount;
 
-        const cents = Math.round(num * 100);
-        let integerPart = Math.floor(cents / 100).toString();
-        let decimalPart = (cents % 100).toString().padStart(2, '0');
+        // Check if value is negative BEFORE using Math.abs()
+        const isNegative = num < 0;
+
+        // Use absolute value to avoid issues with Math.floor and modulo for negative numbers
+        const absCents = Math.round(Math.abs(num) * 100);
+        const integerPart = Math.floor(absCents / 100).toString();
+        const decimalPart = (absCents % 100).toString().padStart(2, '0');
 
         // Add thousand separators
-        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
+        const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
 
-        return currencySymbol + ' ' + integerPart + decimalSeparator + decimalPart;
+        // Format as "CA$ -5,00" for negative, "CA$ 5,00" for positive
+        return currencySymbol + ' ' + (isNegative ? '-' : '') + formattedInteger + decimalSeparator + decimalPart;
     }
 
     // ========== INPUT FOCUS/CURSOR UTILITIES ==========
@@ -198,12 +253,64 @@
         if (document.body.hasAttribute(initKey)) return;
         document.body.setAttribute(initKey, 'true');
 
-        // Helper to update state without reformatting
-        const updateState = (input) => {
-             const digits = input.value.replace(/\D/g, '');
-             input.setAttribute('data-prev-value', input.value);
-             input.setAttribute('data-prev-digits', digits);
+        // Helper to capture cursor state before any modification
+        const captureBeforeState = (input) => {
+            input.setAttribute('data-before-cursor', input.selectionStart.toString());
+            input.setAttribute('data-before-value', input.value);
         };
+
+        // Capture state on keydown (fires before value changes)
+        document.addEventListener('keydown', function(event) {
+            if (event.target.matches(selector)) {
+                captureBeforeState(event.target);
+
+                // Also handle key filtering
+                // Allow: backspace, delete, tab, escape, enter, home, end, arrows
+                const allowedKeys = [8, 46, 9, 27, 13, 35, 36, 37, 38, 39, 40];
+                if (allowedKeys.includes(event.keyCode)) return;
+
+                // Allow: Ctrl/Cmd combinations
+                if (event.ctrlKey || event.metaKey) return;
+
+                // Allow: Numbers
+                if ((event.keyCode >= 48 && event.keyCode <= 57) ||
+                    (event.keyCode >= 96 && event.keyCode <= 105)) return;
+
+                // Allow: Negative sign at the start of field (for credit card refunds)
+                if (event.key === '-') {
+                    const input = event.target;
+                    const cursorPos = input.selectionStart;
+                    const hasNegativeSign = input.value.startsWith('-');
+                    const startPos = hasNegativeSign ? 1 : 0;
+                    // Allow minus if cursor is at start position
+                    if (cursorPos === startPos) {
+                        return; // Let the minus sign through
+                    }
+                }
+
+                // Allow: Calculator operators when FinancesCalculator is available
+                // This lets the calculator module handle +, -, *, /, (, )
+                if (window.FinancesCalculator && ['+', '-', '*', '/', '(', ')'].includes(event.key)) {
+                    return; // Let calculator handle it
+                }
+
+                event.preventDefault();
+            }
+        });
+
+        // Capture state on touchstart (for mobile touch before keyboard input)
+        document.addEventListener('touchstart', function(event) {
+            if (event.target.matches(selector)) {
+                captureBeforeState(event.target);
+            }
+        }, { passive: true });
+
+        // Also capture on mousedown for desktop clicks
+        document.addEventListener('mousedown', function(event) {
+            if (event.target.matches(selector)) {
+                captureBeforeState(event.target);
+            }
+        });
 
         // INPUT event
         document.addEventListener('input', function(event) {
@@ -216,18 +323,21 @@
         document.addEventListener('focus', function(event) {
             if (event.target.matches(selector)) {
                 const input = event.target;
-                
+                // Capture state on focus too
+                captureBeforeState(input);
+
                 // If this is the FIRST focus (or we returned from blur), move to end.
                 // We depend on 'blur' clearing the flag.
                 if (!input.hasAttribute('data-has-focused')) {
                     input.setAttribute('data-has-focused', 'true');
-                    
+
                     // Force cursor to end on initial entry
                     // Use setTimeout to override browser default selection behavior on focus
                     setTimeout(() => {
                         const len = input.value.length;
                         input.setSelectionRange(len, len);
-                        updateState(input);
+                        // Update before state after focus positioning
+                        captureBeforeState(input);
                     }, 0);
                 }
             }
@@ -239,24 +349,6 @@
                 event.target.removeAttribute('data-has-focused');
             }
         }, true);
-        
-        // CLICK / KEY/ MOUSEUP support
-        document.addEventListener('keydown', function(event) {
-            if (event.target.matches(selector)) {
-                // Allow: backspace, delete, tab, escape, enter, home, end, arrows
-                const allowedKeys = [8, 46, 9, 27, 13, 35, 36, 37, 38, 39, 40];
-                if (allowedKeys.includes(event.keyCode)) return;
-                
-                // Allow: Ctrl/Cmd combinations
-                if (event.ctrlKey || event.metaKey) return;
-                
-                // Allow: Numbers
-                if ((event.keyCode >= 48 && event.keyCode <= 57) || 
-                    (event.keyCode >= 96 && event.keyCode <= 105)) return;
-                    
-                event.preventDefault();
-            }
-        });
     }
 
     /**
@@ -377,6 +469,6 @@
     window.showSuccessMessage = showSuccessMessage;
     window.showErrorMessage = showErrorMessage;
 
-    console.log('[FinancesUtils] Utility functions loaded successfully (v20260124-003)');
+    console.log('[FinancesUtils] Utility functions loaded successfully (v20260219-5)');
 
 })();

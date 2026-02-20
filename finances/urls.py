@@ -104,6 +104,7 @@ urlpatterns = [
     path('api/notifications/', views.get_notifications_ajax, name='get_notifications_ajax'),
     path('api/notifications/acknowledge/', views.acknowledge_notification_ajax, name='acknowledge_notification_ajax'),
     path('api/notifications/acknowledge-all/', views.acknowledge_all_notifications_ajax, name='acknowledge_all_notifications_ajax'),
+    path('notifications/<int:notification_id>/unsubscribe/<str:token>/', views.unsubscribe_notification_email, name='unsubscribe_notification_email'),
 
     # Health check (for updater to verify server is running after restart)
     path('api/health-check/', views.health_check_api, name='health_check_api'),

@@ -5,12 +5,31 @@
 (function() {
     'use strict';
 
+    // Local currency formatting function using DASHBOARD_CONFIG
+    function formatCurrencyLocal(amount) {
+        const config = window.DASHBOARD_CONFIG || {};
+        const currencySymbol = config.currencySymbol || '$';
+        const thousandSeparator = config.thousandSeparator || ',';
+        const decimalSeparator = config.decimalSeparator || '.';
+
+        const num = parseFloat(amount);
+        if (isNaN(num)) return currencySymbol + '0' + decimalSeparator + '00';
+
+        // Check if value is negative BEFORE using Math.abs()
+        const isNegative = num < 0;
+
+        const parts = Math.abs(num).toFixed(2).split('.');
+        const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
+        // Format as "CA$ -5,00" for negative, "CA$ 5,00" for positive
+        return currencySymbol + ' ' + (isNegative ? '-' : '') + integerPart + decimalSeparator + parts[1];
+    }
+
     // Dashboard Real-time Updates Namespace
     window.DashboardRealtime = {
         /**
          * Add new transaction to the list
          */
-        addTransaction: function(transactionData) {
+        addTransaction: function(transactionData, actor) {
             console.log('[Dashboard RT] Adding new transaction:', transactionData);
 
             // Check if transaction is income type (since dashboard shows income)
@@ -29,8 +48,29 @@
             const existingRow = document.getElementById(`income-item-${transactionData.id}`);
             if (existingRow) {
                 console.log('[Dashboard RT] Transaction already exists, updating instead');
-                this.updateTransaction(transactionData);
+                this.updateTransaction(transactionData, actor);
                 return;
+            }
+
+            // OWN ACTION CHECK: Skip if this is our own action and template is active (AJAX in progress)
+            const currentUserId = document.body.dataset.userId || window.USER_ID || document.getElementById('base-config')?.dataset?.userId;
+            const actorId = actor?.id;
+            const isOwnAction = actorId && currentUserId && String(actorId) === String(currentUserId);
+
+            console.log('[Dashboard RT] Own action check:', isOwnAction, 'Actor:', actorId, 'Me:', currentUserId);
+
+            if (isOwnAction) {
+                // Check if the template row is currently active (being saved)
+                const templateRow = document.getElementById('new-income-template');
+                const isTemplateActive = templateRow && !templateRow.classList.contains('hidden');
+
+                // Also check if any row is in edit mode
+                const rowsInEdit = document.querySelectorAll('tr[data-mode="edit"]');
+
+                if (isTemplateActive || rowsInEdit.length > 0) {
+                    console.log('[Dashboard RT] SKIPPING: Own action and local UI is in edit mode (avoiding double entry)');
+                    return;
+                }
             }
 
             // Create new row
@@ -94,16 +134,22 @@
                 if (transactionData.amount) {
                     const amountDisplay = row.querySelector('.cell-amount-display');
                     if (amountDisplay) {
-                        const formattedAmount = window.RealtimeUI.utils.formatCurrency(transactionData.amount);
+                        const formattedAmount = formatCurrencyLocal(transactionData.amount);
                         amountDisplay.textContent = formattedAmount;
                     }
                     const amountInput = row.querySelector('input[data-field="amount"]');
                     if (amountInput && typeof formatAmountForInput === 'function') {
-                        amountInput.value = formatAmountForInput(transactionData.amount);
+                        amountInput.value = formatAmountForInput(transactionData.amount, window.thousandSeparator, window.decimalSeparator);
                     } else if (amountInput) {
                         amountInput.value = transactionData.amount;
                     }
-                    row.dataset.amount = transactionData.amount;
+                    // Only use getRawValue if amount contains comma (locale format)
+                    const amountStr = String(transactionData.amount);
+                    if (typeof getRawValue === 'function' && amountStr.includes(',')) {
+                        row.dataset.amount = getRawValue(amountStr, window.thousandSeparator, window.decimalSeparator);
+                    } else {
+                        row.dataset.amount = transactionData.amount;
+                    }
                 }
 
                 // Update is_fixed
@@ -169,8 +215,11 @@
                 }
 
                 // Update balance sheet, key metrics, and charts
+                // CRITICAL FIX: Add delay to ensure backend has time to recalculate YTD values
                 if (typeof updateBalanceSheet === 'function') {
-                    updateBalanceSheet();
+                    setTimeout(() => {
+                        updateBalanceSheet();
+                    }, 300);
                 }
             } catch (error) {
                 console.error('[Dashboard RT] Error updating transaction:', error);
@@ -213,7 +262,13 @@
             tr.dataset.realized = data.realized ? 'true' : 'false';
             tr.dataset.isFixed = data.is_fixed ? 'true' : 'false';
             tr.dataset.date = data.date;
-            tr.dataset.amount = data.amount;
+            // Only use getRawValue if amount contains comma (locale format)
+            const amountStr = String(data.amount);
+            if (typeof getRawValue === 'function' && amountStr.includes(',')) {
+                tr.dataset.amount = getRawValue(amountStr, window.thousandSeparator, window.decimalSeparator);
+            } else {
+                tr.dataset.amount = data.amount;
+            }
             tr.className = `swipeable-row-income ${data.realized ? 'row-realized-income' : 'row-not-realized-income'} hover:bg-slate-50 dark:hover:bg-gray-700/50`;
             tr.style.backgroundColor = 'rgba(34, 197, 94, 0.1)'; // Initial highlight
 
@@ -227,7 +282,7 @@
             }
 
             // Format amount
-            const formattedAmount = window.RealtimeUI.utils.formatCurrency(data.amount);
+            const formattedAmount = formatCurrencyLocal(data.amount);
 
             // SECURITY FIX (Phase 2 - Enhanced): Use createElement() to avoid innerHTML completely
             // This is the SAFEST approach - no string interpolation, no XSS risk
@@ -247,9 +302,10 @@
             const dragIcon = createEl('span', 'material-symbols-outlined text-gray-400 dark:text-gray-500 drag-handle-income cursor-grab active:cursor-grabbing', 'drag_indicator');
             const saveBtn = document.createElement('button');
             saveBtn.type = 'button';
+            saveBtn.dataset.action = 'save';
+            saveBtn.dataset.itemId = itemId;
             saveBtn.className = 'edit-save-icon-income';
             saveBtn.style.display = 'none';
-            saveBtn.onclick = () => saveItem(itemId);
             saveBtn.appendChild(createEl('span', 'material-symbols-outlined text-green-500 text-2xl', 'check_circle'));
             td1.appendChild(dragIcon);
             td1.appendChild(saveBtn);
@@ -292,19 +348,24 @@
             amountInput.inputMode = 'decimal';
             amountInput.dataset.field = 'amount';
             amountInput.className = 'w-20 border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-xs text-right p-1';
-            amountInput.value = data.amount;  // SAFE
+            // Format amount for locale (e.g., 107.18 -> 107,18 in pt-BR)
+            amountInput.value = typeof formatAmountForInput === 'function'
+                ? formatAmountForInput(data.amount, window.thousandSeparator, window.decimalSeparator)
+                : data.amount;
             amountEdit.appendChild(amountInput);
 
             const mobileActions = createEl('div', 'mobile-actions-btns-income');
             const mobileEditBtn = document.createElement('button');
             mobileEditBtn.type = 'button';
+            mobileEditBtn.dataset.action = 'edit';
+            mobileEditBtn.dataset.itemId = itemId;
             mobileEditBtn.className = 'mobile-action-btn-income edit-btn-income';
-            mobileEditBtn.onclick = () => toggleEditMode(itemId, true);
             mobileEditBtn.appendChild(createEl('span', 'material-symbols-outlined', 'edit'));
             const mobileDeleteBtn = document.createElement('button');
             mobileDeleteBtn.type = 'button';
+            mobileDeleteBtn.dataset.action = 'delete';
+            mobileDeleteBtn.dataset.itemId = itemId;
             mobileDeleteBtn.className = 'mobile-action-btn-income delete-btn-income';
-            mobileDeleteBtn.onclick = () => deleteItem(itemId);
             mobileDeleteBtn.appendChild(createEl('span', 'material-symbols-outlined', 'delete'));
             mobileActions.appendChild(mobileEditBtn);
             mobileActions.appendChild(mobileDeleteBtn);
@@ -317,7 +378,8 @@
             const td5 = createEl('td', 'py-3 px-2 text-center mobile-hide-column');
             const toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
-            toggleBtn.onclick = () => toggleIncomeRealized(itemId);
+            toggleBtn.dataset.toggle = 'income-realized';
+            toggleBtn.dataset.itemId = itemId;
             toggleBtn.className = `income-realized-toggle relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer ${data.realized ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`;
             toggleBtn.appendChild(createEl('span', `absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full ${data.realized ? 'translate-x-4' : ''}`));
             td5.appendChild(toggleBtn);
@@ -327,13 +389,15 @@
             const actionsDisplay = createEl('div', 'actions-display flex justify-center gap-1');
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
+            editBtn.dataset.action = 'edit';
+            editBtn.dataset.itemId = itemId;
             editBtn.className = 'p-1 text-slate-500 hover:text-primary';
-            editBtn.onclick = () => toggleEditMode(itemId, true);
             editBtn.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'edit'));
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
+            deleteBtn.dataset.action = 'delete';
+            deleteBtn.dataset.itemId = itemId;
             deleteBtn.className = 'p-1 text-slate-500 hover:text-red-500';
-            deleteBtn.onclick = () => deleteItem(itemId);
             deleteBtn.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'delete'));
             actionsDisplay.appendChild(editBtn);
             actionsDisplay.appendChild(deleteBtn);
@@ -341,13 +405,15 @@
             const actionsEdit = createEl('div', 'actions-edit hidden flex justify-center gap-1');
             const saveBtn2 = document.createElement('button');
             saveBtn2.type = 'button';
+            saveBtn2.dataset.action = 'save';
+            saveBtn2.dataset.itemId = itemId;
             saveBtn2.className = 'p-1 text-primary hover:text-primary/80';
-            saveBtn2.onclick = () => saveItem(itemId);
             saveBtn2.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'check'));
             const cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
+            cancelBtn.dataset.action = 'cancel';
+            cancelBtn.dataset.itemId = itemId;
             cancelBtn.className = 'p-1 text-slate-500 hover:text-red-500';
-            cancelBtn.onclick = () => toggleEditMode(itemId, false);
             cancelBtn.appendChild(createEl('span', 'material-symbols-outlined text-lg', 'close'));
             actionsEdit.appendChild(saveBtn2);
             actionsEdit.appendChild(cancelBtn);
@@ -394,9 +460,21 @@
             newRow.className = 'draggable-row cursor-default hover:bg-gray-50 dark:hover:bg-gray-700/30 group-row-clickable';
             newRow.draggable = true;
 
-            const currencySymbol = window.currencySymbol || 'R$';
-            const estimatedFormatted = window.RealtimeUI.utils.formatCurrency(flowgroupData.budgeted_amount || '0.00');
-            const realizedFormatted = window.RealtimeUI.utils.formatCurrency('0.00');
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPeriod = urlParams.get('period');
+            let groupUrl = `/flow-group/${flowgroupData.id}/edit/`;
+            if (currentPeriod) {
+                groupUrl += `?period=${encodeURIComponent(currentPeriod)}`;
+            }
+            newRow.dataset.groupUrl = groupUrl;
+
+            // Child group styling
+            if (flowgroupData.is_kids_group) {
+                newRow.style.color = '#DAA520';
+            }
+
+            const estimatedFormatted = formatCurrencyLocal(flowgroupData.budgeted_amount || '0.00');
+            const realizedFormatted = formatCurrencyLocal('0.00');
 
             // SECURITY FIX (Phase 2 - Enhanced): Use createElement() to avoid innerHTML completely
             // No string interpolation = No XSS risk
@@ -443,6 +521,26 @@
             newRow.appendChild(td3);
             newRow.appendChild(td4);
 
+            // ATTACH CLICK HANDLER IMMEDIATELY (since dashboard.js uses direct attachment not delegation)
+            newRow.addEventListener('click', function(e) {
+                // Don't navigate if clicking on drag handle
+                if (e.target.closest('.drag-handle-cell') || e.target.closest('.drag-handle')) {
+                    return;
+                }
+
+                const url = this.getAttribute('data-group-url');
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+
+            // Add cursor pointer on hover
+            newRow.addEventListener('mouseover', function(e) {
+                if (!e.target.closest('.drag-handle-cell') && !e.target.closest('.drag-handle')) {
+                    this.style.cursor = 'pointer';
+                }
+            });
+
             // Insert at the end (before "empty" message row if exists)
             const emptyRow = tbody.querySelector('tr td[colspan]');
             if (emptyRow) {
@@ -465,7 +563,7 @@
                 updatePieChart();
             }
 
-            console.log('[Dashboard RT] FlowGroup added successfully');
+            console.log('[Dashboard RT] FlowGroup added successfully and click handler attached');
         },
 
         /**
@@ -487,17 +585,15 @@
                     nameCell.textContent = flowgroupData.name;
                 }
 
-                // Check for budget warning
-                const budgetedAmount = parseFloat(flowgroupData.budgeted_amount) || 0;
-                const totalEstimated = parseFloat(flowgroupData.total_estimated) || 0;
-                const hasBudgetWarning = totalEstimated > budgetedAmount;
+                // Use budget_warning from backend - NO frontend calculation!
+                const hasBudgetWarning = flowgroupData.budget_warning || false;
 
                 // Update estimated (3rd column) with budget warning logic
                 const estimatedCell = row.querySelector('.group-estimated');
                 if (estimatedCell) {
                     // Show budgeted_amount normally, or total_estimated if over budget
                     const displayValue = hasBudgetWarning ? flowgroupData.total_estimated : flowgroupData.budgeted_amount;
-                    const formattedEstimated = window.RealtimeUI.utils.formatCurrency(displayValue || '0.00');
+                    const formattedEstimated = formatCurrencyLocal(displayValue || '0.00');
                     estimatedCell.textContent = formattedEstimated;
                     estimatedCell.dataset.value = displayValue || '0.00';
 
@@ -514,24 +610,34 @@
                 const nameContainer = row.querySelector('td:nth-child(2) .flex.flex-col');
                 if (nameContainer) {
                     // Remove existing warning if present
-                    const existingWarning = nameContainer.querySelector('.text-xs.text-yellow-600');
+                    const existingWarning = nameContainer.querySelector('.overbudget-warning, .text-xs.text-yellow-600');
                     if (existingWarning) {
                         existingWarning.remove();
                     }
 
-                    // Add warning if over budget
+                    // Add warning if backend says over budget
                     if (hasBudgetWarning) {
                         const warningDiv = document.createElement('div');
-                        warningDiv.className = 'text-xs text-yellow-600 dark:text-yellow-400 font-medium';
-                        warningDiv.textContent = 'window.DASHBOARD_CONFIG.i18n.overBudget';
+                        warningDiv.className = 'overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium';
+
+                        // Get i18n text with safety checks
+                        let warningText = '⚠ Over budget';
+                        if (window.DASHBOARD_CONFIG && window.DASHBOARD_CONFIG.i18n && window.DASHBOARD_CONFIG.i18n.overBudget) {
+                            warningText = window.DASHBOARD_CONFIG.i18n.overBudget;
+                        }
+                        warningDiv.textContent = warningText;
+
                         nameContainer.appendChild(warningDiv);
+                        console.log('[Dashboard RT] Overbudget warning added for group:', flowgroupData.id);
+                    } else {
+                        console.log('[Dashboard RT] No overbudget warning for group:', flowgroupData.id);
                     }
                 }
 
                 // Update realized (4th column)
                 const realizedCell = row.querySelector('.group-realized');
                 if (realizedCell) {
-                    const formattedRealized = window.RealtimeUI.utils.formatCurrency(flowgroupData.total_realized || '0.00');
+                    const formattedRealized = formatCurrencyLocal(flowgroupData.total_realized || '0.00');
                     realizedCell.textContent = formattedRealized;
                     realizedCell.dataset.value = flowgroupData.total_realized || '0.00';
                 }
@@ -582,7 +688,7 @@
                         const emptyCell = document.createElement('td');
                         emptyCell.setAttribute('colspan', '4');
                         emptyCell.className = 'py-4 px-4 text-center text-gray-500';
-                        emptyCell.textContent = 'window.DASHBOARD_CONFIG.i18n.noExpenseGroups';
+                        emptyCell.textContent = window.DASHBOARD_CONFIG?.i18n?.noExpenseGroups || 'No expense groups defined.';
                         emptyRow.appendChild(emptyCell);
                         tbody.appendChild(emptyRow);
                     }
@@ -642,90 +748,66 @@
             });
 
             console.log('[Dashboard RT] FlowGroups reordered successfully');
-        },
-
-        /**
-         * Update overbudget warning display for a flow group
-         */
-        updateOverbudgetWarning: function(flowGroupId, showWarning) {
-            console.log('[Dashboard RT] Updating overbudget warning for group:', flowGroupId, 'show:', showWarning);
-
-            // Find the flowgroup row
-            const row = document.querySelector(`tr[data-flow-group-id="${flowGroupId}"]`);
-            if (!row) {
-                console.warn('[Dashboard RT] FlowGroup row not found:', flowGroupId);
-                return;
-            }
-
-            // Find the name cell (first td with the group name and badges)
-            const nameCell = row.querySelector('td:first-child');
-            if (!nameCell) {
-                console.warn('[Dashboard RT] Name cell not found for group:', flowGroupId);
-                return;
-            }
-
-            // Find or create the warning container
-            let warningContainer = nameCell.querySelector('.overbudget-warning');
-
-            if (showWarning) {
-                // Add warning if it doesn't exist
-                if (!warningContainer) {
-                    warningContainer = document.createElement('div');
-                    warningContainer.className = 'overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium';
-
-                    // Get i18n text
-                    const warningText = window.DASHBOARD_CONFIG?.i18n?.overBudget || '⚠ Over budget';
-                    warningContainer.textContent = warningText;
-
-                    // Insert after the badges div
-                    const badgesDiv = nameCell.querySelector('div');
-                    if (badgesDiv && badgesDiv.nextSibling) {
-                        badgesDiv.parentNode.insertBefore(warningContainer, badgesDiv.nextSibling);
-                    } else {
-                        nameCell.appendChild(warningContainer);
-                    }
-
-                    console.log('[Dashboard RT] Overbudget warning added to group:', flowGroupId);
-                }
-            } else {
-                // Remove warning if it exists
-                if (warningContainer) {
-                    warningContainer.remove();
-                    console.log('[Dashboard RT] Overbudget warning removed from group:', flowGroupId);
-                }
-            }
-        },
-
-        /**
-         * Check and update overbudget status based on current values
-         */
-        checkOverbudget: function(flowGroupId) {
-            console.log('[Dashboard RT] Checking overbudget status for group:', flowGroupId);
-
-            const row = document.querySelector(`tr[data-flow-group-id="${flowGroupId}"]`);
-            if (!row) {
-                return;
-            }
-
-            // Get estimated and budgeted values
-            const estimatedCell = row.querySelector('.group-estimated');
-            const budgetedCell = row.querySelector('.group-budgeted');
-
-            if (!estimatedCell || !budgetedCell) {
-                console.warn('[Dashboard RT] Could not find budget cells for group:', flowGroupId);
-                return;
-            }
-
-            const estimated = parseFloat(estimatedCell.dataset.value || 0);
-            const budgeted = parseFloat(budgetedCell.dataset.value || 0);
-
-            console.log('[Dashboard RT] Budget check - estimated:', estimated, 'budgeted:', budgeted);
-
-            // Update warning display
-            const isOverBudget = estimated > budgeted;
-            this.updateOverbudgetWarning(flowGroupId, isOverBudget);
         }
     };
+
+    // Listen for Transaction creation events (income)
+    document.addEventListener('realtime:transaction:created', function(event) {
+        console.log('[Dashboard RT] Received transaction:created event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.addTransaction) {
+            window.DashboardRealtime.addTransaction(event.detail.data, event.detail.actor);
+        }
+    });
+
+    // Listen for Transaction update events (income)
+    document.addEventListener('realtime:transaction:updated', function(event) {
+        console.log('[Dashboard RT] Received transaction:updated event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.updateTransaction) {
+            window.DashboardRealtime.updateTransaction(event.detail.data);
+        }
+    });
+
+    // Listen for Transaction deletion events (income)
+    document.addEventListener('realtime:transaction:deleted', function(event) {
+        console.log('[Dashboard RT] Received transaction:deleted event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.removeTransaction) {
+            const transactionId = event.detail.data.id || event.detail.data.transaction_id;
+            window.DashboardRealtime.removeTransaction(transactionId);
+        }
+    });
+
+    // Listen for FlowGroup creation events
+    document.addEventListener('realtime:flowgroup:created', function(event) {
+        console.log('[Dashboard RT] Received flowgroup:created event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.addFlowGroup) {
+            window.DashboardRealtime.addFlowGroup(event.detail.data);
+        }
+    });
+
+    // Listen for FlowGroup update events
+    document.addEventListener('realtime:flowgroup:updated', function(event) {
+        console.log('[Dashboard RT] Received flowgroup:updated event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.updateFlowGroup) {
+            window.DashboardRealtime.updateFlowGroup(event.detail.data);
+        }
+    });
+
+    // Listen for FlowGroup deletion events
+    document.addEventListener('realtime:flowgroup:deleted', function(event) {
+        console.log('[Dashboard RT] Received flowgroup:deleted event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.removeFlowGroup) {
+            const flowgroupId = event.detail.data.id || event.detail.data.flowgroup_id;
+            window.DashboardRealtime.removeFlowGroup(flowgroupId);
+        }
+    });
+
+    // Listen for FlowGroup reorder events
+    document.addEventListener('realtime:flowgroups:reordered', function(event) {
+        console.log('[Dashboard RT] Received flowgroups:reordered event:', event.detail);
+        if (window.DashboardRealtime && window.DashboardRealtime.reorderFlowGroups) {
+            window.DashboardRealtime.reorderFlowGroups(event.detail.data);
+        }
+    });
 
     console.log('[Dashboard RT] Real-time updates initialized');
 })();

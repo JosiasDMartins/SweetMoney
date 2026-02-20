@@ -77,6 +77,89 @@
             </form>
         </div>
 
+        <!-- Email Notifications Card -->
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-6">
+            <h2 class="text-xl font-bold text-[#0d171b] dark:text-white mb-4">{% trans "Email Notifications" %}</h2>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_email_notifications">
+
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" name="email_notifications_enabled" id="email_notifications_enabled"
+                               {% if request.user.email_notifications_enabled %}checked{% endif %}
+                               class="h-4 w-4 text-primary border-slate-300 dark:border-slate-600 rounded focus:ring-primary">
+                        <label for="email_notifications_enabled" class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                            {% trans "Enable email notifications" %}
+                        </label>
+                    </div>
+
+                    <div id="email-notif-types" class="ml-6 space-y-3 border-l-2 border-primary/30 pl-4"
+                         style="display: {% if request.user.email_notifications_enabled %}block{% else %}none{% endif %}">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Select which notifications you want to receive by email:" %}</p>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" name="email_notify_overdue" id="email_notify_overdue"
+                                   {% if request.user.email_notify_overdue %}checked{% endif %}
+                                   class="h-4 w-4 text-primary border-slate-300 dark:border-slate-600 rounded focus:ring-primary">
+                            <label for="email_notify_overdue" class="ml-2 text-sm text-slate-700 dark:text-slate-300">
+                                <span class="material-symbols-outlined text-red-500 text-base align-middle mr-1">schedule</span>
+                                {% trans "Overdue Transaction" %}
+                            </label>
+                        </div>
+
+                        <div id="email-overdue-days-before-wrapper" class="ml-6 mt-3"
+                             style="display: {% if request.user.email_notify_overdue %}block{% else %}none{% endif %}">
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                {% trans "Send warning X days before due date" %}
+                            </label>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" name="email_notify_overdue_days_before"
+                                       id="email_notify_overdue_days_before"
+                                       value="{{ current_member.email_notify_overdue_days_before }}"
+                                       min="0" max="30"
+                                       class="w-20 border rounded-lg bg-background-light dark:bg-background-dark border-slate-300 dark:border-slate-700 focus:ring-primary focus:border-primary text-slate-800 dark:text-slate-200 p-2 text-center">
+                                <span class="text-sm text-slate-600 dark:text-slate-400">
+                                    {% trans "days before (0 = only when already overdue)" %}
+                                </span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {% trans "Example: Set to 3 to receive warning 3 days before transaction due date" %}
+                            </p>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" name="email_notify_overbudget" id="email_notify_overbudget"
+                                   {% if request.user.email_notify_overbudget %}checked{% endif %}
+                                   class="h-4 w-4 text-primary border-slate-300 dark:border-slate-600 rounded focus:ring-primary">
+                            <label for="email_notify_overbudget" class="ml-2 text-sm text-slate-700 dark:text-slate-300">
+                                <span class="material-symbols-outlined text-orange-500 text-base align-middle mr-1">warning</span>
+                                {% trans "Over Budget" %}
+                            </label>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" name="email_notify_new_transaction" id="email_notify_new_transaction"
+                                   {% if request.user.email_notify_new_transaction %}checked{% endif %}
+                                   class="h-4 w-4 text-primary border-slate-300 dark:border-slate-600 rounded focus:ring-primary">
+                            <label for="email_notify_new_transaction" class="ml-2 text-sm text-slate-700 dark:text-slate-300">
+                                <span class="material-symbols-outlined text-blue-500 text-base align-middle mr-1">receipt</span>
+                                {% trans "New Transaction" %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="rounded-lg bg-primary text-white text-base font-medium p-3 hover:bg-primary/90 transition-colors shadow-lg">
+                        <span class="material-symbols-outlined text-lg mr-2 align-middle">mail</span>
+                        {% trans "Save Notification Preferences" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Change Password Card -->
         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
             <h2 class="text-xl font-bold text-[#0d171b] dark:text-white mb-4">{% trans "Change Password" %}</h2>
@@ -120,3 +203,7 @@
     </div>
 </div>
 {% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'finances/js/profile.js' %}?v=20260213-001" defer></script>
+{% endblock extra_js %}

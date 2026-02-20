@@ -10,15 +10,26 @@
     'use strict';
 
     // Get current user ID from DOM
-    const currentUserId = document.body.dataset.userId ? parseInt(document.body.dataset.userId) : null;
+    const baseConfig = document.getElementById('base-config');
+    const currentUserId = baseConfig ? parseInt(baseConfig.dataset.userId) : null;
 
-    // Locale settings for money formatting
-    const decimalSeparator = window.decimalSeparator || ',';
-    const thousandSeparator = window.thousandSeparator || '.';
-    const currencySymbol = window.currencySymbol || 'R$';
+    /**
+     * Get locale settings dynamically at call time
+     * This ensures we use the correct values even if they're set after this file loads
+     */
+    function getLocaleSettings() {
+        // Try page-specific config first, then fall back to global window settings
+        const config = window.FLOWGROUP_CONFIG || window.DASHBOARD_CONFIG || window.BANK_RECON_CONFIG || {};
+        return {
+            decimalSeparator: config.decimalSeparator || window.decimalSeparator || ',',
+            thousandSeparator: config.thousandSeparator || window.thousandSeparator || '.',
+            currencySymbol: config.currencySymbol || window.currencySymbol || '$'
+        };
+    }
 
     /**
      * Format currency value with locale settings
+     * Reads locale settings dynamically at call time
      */
     function formatCurrency(value) {
         if (value === null || value === undefined) return '';
@@ -26,12 +37,16 @@
         const num = parseFloat(value);
         if (isNaN(num)) return '';
 
+        // Get locale settings at call time (not at load time!)
+        const { decimalSeparator, thousandSeparator, currencySymbol } = getLocaleSettings();
+
         // Format with 2 decimal places
         const parts = Math.abs(num).toFixed(2).split('.');
         const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
         const formattedValue = integerPart + decimalSeparator + parts[1];
 
-        return (num < 0 ? '-' : '') + currencySymbol + ' ' + formattedValue;
+        // Format as "CA$ -5,00" for negative, "CA$ 5,00" for positive
+        return currencySymbol + ' ' + (num < 0 ? '-' : '') + formattedValue;
     }
 
     /**
@@ -173,18 +188,26 @@
     window.RealtimeUI.handleTransactionCreated = function(data) {
         console.log('[RealtimeUI] Transaction created:', data);
 
+        // Ensure data exists and is properly structured
+        if (!data || !data.data) {
+            console.warn('[RealtimeUI] Received malformed transaction_created event:', data);
+            return;
+        }
+
+        const transactionData = data.data;
+        const actorUsername = data.actor?.username || 'unknown';
+        console.log(`[RealtimeUI] New transaction ${transactionData.id} by ${actorUsername}`);
+
         // Trigger custom event for page-specific handlers
         triggerCustomEvent('realtime:transaction:created', data);
 
-        // Try to update dashboard if present
+        // Try page-specific handlers (Dashboard)
         if (typeof window.DashboardRealtime !== 'undefined' && window.DashboardRealtime.addTransaction) {
-            window.DashboardRealtime.addTransaction(data.data);
+            window.DashboardRealtime.addTransaction(transactionData);
         }
 
-        // Try to update flowgroup page if present
-        if (typeof window.FlowGroupRealtime !== 'undefined' && window.FlowGroupRealtime.addTransaction) {
-            window.FlowGroupRealtime.addTransaction(data.data);
-        }
+        // FlowGroup handling is done via event listener in FlowGroup_realtime.js
+        // to ensure clean separation and correct argument passing (data, actor)
     };
 
     window.RealtimeUI.handleTransactionUpdated = function(data) {
@@ -225,7 +248,7 @@
         console.log('[RealtimeUI] Checking for FlowGroup handler...', typeof window.FlowGroupRealtime);
         if (typeof window.FlowGroupRealtime !== 'undefined' && window.FlowGroupRealtime.updateTransaction) {
             console.log('[RealtimeUI] Calling FlowGroupRealtime.updateTransaction()');
-            window.FlowGroupRealtime.updateTransaction(data.data);
+            window.FlowGroupRealtime.updateTransaction(data.data, data.actor);
         } else {
             console.log('[RealtimeUI] FlowGroupRealtime not available');
         }
@@ -288,18 +311,19 @@
 
         // Try page-specific handler (flowgroup edit page)
         if (typeof window.FlowGroupRealtime !== 'undefined' && window.FlowGroupRealtime.updateFlowGroup) {
-            window.FlowGroupRealtime.updateFlowGroup(data.data);
+            window.FlowGroupRealtime.updateFlowGroup(data.data, data.actor);
         }
     };
 
     window.RealtimeUI.handleFlowGroupDeleted = function(data) {
-        console.log('[RealtimeUI] FlowGroup deleted:', data);
+        console.log('[RealtimeUI] FlowGroup deleted handler called with data:', data);
 
         // Trigger custom event
         triggerCustomEvent('realtime:flowgroup:deleted', data);
 
         // Try page-specific handler (dashboard)
         if (typeof window.DashboardRealtime !== 'undefined' && window.DashboardRealtime.removeFlowGroup) {
+            console.log('[RealtimeUI] Calling DashboardRealtime.removeFlowGroup for:', data.data.id);
             window.DashboardRealtime.removeFlowGroup(data.data.id);
         }
     };
@@ -352,9 +376,9 @@
             highlightElement(element);
         }
 
-        // Try page-specific handler
+        // Try page-specific handler (pass actor for own-action detection)
         if (typeof window.BankReconciliationRealtime !== 'undefined' && window.BankReconciliationRealtime.updateBalance) {
-            window.BankReconciliationRealtime.updateBalance(data.data);
+            window.BankReconciliationRealtime.updateBalance(data.data, data.actor);
         }
     };
 

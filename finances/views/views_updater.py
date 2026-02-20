@@ -329,7 +329,7 @@ def apply_local_updates(request):
 
         print(f"[APPLY_UPDATES] Finished. Success: {all_success}")
         return JsonResponse(response_data)
-        
+
     except Exception as e:
         print(f"[APPLY_UPDATES] Exception: {e}")
         print(f"[APPLY_UPDATES] Traceback: {traceback.format_exc()}")
@@ -338,6 +338,67 @@ def apply_local_updates(request):
             'error': str(e),
             'traceback': traceback.format_exc()
         }, status=500)
+
+
+def apply_updates_programmatically():
+    """
+    Apply local updates programmatically (without request object).
+    Used by restore functions to ensure database is up-to-date after restore.
+
+    Returns:
+        bool: True if all updates applied successfully, False otherwise
+    """
+    try:
+        print(f"[AUTO_APPLY_UPDATES] Starting automatic update application...")
+
+        # Get available update scripts
+        scripts = get_available_update_scripts(get_db_version(), VERSION)
+        print(f"[AUTO_APPLY_UPDATES] Found {len(scripts)} scripts from DB version {get_db_version()} to {VERSION}")
+
+        all_success = True
+
+        # 1. Run migrations
+        print(f"[AUTO_APPLY_UPDATES] Running migrations...")
+        migration_success, migration_output = run_migrations()
+
+        if not migration_success:
+            print(f"[AUTO_APPLY_UPDATES] Migration failed: {migration_output}")
+            return False
+
+        print(f"[AUTO_APPLY_UPDATES] Migrations completed successfully")
+
+        # 2. Execute update scripts
+        if scripts:
+            print(f"[AUTO_APPLY_UPDATES] Executing {len(scripts)} scripts...")
+            for script in scripts:
+                script_path = script.get('path') or script.get('filename')
+                script_version = script.get('version', 'unknown')
+
+                try:
+                    output = execute_update_script(script_path)
+                    print(f"[AUTO_APPLY_UPDATES] Script v{script_version} success: {output}")
+                except Exception as e:
+                    print(f"[AUTO_APPLY_UPDATES] Script v{script_version} failed: {e}")
+                    all_success = False
+                    break
+
+        # 3. Update version in DB if all successful
+        if all_success:
+            SystemVersion.set_version(VERSION)
+            print(f"[AUTO_APPLY_UPDATES] Version updated to {VERSION}")
+
+            # 4. Create reload flag for Docker hot-reload
+            if create_reload_flag():
+                print(f"[AUTO_APPLY_UPDATES] Reload flag created for Docker")
+
+        print(f"[AUTO_APPLY_UPDATES] Finished. Success: {all_success}")
+        return all_success
+
+    except Exception as e:
+        print(f"[AUTO_APPLY_UPDATES] Exception: {e}")
+        print(f"[AUTO_APPLY_UPDATES] Traceback: {traceback.format_exc()}")
+        return False
+
 
 
 def execute_update_script(script_path):

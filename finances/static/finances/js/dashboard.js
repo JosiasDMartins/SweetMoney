@@ -1,10 +1,16 @@
 /**
  * Dashboard Main Script
  * External JavaScript file (CSP compliant - no inline scripts)
- * Version: 20260101-001 - Added YTD real-time update debug logs
+ * Version: 20260216-001 - Added debouncing and concurrency protection
  */
 
 'use strict';
+
+// Flags to prevent concurrent API calls and loops
+window.isUpdatingBalance = false;
+window.isUpdatingSummary = false;
+window.balanceUpdateTimeout = null;
+window.summaryUpdateTimeout = null;
 
 function initDashboard() {
 // Read configuration from data attributes
@@ -21,6 +27,7 @@ window.DASHBOARD_CONFIG = {
     decimalSeparator: config.dataset.decimalSeparator,
     thousandSeparator: config.dataset.thousandSeparator,
     currencySymbol: config.dataset.currencySymbol,
+    incomeCommitment: parseFloat(config.dataset.incomeCommitment) || 0,
     periodsHistory: JSON.parse(config.dataset.periodsHistory || '[]'),
     urls: {
         deleteItem: config.dataset.urlDeleteItem,
@@ -42,6 +49,7 @@ window.DASHBOARD_CONFIG = {
         onlyParentsChange: config.dataset.i18nOnlyParentsChange,
         others: config.dataset.i18nOthers,
         totalExpenses: config.dataset.i18nTotalExpenses,
+        investments: config.dataset.i18nInvestments,
         trend: config.dataset.i18nTrend,
         overBudget: config.dataset.i18nOverBudget,
         noExpenseGroups: config.dataset.i18nNoExpenseGroups
@@ -56,6 +64,12 @@ initCharts();
 initDragAndDrop();
 initEventHandlers();
 initMobileKeyboardHandling();
+
+// Initialize calculator for amount fields
+if (window.FinancesCalculator) {
+    window.FinancesCalculator.init('input[data-field="amount"]');
+    console.log('[Dashboard] Calculator initialized');
+}
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -181,7 +195,7 @@ function initIncomeItemsDragDrop() {
 }
 
 function updateKeyMetrics() {
-    updateMetrics();
+    updateMetrics(window.DASHBOARD_CONFIG.incomeCommitment);
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -275,23 +289,31 @@ function initPieChart() {
 }
 
 // Calculate linear regression for trend line
-function calculateTrendLine(values) {
-    const n = values.length;
+// excludeLast: if true, exclude last data point from regression but still extrapolate for it
+function calculateTrendLine(values, excludeLast) {
+    const totalLen = values.length;
+    if (totalLen === 0) return [];
+
+    const regressionValues = excludeLast ? values.slice(0, -1) : values;
+    const n = regressionValues.length;
     if (n === 0) return [];
-    
-    const xValues = values.map((_, i) => i);
+
+    const xValues = regressionValues.map((_, i) => i);
     const sumX = xValues.reduce((a, b) => a + b, 0);
-    const sumY = values.reduce((a, b) => a + b, 0);
-    const sumXY = xValues.reduce((sum, x, i) => sum + x * values[i], 0);
+    const sumY = regressionValues.reduce((a, b) => a + b, 0);
+    const sumXY = xValues.reduce((sum, x, i) => sum + x * regressionValues[i], 0);
     const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
-    
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+    const denominator = n * sumX2 - sumX * sumX;
+    if (denominator === 0) return values.map(() => sumY / n);
+
+    const slope = (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
-    
-    return xValues.map(x => slope * x + intercept);
+
+    return Array.from({length: totalLen}, (_, i) => slope * i + intercept);
 }
 
-// Initialize Bar Chart with dynamic colors and trend line
+// Initialize Bar Chart with stacked expenses/investments and trend line
 function initBarChart() {
     const ctx = document.getElementById('expensesBarChart');
     if (!ctx) return;
@@ -302,12 +324,20 @@ function initBarChart() {
     }
 
     const barData = window.DASHBOARD_CONFIG.periodsHistory;
+    const i18n = window.DASHBOARD_CONFIG.i18n;
+    const currencySymbol = window.DASHBOARD_CONFIG.currencySymbol;
 
-    // Calculate bar colors based on income commitment
+    // Stacked data
+    const expensesOnly = barData.expenses_only || barData.values;
+    const investments = barData.investments || barData.values.map(() => 0);
+    const isCurrent = barData.is_current || [];
+
+    // Colors for expense bars (commitment-based)
     const barColors = barData.colors || barData.values.map(() => 'rgb(239, 68, 68)');
 
-    // Calculate trend line
-    const trendLine = calculateTrendLine(barData.values);
+    // Trend line: uses expenses_only, excludes current (unfished) period
+    const hasCurrentPeriod = isCurrent.length > 0 && isCurrent[isCurrent.length - 1] === true;
+    const trendLine = calculateTrendLine(expensesOnly, hasCurrentPeriod);
 
     barChart = new Chart(ctx, {
         type: 'bar',
@@ -315,18 +345,27 @@ function initBarChart() {
             labels: barData.labels,
             datasets: [
                 {
-                    label: window.DASHBOARD_CONFIG.i18n.totalExpenses,
-                    data: barData.values,
+                    label: i18n.totalExpenses || 'Expenses',
+                    data: expensesOnly,
                     backgroundColor: barColors,
                     borderColor: barColors.map(color => color.replace('rgb', 'rgba').replace(')', ', 0.8)')),
-                    borderWidth: 1
+                    borderWidth: 1,
+                    stack: 'stack0'
                 },
                 {
-                    label: window.DASHBOARD_CONFIG.i18n.trend,
+                    label: i18n.investments || 'Investments',
+                    data: investments,
+                    backgroundColor: 'rgb(59, 130, 246)',
+                    borderColor: 'rgba(59, 130, 246, 0.8)',
+                    borderWidth: 1,
+                    stack: 'stack0'
+                },
+                {
+                    label: i18n.trend || 'Trend',
                     data: trendLine,
                     type: 'line',
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: 'rgb(249, 115, 22)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
                     borderWidth: 2,
                     pointRadius: 0,
                     borderDash: [5, 5],
@@ -340,14 +379,16 @@ function initBarChart() {
             maintainAspectRatio: false,
             scales: {
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return formatCurrency(value, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
+                            return formatCurrency(value, currencySymbol, thousandSeparator, decimalSeparator);
                         }
                     }
                 },
                 x: {
+                    stacked: true,
                     ticks: {
                         maxRotation: 45,
                         minRotation: 45,
@@ -372,11 +413,19 @@ function initBarChart() {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            if (context.datasetIndex === 0) {
-                                return 'Total: ' + formatCurrency(context.parsed.y, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
-                            } else {
-                                return 'Trend: ' + formatCurrency(context.parsed.y, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
+                            const value = context.parsed.y;
+                            const formatted = formatCurrency(value, currencySymbol, thousandSeparator, decimalSeparator);
+
+                            // Trend line dataset (index 2)
+                            if (context.datasetIndex === 2) {
+                                return (i18n.trend || 'Trend') + ': ' + formatted;
                             }
+
+                            // Stacked bar segments: show label, value and percentage
+                            const idx = context.dataIndex;
+                            const total = (expensesOnly[idx] || 0) + (investments[idx] || 0);
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                            return context.dataset.label + ': ' + formatted + ' (' + pct + '%)';
                         }
                     }
                 }
@@ -457,7 +506,7 @@ function updatePieChart() {
 }
 
 // Update metrics card (only dynamic values)
-function updateMetrics() {
+function updateMetrics(commitmentFromBackend) {
     // Highest expense (from current period)
     const expenseRows = document.querySelectorAll('tbody tr[data-group-id]');
     let highestExpense = 0;
@@ -469,20 +518,10 @@ function updateMetrics() {
     });
     document.getElementById('metric-highest').textContent = formatCurrency(highestExpense, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
 
-    // Current commitment percentage (current period only)
-    const incomeElem = document.getElementById('balance-realized-income');
-    const expenseElem = document.getElementById('balance-realized-expense');
+    // Current commitment percentage - use backend value
+    const commitment = commitmentFromBackend !== undefined ? parseFloat(commitmentFromBackend) : _lastCommitment;
+    _lastCommitment = commitment;
 
-    if (!incomeElem || !expenseElem) {
-        console.error('Balance elements not found');
-        return;
-    }
-
-    // Parse localized currency values
-    const realizedIncome = parseCurrency(incomeElem.textContent);
-    const realizedExpense = parseCurrency(expenseElem.textContent);
-
-    const commitment = realizedIncome > 0 ? (realizedExpense / realizedIncome * 100) : 0;
     const commitmentElem = document.getElementById('metric-commitment');
     commitmentElem.textContent = commitment.toFixed(1) + '%';
 
@@ -497,6 +536,8 @@ function updateMetrics() {
         commitmentElem.classList.add('text-green-600', 'dark:text-green-500');
     }
 }
+// Cache last commitment value for calls without explicit backend value (e.g. highest expense only updates)
+var _lastCommitment = 0;
 
 // Money mask functions - using utils.js (applyMoneyMask, getRawValue)
 
@@ -508,6 +549,14 @@ function updateMetrics() {
 // === END CHARTS ===
 
 function updateBalanceSheet() {
+    // Prevent concurrent calls
+    if (window.isUpdatingBalance) {
+        console.log('[Dashboard] Balance update already in progress, skipping');
+        return;
+    }
+
+    window.isUpdatingBalance = true;
+
     // Fetch updated balance from backend
     const urlParams = new URLSearchParams(window.location.search);
     const period = urlParams.get('period') || '';
@@ -533,6 +582,12 @@ function updateBalanceSheet() {
             document.getElementById('balance-estimated-expense').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.estimated_expense), '', thousandSeparator, decimalSeparator);
             document.getElementById('balance-realized-expense').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.realized_expense), '', thousandSeparator, decimalSeparator);
 
+            // Update investment (hidden, used for commitment calculation)
+            const invElem = document.getElementById('balance-realized-investment');
+            if (invElem) {
+                invElem.textContent = balance.realized_investment || '0.00';
+            }
+
             // Update result
             const estimatedResult = parseFloat(balance.estimated_result);
             const realizedResult = parseFloat(balance.realized_result);
@@ -556,14 +611,17 @@ function updateBalanceSheet() {
                 realResultCell.className = 'py-4 px-4 text-sm text-red-600 dark:text-red-500 font-bold';
             }
 
-            // Update metrics
-            updateMetrics();
+            // Update metrics with backend-calculated commitment
+            updateMetrics(balance.income_commitment);
         } else {
             console.error('Error fetching balance:', data.error);
         }
     })
     .catch(error => {
         console.error('Fetch Error:', error);
+    })
+    .finally(() => {
+        window.isUpdatingBalance = false;
     });
 }
 
@@ -951,8 +1009,70 @@ window.toggleEditMode = function(rowId, startEdit) {
     }
 
     if(startEdit) {
-         row.querySelector('.cell-description-edit input').focus();
+        // CRITICAL: Restore input values from display values when entering edit mode
+        // This ensures we always edit the saved value, not a cached/stale value
+        const descDisplay = row.querySelector('.cell-description-display');
+        const descInput = row.querySelector('input[data-field="description"]');
+        if (descDisplay && descInput) {
+            descInput.value = descDisplay.textContent.trim();
+        }
+
+        const amountDisplay = row.querySelector('.cell-amount-display');
+        const amountInput = row.querySelector('input[data-field="amount"]');
+        if (amountDisplay && amountInput) {
+            // Get the amount text and remove currency symbol
+            const amountText = amountDisplay.textContent.trim();
+            const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
+            amountInput.value = numericPart;
+        }
+
+        const dateInput = row.querySelector('input[data-field="date"]');
+        if (dateInput) {
+            const fullDate = row.getAttribute('data-date');
+            if (fullDate) {
+                dateInput.value = fullDate;
+            }
+        }
+
+        row.querySelector('.cell-description-edit input').focus();
     }
+}
+
+// Function to cancel edit mode and restore original values
+window.cancelEditIncome = function(rowId) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    // Restore input values from display values
+    const descDisplay = row.querySelector('.cell-description-display');
+    const descInput = row.querySelector('input[data-field="description"]');
+    if (descDisplay && descInput) {
+        descInput.value = descDisplay.textContent.trim();
+    }
+
+    const amountDisplay = row.querySelector('.cell-amount-display');
+    const amountInput = row.querySelector('input[data-field="amount"]');
+    if (amountDisplay && amountInput) {
+        // Get the amount text and remove currency symbol
+        const amountText = amountDisplay.textContent.trim();
+        // Remove currency symbol (everything before the first digit or minus sign)
+        const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
+        amountInput.value = numericPart;
+    }
+
+    const dateDisplay = row.querySelector('.cell-date-display');
+    const dateInput = row.querySelector('input[data-field="date"]');
+    if (dateDisplay && dateInput) {
+        // Date display is DD/MM format, but we need YYYY-MM-DD for input
+        // Use the data-date attribute which stores the full date
+        const fullDate = row.getAttribute('data-date');
+        if (fullDate) {
+            dateInput.value = fullDate;
+        }
+    }
+
+    // Exit edit mode
+    toggleEditMode(rowId, false);
 }
 
 // Function to save edited item
@@ -1792,11 +1912,11 @@ function initMobileIncomeFeatures() {
             if (row.dataset.mode === 'edit') {
                 if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     console.log('[MOBILE INCOME SWIPE] Canceling edit mode for:', row.id);
-                    // CRITICAL FIX: If it's the template, call cancelNewIncomeRow instead of toggleEditMode
+                    // CRITICAL FIX: If it's the template, call cancelNewIncomeRow, otherwise cancelEditIncome
                     if (row.id === 'new-income-template') {
                         window.cancelNewIncomeRow('new-income-template');
                     } else {
-                        toggleEditMode(row.id, false);
+                        window.cancelEditIncome(row.id);
                     }
                 } else {
                     row.style.transform = 'translateX(0)';
@@ -1926,17 +2046,26 @@ function initMobileKeyboardHandling() {
  * Fetches fresh YTD Income, Savings, and Investments values from server
  */
 function updateSummary() {
+    // Prevent concurrent calls
+    if (window.isUpdatingSummary) {
+        console.log('[Dashboard YTD] Summary update already in progress, skipping');
+        return;
+    }
+
+    window.isUpdatingSummary = true;
     console.log('[Dashboard YTD] updateSummary() called - fetching YTD metrics from server');
 
     const config = document.getElementById('dashboard-config');
     if (!config) {
         console.error('[Dashboard YTD] Configuration element not found!');
+        window.isUpdatingSummary = false;
         return;
     }
 
     const ytdMetricsUrl = config.dataset.urlYtdMetrics;
     if (!ytdMetricsUrl) {
         console.error('[Dashboard YTD] YTD metrics URL not found in config!');
+        window.isUpdatingSummary = false;
         return;
     }
 
@@ -2008,10 +2137,14 @@ function updateSummary() {
     })
     .catch(error => {
         console.error('[Dashboard YTD] Error fetching YTD metrics:', error);
+    })
+    .finally(() => {
+        window.isUpdatingSummary = false;
     });
 }
 
 // Listen for income transaction events to update YTD metrics
+// Debounced to prevent rapid successive calls
 document.addEventListener('realtime:transaction:created', function(event) {
     console.log('[Dashboard YTD] Transaction created event received:', event.detail);
     const data = event.detail.data;
@@ -2019,8 +2152,14 @@ document.addEventListener('realtime:transaction:created', function(event) {
     console.log('[Dashboard YTD] is_income flag:', data.is_income);
     // Only update if it's an income transaction
     if (data.is_income) {
-        console.log('[Dashboard YTD] Income created, calling updateSummary()');
-        updateSummary();
+        console.log('[Dashboard YTD] Income created, scheduling updateSummary()');
+        // Clear any pending timeout and schedule a new one (debounce)
+        if (window.summaryUpdateTimeout) {
+            clearTimeout(window.summaryUpdateTimeout);
+        }
+        window.summaryUpdateTimeout = setTimeout(() => {
+            updateSummary();
+        }, 500); // Wait 500ms before updating
     } else {
         console.log('[Dashboard YTD] Not an income transaction, skipping YTD update');
     }
@@ -2033,8 +2172,14 @@ document.addEventListener('realtime:transaction:updated', function(event) {
     console.log('[Dashboard YTD] is_income flag:', data.is_income);
     // Only update if it's an income transaction
     if (data.is_income) {
-        console.log('[Dashboard YTD] Income updated, calling updateSummary()');
-        updateSummary();
+        console.log('[Dashboard YTD] Income updated, scheduling updateSummary()');
+        // Clear any pending timeout and schedule a new one (debounce)
+        if (window.summaryUpdateTimeout) {
+            clearTimeout(window.summaryUpdateTimeout);
+        }
+        window.summaryUpdateTimeout = setTimeout(() => {
+            updateSummary();
+        }, 500); // Wait 500ms before updating
     } else {
         console.log('[Dashboard YTD] Not an income transaction, skipping YTD update');
     }
@@ -2047,8 +2192,14 @@ document.addEventListener('realtime:transaction:deleted', function(event) {
     console.log('[Dashboard YTD] is_income flag:', data.is_income);
     // Only update if it's an income transaction
     if (data.is_income) {
-        console.log('[Dashboard YTD] Income deleted, calling updateSummary()');
-        updateSummary();
+        console.log('[Dashboard YTD] Income deleted, scheduling updateSummary()');
+        // Clear any pending timeout and schedule a new one (debounce)
+        if (window.summaryUpdateTimeout) {
+            clearTimeout(window.summaryUpdateTimeout);
+        }
+        window.summaryUpdateTimeout = setTimeout(() => {
+            updateSummary();
+        }, 500); // Wait 500ms before updating
     } else {
         console.log('[Dashboard YTD] Not an income transaction, skipping YTD update');
     }

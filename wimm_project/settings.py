@@ -192,6 +192,16 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
+        'celery': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery.task': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 
@@ -355,7 +365,14 @@ TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
+USE_L10N = True  # Enable localized formatting of numbers
+
 USE_TZ = True
+
+# Brazilian number formats (comma as decimal, dot as thousand separator)
+DECIMAL_SEPARATOR = ','
+THOUSAND_SEPARATOR = '.'
+USE_THOUSAND_SEPARATOR = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -504,3 +521,47 @@ else:
         }
     }
     print("[Django Channels] Using InMemoryChannelLayer (development mode without Redis)")
+
+
+# =====================================================
+# Celery Configuration for Background Tasks
+# =====================================================
+# Celery is used for asynchronous task processing and scheduled tasks.
+# It reuses the existing Redis infrastructure used by Django Channels.
+
+# Build Redis URL for Celery (same as Channels)
+if redis_available:
+    if redis_password:
+        celery_broker_url = f"redis://:{redis_password}@{redis_host}:{redis_port}/1"
+    else:
+        celery_broker_url = f"redis://{redis_host}:{redis_port}/1"
+else:
+    # Fallback to local Redis for development
+    celery_broker_url = "redis://127.0.0.1:6379/1"
+
+# Celery broker URL (Redis)
+CELERY_BROKER_URL = celery_broker_url
+
+# Celery result backend (Redis)
+CELERY_RESULT_BACKEND = celery_broker_url
+
+# Celery Beat Scheduler - Periodic Tasks
+# Tasks are scheduled to run at specific times (e.g., daily email notifications)
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    # Send daily notification emails at midnight
+    # This task sends overdue and overbudget notification emails
+    'send-daily-notification-emails': {
+        'task': 'finances.tasks.send_daily_notification_emails',
+        'schedule': crontab(hour=0, minute=0),  # Runs at midnight every day
+    },
+}
+
+# Additional Celery settings
+# Note: These are defaults and can be overridden in local_settings.py if needed
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE  # Use Django's TIME_ZONE setting
+CELERY_ENABLE_UTC = True

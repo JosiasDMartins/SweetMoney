@@ -1,0 +1,564 @@
+Devel mode
+[Django Channels] Redis configuration:
+  - Host: 127.0.0.1
+  - Port: 6379
+  - Password: NOT SET
+[Django Channels] Redis not available at 127.0.0.1:6379, using InMemoryChannelLayer
+[Django Channels] Using InMemoryChannelLayer (development mode without Redis)
+[
+{
+  "model": "finances.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$B2t4Rok0HwJQuli3aLErq5$um/4FglH1s3iHswn1R5j8HzDCbSVDZN5Fv+oPW6UEAg=",
+    "last_login": "2026-01-25T19:48:20.365Z",
+    "is_superuser": false,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin@teste.local",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-01-08T18:19:30.256Z",
+    "language": "en",
+    "email_notifications_enabled": false,
+    "email_notify_overdue": false,
+    "email_notify_overbudget": false,
+    "email_notify_new_transaction": false,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "finances.systemversion",
+  "pk": 1,
+  "fields": {
+    "version": "1.6.0-beta",
+    "updated_at": "2026-01-30T16:55:34.953Z"
+  }
+},
+{
+  "model": "finances.family",
+  "pk": 1,
+  "fields": {
+    "name": "Teste"
+  }
+},
+{
+  "model": "finances.familymember",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "family": 1,
+    "role": "ADMIN"
+  }
+},
+{
+  "model": "finances.familyconfiguration",
+  "pk": 1,
+  "fields": {
+    "family": 1,
+    "starting_day": 1,
+    "period_type": "M",
+    "base_date": "2026-01-08",
+    "base_currency": "CAD",
+    "bank_reconciliation_tolerance": "1.00",
+    "bank_reconciliation_mode": "detailed"
+  }
+},
+{
+  "model": "finances.period",
+  "pk": 1,
+  "fields": {
+    "family": 1,
+    "start_date": "2026-01-01",
+    "end_date": "2026-01-31",
+    "period_type": "M",
+    "currency": "CAD",
+    "created_at": "2026-01-08T18:19:30.965Z",
+    "updated_at": "2026-01-14T20:11:02.467Z"
+  }
+},
+{
+  "model": "finances.period",
+  "pk": 3,
+  "fields": {
+    "family": 1,
+    "start_date": "2025-12-01",
+    "end_date": "2025-12-31",
+    "period_type": "M",
+    "currency": "CAD",
+    "created_at": "2026-01-25T21:18:06.403Z",
+    "updated_at": "2026-01-25T21:18:06.403Z"
+  }
+},
+{
+  "model": "finances.period",
+  "pk": 5,
+  "fields": {
+    "family": 1,
+    "start_date": "2026-02-01",
+    "end_date": "2026-02-28",
+    "period_type": "M",
+    "currency": "CAD",
+    "created_at": "2026-02-02T18:42:29.607Z",
+    "updated_at": "2026-02-02T18:42:29.607Z"
+  }
+},
+{
+  "model": "finances.flowgroup",
+  "pk": 1,
+  "fields": {
+    "name": "Income (Default)",
+    "family": 1,
+    "owner": null,
+    "group_type": "INCOME",
+    "budgeted_amount_currency": "CAD",
+    "budgeted_amount": "0.00",
+    "period_start_date": "2026-01-01",
+    "is_shared": false,
+    "is_kids_group": false,
+    "realized": false,
+    "is_investment": false,
+    "is_credit_card": false,
+    "closed": false,
+    "is_recurring": false,
+    "order": 0,
+    "assigned_members": [],
+    "assigned_children": []
+  }
+},
+{
+  "model": "finances.flowgroup",
+  "pk": 3,
+  "fields": {
+    "name": "Fixas",
+    "family": 1,
+    "owner": [
+      "admin"
+    ],
+    "group_type": "EXPENSE_MAIN",
+    "budgeted_amount_currency": "CAD",
+    "budgeted_amount": "1000.00",
+    "period_start_date": "2026-01-01",
+    "is_shared": true,
+    "is_kids_group": false,
+    "realized": false,
+    "is_investment": false,
+    "is_credit_card": false,
+    "closed": false,
+    "is_recurring": true,
+    "order": 0,
+    "assigned_members": [],
+    "assigned_children": []
+  }
+},
+{
+  "model": "finances.flowgroup",
+  "pk": 4,
+  "fields": {
+    "name": "Investimento",
+    "family": 1,
+    "owner": [
+      "admin"
+    ],
+    "group_type": "EXPENSE_MAIN",
+    "budgeted_amount_currency": "CAD",
+    "budgeted_amount": "1000.00",
+    "period_start_date": "2026-01-01",
+    "is_shared": true,
+    "is_kids_group": false,
+    "realized": false,
+    "is_investment": true,
+    "is_credit_card": false,
+    "closed": false,
+    "is_recurring": false,
+    "order": 0,
+    "assigned_members": [],
+    "assigned_children": []
+  }
+},
+{
+  "model": "finances.flowgroup",
+  "pk": 9,
+  "fields": {
+    "name": "Income (Default)",
+    "family": 1,
+    "owner": [
+      "admin"
+    ],
+    "group_type": "INCOME",
+    "budgeted_amount_currency": "CAD",
+    "budgeted_amount": "0.00",
+    "period_start_date": "2025-12-01",
+    "is_shared": false,
+    "is_kids_group": false,
+    "realized": false,
+    "is_investment": false,
+    "is_credit_card": false,
+    "closed": false,
+    "is_recurring": false,
+    "order": 0,
+    "assigned_members": [],
+    "assigned_children": []
+  }
+},
+{
+  "model": "finances.flowgroup",
+  "pk": 18,
+  "fields": {
+    "name": "Fixas",
+    "family": 1,
+    "owner": [
+      "admin"
+    ],
+    "group_type": "EXPENSE_MAIN",
+    "budgeted_amount_currency": "CAD",
+    "budgeted_amount": "1000.00",
+    "period_start_date": "2026-02-01",
+    "is_shared": true,
+    "is_kids_group": false,
+    "realized": false,
+    "is_investment": false,
+    "is_credit_card": false,
+    "closed": false,
+    "is_recurring": true,
+    "order": 0,
+    "assigned_members": [],
+    "assigned_children": []
+  }
+},
+{
+  "model": "finances.flowgroup",
+  "pk": 19,
+  "fields": {
+    "name": "Income (Default)",
+    "family": 1,
+    "owner": [
+      "admin"
+    ],
+    "group_type": "INCOME",
+    "budgeted_amount_currency": "CAD",
+    "budgeted_amount": "0.00",
+    "period_start_date": "2026-02-01",
+    "is_shared": false,
+    "is_kids_group": false,
+    "realized": false,
+    "is_investment": false,
+    "is_credit_card": false,
+    "closed": false,
+    "is_recurring": false,
+    "order": 0,
+    "assigned_members": [],
+    "assigned_children": []
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 48,
+  "fields": {
+    "description": "Salario",
+    "amount_currency": "CAD",
+    "amount": "10000.00",
+    "date": "2025-12-18",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 1,
+    "order": 1
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 49,
+  "fields": {
+    "description": "Teste",
+    "amount_currency": "CAD",
+    "amount": "1849.67",
+    "date": "2025-12-31",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 3,
+    "order": 1
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 53,
+  "fields": {
+    "description": "Income",
+    "amount_currency": "CAD",
+    "amount": "50.00",
+    "date": "2025-12-30",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 1,
+    "order": 3
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 54,
+  "fields": {
+    "description": "Savings",
+    "amount_currency": "CAD",
+    "amount": "500.00",
+    "date": "2026-01-14",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 4,
+    "order": 1
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 55,
+  "fields": {
+    "description": "Teste",
+    "amount_currency": "CAD",
+    "amount": "350.00",
+    "date": "2026-01-14",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 4,
+    "order": 2
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 68,
+  "fields": {
+    "description": "teste",
+    "amount_currency": "CAD",
+    "amount": "1100.00",
+    "date": "2026-01-15",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 1,
+    "order": 4
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 72,
+  "fields": {
+    "description": "Item de Teste",
+    "amount_currency": "CAD",
+    "amount": "50.00",
+    "date": "2026-01-15",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 3,
+    "order": 2
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 76,
+  "fields": {
+    "description": "teste",
+    "amount_currency": "CAD",
+    "amount": "12.12",
+    "date": "2026-01-15",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 3,
+    "order": 3
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 79,
+  "fields": {
+    "description": "teste2",
+    "amount_currency": "CAD",
+    "amount": "20.02",
+    "date": "2026-01-15",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 1,
+    "order": 5
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 80,
+  "fields": {
+    "description": "Teste 3",
+    "amount_currency": "CAD",
+    "amount": "220.00",
+    "date": "2026-01-20",
+    "realized": true,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 1,
+    "order": 6
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 81,
+  "fields": {
+    "description": "sdsdsd",
+    "amount_currency": "CAD",
+    "amount": "222.22",
+    "date": "2026-02-02",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 3,
+    "order": 4
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 82,
+  "fields": {
+    "description": "teste",
+    "amount_currency": "CAD",
+    "amount": "1212.12",
+    "date": "2026-01-13",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 1,
+    "order": 7
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 83,
+  "fields": {
+    "description": "teste 2",
+    "amount_currency": "CAD",
+    "amount": "54.54",
+    "date": "2026-02-02",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 4,
+    "order": 3
+  }
+},
+{
+  "model": "finances.transaction",
+  "pk": 84,
+  "fields": {
+    "description": "teeste 3",
+    "amount_currency": "CAD",
+    "amount": "1120.00",
+    "date": "2026-02-26",
+    "realized": false,
+    "is_child_manual_income": false,
+    "is_child_expense": false,
+    "is_fixed": false,
+    "member": 1,
+    "flow_group": 4,
+    "order": 4
+  }
+},
+{
+  "model": "finances.bankbalance",
+  "pk": 25,
+  "fields": {
+    "family": 1,
+    "member": null,
+    "description": "Saldo",
+    "amount_currency": "CAD",
+    "amount": "8320.00",
+    "date": "2026-01-01",
+    "period_start_date": "2026-01-01",
+    "created_at": "2026-01-14T19:23:24.511Z"
+  }
+},
+{
+  "model": "finances.bankbalance",
+  "pk": 26,
+  "fields": {
+    "family": 1,
+    "member": null,
+    "description": "Teste",
+    "amount_currency": "CAD",
+    "amount": "1.23",
+    "date": "2026-01-01",
+    "period_start_date": "2026-01-01",
+    "created_at": "2026-01-14T20:44:12.102Z"
+  }
+},
+{
+  "model": "finances.bankbalance",
+  "pk": 27,
+  "fields": {
+    "family": 1,
+    "member": null,
+    "description": "teste 2",
+    "amount_currency": "CAD",
+    "amount": "456.78",
+    "date": "2026-01-01",
+    "period_start_date": "2026-01-01",
+    "created_at": "2026-01-25T20:42:09.571Z"
+  }
+},
+{
+  "model": "finances.bankbalance",
+  "pk": 28,
+  "fields": {
+    "family": 1,
+    "member": null,
+    "description": "erer",
+    "amount_currency": "CAD",
+    "amount": "32.45",
+    "date": "2026-01-01",
+    "period_start_date": "2026-01-01",
+    "created_at": "2026-01-25T20:42:32.840Z"
+  }
+},
+{
+  "model": "finances.bankbalance",
+  "pk": 29,
+  "fields": {
+    "family": 1,
+    "member": null,
+    "description": "tystdd",
+    "amount_currency": "CAD",
+    "amount": "222.22",
+    "date": "2026-01-08",
+    "period_start_date": "2026-01-01",
+    "created_at": "2026-02-02T18:42:52.821Z"
+  }
+}

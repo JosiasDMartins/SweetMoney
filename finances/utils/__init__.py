@@ -57,9 +57,10 @@ from .db_utils_sqlite import (
 
 # Database PostgreSQL utilities
 from .db_utils_pgsql import (
-    restore_postgres_from_file,
     create_postgres_backup,
+    # restore_postgres_from_file moved to db_utils_json (aliased below)
 )
+from .db_utils_json import restore_json_backup as restore_postgres_from_file
 
 # Database migration utilities
 from .db_data_migration import (

@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.conf import settings
 from ..models import Notification, FamilyMember
-from ..notification_utils import check_and_create_notifications
+from ..utils.notifications_utils import check_and_create_notifications
 
 
 @login_required
@@ -26,15 +26,17 @@ def get_notifications_ajax(request):
 
 
         # Check and create new notifications (overdue, overbudget)
-#        new_notifs = check_and_create_notifications(member.family, member)
+        # DISABLED: Don't check every time dropdown opens - scheduler handles this
+        # new_notifs = check_and_create_notifications(member.family, member)
+        new_notifs = 0
 
-        # Search for unrecognized notifications - NO TYPE FILTER
+        # Search for unacknowledged notifications - NO TYPE FILTER
         notifications = Notification.objects.filter(
             member=member,
             is_acknowledged=False
         ).select_related('transaction', 'flow_group').order_by('-created_at')[:99]
 
- 
+
         notifications_data = []
         for notif in notifications:
             notifications_data.append({
@@ -45,7 +47,7 @@ def get_notifications_ajax(request):
                 'created_at': notif.created_at.strftime('%Y-%m-%d %H:%M'),
             })
 
- 
+
         return JsonResponse({
             'success': True,
             'count': len(notifications_data),
@@ -96,6 +98,7 @@ def acknowledge_notification_ajax(request):
 
         if debug_enabled:
             print(f"[DEBUG NOTIF ACK] Acknowledging notification {notification_id} (type: {notification.notification_type})")
+
         notification.acknowledge()
 
         # Returns updated count
@@ -160,3 +163,27 @@ def acknowledge_all_notifications_ajax(request):
             import traceback
             traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def unsubscribe_notification_email(request, notification_id, token):
+    """
+    Handle unsubscribe link from email.
+    Stops emails for this specific notification.
+    """
+    from django.shortcuts import render
+
+    notification = get_object_or_404(Notification, id=notification_id)
+
+    # Verify token
+    if not notification.verify_unsubscribe_token(token):
+        return render(request, 'notifications/unsubscribe_failed.html')
+
+    # Mark as opted out
+    notification.email_opted_out = True
+    notification.email_opted_out_at = timezone.now()
+    notification.save(update_fields=['email_opted_out', 'email_opted_out_at'])
+
+    return render(request, 'notifications/unsubscribe_success.html', {
+        'notification': notification
+    })

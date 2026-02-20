@@ -100,6 +100,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Check if this should be cached (using full URL object, not just pathname)
+    const shouldCache = isStaticAsset(url);
+
+    // For versioned JavaScript files, ALWAYS fetch from network (never cache)
+    if (url.pathname.endsWith('.js') && url.search.includes('v=')) {
+        console.log('[ServiceWorker] ⚡ Versioned JS - Network only:', url.pathname + url.search);
+        event.respondWith(fetch(request));
+        return;
+    }
+
     // For static assets: Network-first with cache fallback
     event.respondWith(
         fetch(request)
@@ -109,7 +119,7 @@ self.addEventListener('fetch', (event) => {
                     const responseClone = response.clone();
 
                     // Only cache static assets (CSS, JS, images, fonts)
-                    if (isStaticAsset(url.pathname)) {
+                    if (shouldCache) {
                         caches.open(CACHE_VERSION)
                             .then((cache) => {
                                 cache.put(request, responseClone);
@@ -138,8 +148,21 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Helper function to determine if URL is a static asset
-function isStaticAsset(pathname) {
-    const staticExtensions = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ttf', '.eot'];
+// IMPORTANT: JavaScript files with version parameters (?v=...) should NEVER be cached
+// to ensure bug fixes and updates are immediately available to all users
+function isStaticAsset(url) {
+    const pathname = url.pathname;
+    const search = url.search;
+
+    // Check if this is a JavaScript file with a version parameter
+    if (pathname.endsWith('.js') && search && search.includes('v=')) {
+        // This is a versioned JavaScript file - NEVER cache it!
+        // This ensures updates are immediately available after deployment
+        return false;
+    }
+
+    // For other static assets (CSS, images, fonts), cache normally
+    const staticExtensions = ['.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ttf', '.eot'];
     return staticExtensions.some(ext => pathname.endsWith(ext)) || pathname.startsWith('/static/');
 }
 

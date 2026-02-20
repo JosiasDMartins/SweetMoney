@@ -177,7 +177,11 @@ def restore_backup(request):
     logger.info(f"[RESTORE_BACKUP] Current database type: {current_db_type}")
 
     # STEP 2: Save uploaded file to temporary location to detect type
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.backup')
+    # CRITICAL: Preserve original file extension for proper type detection
+    original_filename = backup_file.name
+    original_ext = Path(original_filename).suffix if Path(original_filename).suffix else '.backup'
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=original_ext)
     temp_path = Path(temp_file.name)
     temp_file.close()
 
@@ -208,16 +212,44 @@ def restore_backup(request):
 
         # STEP 5: Handle different restore scenarios
 
-        # SCENARIO 1: PostgreSQL → SQLite (BLOCKED)
-        if backup_file_type == 'postgresql' and current_db_type == 'sqlite':
-            logger.error(f"[RESTORE_BACKUP] Attempted to restore PostgreSQL backup to SQLite system")
+        # SCENARIO 1: JSON Backup (Database Agnostic) → Any DB
+        # JSON backups are UNIVERSAL - they contain only data, not database-specific schema
+        # They can be restored to SQLite or PostgreSQL interchangeably
+        if backup_file_type == 'json':
+            logger.info(f"[RESTORE_BACKUP] JSON Backup (Universal) to {current_db_type}")
+
+            # Reopen file for restore function
+            with open(temp_path, 'rb') as f:
+                from django.core.files.uploadedfile import InMemoryUploadedFile
+                from io import BytesIO
+
+                file_content = f.read()
+
+                # Preserve original filename for format detection
+                original_filename = Path(backup_file.name).name
+                backup_file_for_restore = InMemoryUploadedFile(
+                    BytesIO(file_content),
+                    'backup_file',
+                    original_filename,
+                    'application/octet-stream',
+                    len(file_content),
+                    None
+                )
+
+            from finances.utils.db_backup import restore_database_backup
+            result = restore_database_backup(backup_file_for_restore)
+
+        # SCENARIO 2: PostgreSQL SQL Dump → SQLite (BLOCKED)
+        # Legacy .sql files contain PostgreSQL-specific syntax and cannot be restored to SQLite
+        elif backup_file_type == 'postgresql' and current_db_type == 'sqlite':
+            logger.error(f"[RESTORE_BACKUP] Attempted to restore PostgreSQL SQL dump to SQLite system")
             return JsonResponse({
                 'success': False,
-                'error': _('Cannot restore PostgreSQL backup to SQLite database'),
-                'details': _('Your system is currently running with SQLite database, but you are trying to restore a PostgreSQL backup. This operation is not supported. Please restore a SQLite backup file instead.')
+                'error': _('Cannot restore PostgreSQL SQL dump to SQLite database'),
+                'details': _('Your system is currently running with SQLite database, but you are trying to restore a PostgreSQL SQL dump file (.sql). This operation is not supported because .sql files contain PostgreSQL-specific syntax. Please use a JSON backup instead, which works with any database.')
             }, status=400)
 
-        # SCENARIO 2: SQLite → PostgreSQL (MIGRATION - needs confirmation)
+        # SCENARIO 3: SQLite → PostgreSQL (MIGRATION - needs confirmation)
         elif backup_file_type == 'sqlite' and current_db_type == 'postgresql':
             if not migration_confirmed:
                 # Return special response asking for confirmation
@@ -252,7 +284,7 @@ def restore_backup(request):
                 from finances.utils.db_restore_migration import restore_sqlite_backup_to_postgres
                 result = restore_sqlite_backup_to_postgres(backup_file_for_migration)
 
-        # SCENARIO 3: SQLite → SQLite (TRANSACTIONAL RESTORE)
+        # SCENARIO 4: SQLite → SQLite (TRANSACTIONAL RESTORE)
         elif backup_file_type == 'sqlite' and current_db_type == 'sqlite':
             logger.info(f"[RESTORE_BACKUP] SQLite to SQLite restore")
 
@@ -274,7 +306,7 @@ def restore_backup(request):
             from finances.utils.db_utils_sqlite import restore_sqlite_from_file
             result = restore_sqlite_from_file(backup_file_for_restore)
 
-        # SCENARIO 4: PostgreSQL → PostgreSQL (TRANSACTIONAL RESTORE)
+        # SCENARIO 5: PostgreSQL SQL Dump → PostgreSQL (TRANSACTIONAL RESTORE)
         elif backup_file_type == 'postgresql' and current_db_type == 'postgresql':
             logger.info(f"[RESTORE_BACKUP] PostgreSQL to PostgreSQL restore")
 
@@ -284,17 +316,21 @@ def restore_backup(request):
                 from io import BytesIO
 
                 file_content = f.read()
+
+                # Preserve original filename for format detection (.json or .sql)
+                original_filename = Path(backup_file.name).name
                 backup_file_for_restore = InMemoryUploadedFile(
                     BytesIO(file_content),
                     'backup_file',
-                    'backup.dump',
+                    original_filename,  # Use original filename
                     'application/octet-stream',
                     len(file_content),
                     None
                 )
 
-            from finances.utils.db_utils_pgsql import restore_postgres_from_file
-            result = restore_postgres_from_file(backup_file_for_restore)
+            # Use wrapper that auto-detects .json (new) vs .sql (legacy) format
+            from finances.utils.db_backup import restore_database_backup
+            result = restore_database_backup(backup_file_for_restore)
 
         else:
             # Should never reach here

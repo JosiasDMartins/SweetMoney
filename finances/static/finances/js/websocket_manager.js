@@ -37,10 +37,31 @@ class WebSocketManager {
         try {
             this.socket = new WebSocket(wsUrl);
             this.setupEventHandlers();
+            this.registerNotificationHandlers();
         } catch (error) {
             console.error('[WebSocket] Connection error:', error);
             this.scheduleReconnect();
         }
+    }
+
+    registerNotificationHandlers() {
+        // Register handlers for notification events
+        // These dispatch 'realtime:notification' DOM event that notifications.js listens for
+        this.registerHandler('notification_created', (data) => {
+            console.log('[WebSocket] Notification created:', data);
+            document.dispatchEvent(new CustomEvent('realtime:notification', {
+                detail: { type: 'created', data: data }
+            }));
+        });
+
+        this.registerHandler('notification_removed', (data) => {
+            console.log('[WebSocket] Notification removed:', data);
+            document.dispatchEvent(new CustomEvent('realtime:notification', {
+                detail: { type: 'removed', data: data }
+            }));
+        });
+
+        console.log('[WebSocket] Notification handlers registered');
     }
 
     setupEventHandlers() {
@@ -77,8 +98,8 @@ class WebSocketManager {
             }
         };
 
-        this.socket.onerror = (error) => {
-            console.error('[WebSocket] Error:', error);
+        this.socket.onerror = () => {
+            console.error('[WebSocket] Error: Connection error occurred');
             this.notifyConnectionStatus('error');
         };
     }

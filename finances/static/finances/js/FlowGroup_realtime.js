@@ -1,7 +1,7 @@
 /**
  * FlowGroup_realtime.js - Real-time Updates for FlowGroup Page
  * PHASE 3 CSP Compliance: All inline real-time scripts moved to external file
- * Version: 20251230-003
+ * Version: 20260217-004
  * Handles WebSocket broadcasts to update the page when other users make changes
  */
 
@@ -509,10 +509,35 @@
                     nameInput.value = flowgroupData.name;
                 }
 
-                // Update budgeted_amount input
+                // Update budgeted_amount input with money mask formatting
+                // Backend sends "2500.00" format (value in reais, NOT cents)
                 const budgetInput = document.getElementById('id_budgeted_amount');
                 if (budgetInput && flowgroupData.budgeted_amount) {
-                    budgetInput.value = flowgroupData.budgeted_amount;
+                    const decimalSep = window.FLOWGROUP_CONFIG?.decimalSeparator || ',';
+                    const thousandSep = window.FLOWGROUP_CONFIG?.thousandSeparator || '.';
+
+                    // Backend sends standard decimal format "2500.00"
+                    let value = flowgroupData.budgeted_amount.toString();
+
+                    // Check if value already has decimal separator from locale (comma in PTBR)
+                    // Backend might send localized value in some cases
+                    if (value.includes(',')) {
+                        // Already localized, just use it
+                        budgetInput.value = value;
+                    } else {
+                        // Backend standard format with dot separator
+                        let parts = value.split('.');
+                        let integerPart = parts[0] || '0';
+                        let decimalPart = (parts[1] || '00').padEnd(2, '0').substring(0, 2);
+
+                        // Add thousand separators to integer part
+                        // Only add separators for values >= 10000
+                        if (integerPart.length >= 5) {
+                            integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSep);
+                        }
+
+                        budgetInput.value = integerPart + decimalSep + decimalPart;
+                    }
                 }
 
                 // Update checkboxes
@@ -546,24 +571,104 @@
                     }
                 }
 
-                // Update assigned members multi-select
+                // Update assigned members checkboxes (shared groups)
+                // Template uses checkboxes inside #members-selection-container, not a select element
                 if (flowgroupData.assigned_members) {
-                    const membersSelect = document.getElementById('id_assigned_members');
-                    if (membersSelect) {
-                        Array.from(membersSelect.options).forEach(option => {
-                            option.selected = flowgroupData.assigned_members.includes(parseInt(option.value));
+                    const membersContainer = document.getElementById('members-selection-container');
+                    if (membersContainer) {
+                        const currentUserId = parseInt(document.getElementById('base-config')?.dataset?.userId || window.USER_ID || '0');
+                        const ownerId = flowgroupData.owner_id ? parseInt(flowgroupData.owner_id) : null;
+
+                        const memberCheckboxes = membersContainer.querySelectorAll('input[name="assigned_members"]');
+                        memberCheckboxes.forEach(checkbox => {
+                            const memberId = parseInt(checkbox.value);
+
+                            // Update checked state
+                            checkbox.checked = flowgroupData.assigned_members.includes(memberId);
+
+                            // Update disabled state: current user's checkbox should be disabled if they're not the owner
+                            // This prevents self-removal from groups shared by others
+                            if (memberId === currentUserId && ownerId !== null && currentUserId !== ownerId) {
+                                checkbox.disabled = true;
+                                // Update label visual state - more faded appearance
+                                const label = checkbox.closest('label');
+                                if (label) {
+                                    // Apply faded/disabled styles matching template
+                                    label.classList.remove(
+                                        'border-green-500/50', 'dark:border-green-500/30',
+                                        'bg-green-50', 'dark:bg-green-900/20',
+                                        'cursor-pointer', 'hover:bg-green-100', 'dark:hover:bg-green-900/30'
+                                    );
+                                    label.classList.add(
+                                        'border-green-500/30', 'dark:border-green-500/20',
+                                        'bg-green-50/50', 'dark:bg-green-900/10',
+                                        'cursor-not-allowed', 'opacity-50', 'grayscale'
+                                    );
+                                    label.title = "You cannot remove yourself from a group shared by another user";
+
+                                    // Update text color to faded gray
+                                    const textSpan = label.querySelector('span.ml-2');
+                                    if (textSpan) {
+                                        textSpan.classList.remove('text-slate-700', 'dark:text-slate-200');
+                                        textSpan.classList.add('text-slate-500', 'dark:text-slate-400');
+                                    }
+                                }
+                            } else {
+                                checkbox.disabled = false;
+                                // Restore label visual state - normal appearance
+                                const label = checkbox.closest('label');
+                                if (label) {
+                                    label.classList.remove(
+                                        'border-green-500/30', 'dark:border-green-500/20',
+                                        'bg-green-50/50', 'dark:bg-green-900/10',
+                                        'cursor-not-allowed', 'opacity-50', 'grayscale'
+                                    );
+                                    label.classList.add(
+                                        'border-green-500/50', 'dark:border-green-500/30',
+                                        'bg-green-50', 'dark:bg-green-900/20',
+                                        'cursor-pointer', 'hover:bg-green-100', 'dark:hover:bg-green-900/30'
+                                    );
+                                    label.removeAttribute('title');
+
+                                    // Restore text color
+                                    const textSpan = label.querySelector('span.ml-2');
+                                    if (textSpan) {
+                                        textSpan.classList.remove('text-slate-500', 'dark:text-slate-400');
+                                        textSpan.classList.add('text-slate-700', 'dark:text-slate-200');
+                                    }
+                                }
+                            }
                         });
                     }
                 }
 
-                // Update assigned children multi-select
+                // Update assigned children checkboxes (kids groups)
+                // Template uses checkboxes inside #children-selection-container, not a select element
                 if (flowgroupData.assigned_children) {
-                    const childrenSelect = document.getElementById('id_assigned_children');
-                    if (childrenSelect) {
-                        Array.from(childrenSelect.options).forEach(option => {
-                            option.selected = flowgroupData.assigned_children.includes(parseInt(option.value));
+                    const childrenContainer = document.getElementById('children-selection-container');
+                    if (childrenContainer) {
+                        const childrenCheckboxes = childrenContainer.querySelectorAll('input[name="assigned_children"]');
+                        childrenCheckboxes.forEach(checkbox => {
+                            const childId = parseInt(checkbox.value);
+                            checkbox.checked = flowgroupData.assigned_children.includes(childId);
                         });
                     }
+                }
+
+                // Show/hide members selection container based on is_shared and is_kids_group
+                const membersContainer = document.getElementById('members-selection-container');
+                if (membersContainer) {
+                    // Show members container when is_shared is true AND is_kids_group is false
+                    const shouldShow = flowgroupData.is_shared && !flowgroupData.is_kids_group;
+                    membersContainer.style.display = shouldShow ? 'flex' : 'none';
+                }
+
+                // Show/hide children selection container based on is_kids_group
+                const childrenContainer = document.getElementById('children-selection-container');
+                if (childrenContainer) {
+                    // Show children container when is_kids_group is true
+                    const shouldShow = flowgroupData.is_kids_group;
+                    childrenContainer.style.display = shouldShow ? 'flex' : 'none';
                 }
 
                 // Update recurring toggle button (desktop and mobile)

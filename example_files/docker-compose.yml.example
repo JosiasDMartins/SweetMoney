@@ -103,12 +103,22 @@ services:
         max-file: "3"      # Keep 3 log files
         compress: "true"   # Compress rotated logs
 
+    # Note: Celery (worker and beat) runs inside this container via supervisord
+    # See: extras/docker_build/build_scripts/supervisord.conf
+
   # --------------------------------------------------------------------------
-  # Redis (Recommended for Production)
+  # Redis (Optional - Recommended for Production)
   # --------------------------------------------------------------------------
-  # Redis serves as the channel layer for Django Channels WebSocket communication
-  # Recommended for production deployments, required for multi-server setups
-  # If not available, system falls back to InMemoryChannelLayer (development only)
+  # Redis serves as:
+  #   - Channel layer for Django Channels WebSocket communication
+  #   - Message broker for Celery task queue (background jobs, scheduled tasks)
+  #
+  # Redis is REQUIRED for Celery functionality (scheduled notifications, etc.)
+  # If not available:
+  #   - WebSocket falls back to InMemoryChannelLayer (development only)
+  #   - Celery tasks will NOT run (worker will fail to start)
+  #
+  # Uncomment to enable:
   #
   # redis:
   #   container_name: sweetmoney-redis
@@ -120,7 +130,8 @@ services:
   #     - ./redis-data:/data
   #
   #   # Redis configuration
-  #   command: redis-server --appendonly yes --requirepass your-redis-password
+  #   # Set requirepass in production for security
+  #   command: redis-server --appendonly yes
   #
   #   # Resource limits
   #   deploy:

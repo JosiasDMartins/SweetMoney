@@ -3,6 +3,7 @@
 {% load humanize %}
 {% load i18n %}
 {% load l10n %}
+{% load math_filters %}
 
 {% block title %}{% trans "Flow Group" %}: {{ flow_group.name|default:"New Group" }}{% endblock title %}
 
@@ -182,16 +183,52 @@
                                 <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">{% trans "Shared Group" %}</span>
                             </label>
 
-                            <div id="members-selection-container" class="flex items-center gap-2 flex-wrap" style="display: {% if flow_group.is_shared and not flow_group.is_kids_group %}flex{% else %}none{% endif %};">
+                            <div id="members-selection-container"
+                                 class="flex items-center gap-2 flex-wrap"
+                                 data-owner-id="{% if flow_group_owner %}{{ flow_group_owner.id }}{% endif %}"
+                                 data-current-user-id="{{ current_user_id }}"
+                                 style="display: {% if flow_group.is_shared and not flow_group.is_kids_group %}flex{% else %}none{% endif %};">
                                 {% for member in form.assigned_members.field.queryset %}
-                                <label class="flex items-center p-2 border border-green-500/50 dark:border-green-500/30 rounded-lg bg-green-50 dark:bg-green-900/20 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30">
-                                    <input type="checkbox"
-                                           name="assigned_members"
-                                           value="{{ member.id }}"
-                                           class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                           {% if member in flow_group.assigned_members.all %}checked{% endif %}>
-                                    <span class="ml-2 text-sm text-slate-700 dark:text-slate-200">{{ member.user.username }}</span>
-                                </label>
+                                    {% comment %}LOGIC FOR SHARED MEMBERS DISPLAY{% endcomment %}
+                                    {% if is_new %}
+                                        {% comment %}When creating NEW group: don't show current user (they will be the owner){% endcomment %}
+                                        {% if member.user.id != current_user_id %}
+                                            <label class="flex items-center p-2 border border-green-500/50 dark:border-green-500/30 rounded-lg bg-green-50 dark:bg-green-900/20 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30">
+                                                <input type="checkbox"
+                                                       name="assigned_members"
+                                                       value="{{ member.id }}"
+                                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                                <span class="ml-2 text-sm text-slate-700 dark:text-slate-200">{{ member.user.username }}</span>
+                                            </label>
+                                        {% endif %}
+                                    {% else %}
+                                        {% comment %}When editing EXISTING group: don't show owner, disable current user if not owner{% endcomment %}
+                                        {% if flow_group_owner.id == member.user.id %}
+                                            {% comment %}Skip owner - they don't need to be in the shared list{% endcomment %}
+                                        {% else %}
+                                            {% if member.user.id == current_user_id %}
+                                                {% comment %}Current user is not the owner - disable their checkbox{% endcomment %}
+                                                <label class="flex items-center p-2 border border-green-500/30 dark:border-green-500/20 rounded-lg bg-green-50/50 dark:bg-green-900/10 cursor-not-allowed opacity-50 grayscale" title="{% trans 'You cannot remove yourself from a group shared by another user' %}">
+                                                    <input type="checkbox"
+                                                           name="assigned_members"
+                                                           value="{{ member.id }}"
+                                                           class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                                           disabled
+                                                           {% if member in flow_group.assigned_members.all %}checked{% endif %}>
+                                                    <span class="ml-2 text-sm text-slate-500 dark:text-slate-400">{{ member.user.username }}</span>
+                                                </label>
+                                            {% else %}
+                                                <label class="flex items-center p-2 border border-green-500/50 dark:border-green-500/30 rounded-lg bg-green-50 dark:bg-green-900/20 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30">
+                                                    <input type="checkbox"
+                                                           name="assigned_members"
+                                                           value="{{ member.id }}"
+                                                           class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                                           {% if member in flow_group.assigned_members.all %}checked{% endif %}>
+                                                    <span class="ml-2 text-sm text-slate-700 dark:text-slate-200">{{ member.user.username }}</span>
+                                                </label>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endif %}
                                 {% empty %}
                                 <span class="text-sm text-gray-500 dark:text-gray-400 p-2">{% trans "No Parents/Admins" %}</span>
                                 {% endfor %}
@@ -374,7 +411,7 @@
                             </td>
 
                             <td class="px-6 py-4 text-right text-primary cell-budget-display amount-cell-with-actions">
-                                {{ transaction.amount|intcomma }}
+                                {{ transaction.amount|format_money:currency_symbol }}
                                 <!-- Mobile action buttons (hidden behind row, revealed on swipe) -->
                                 <div class="mobile-actions-btns">
                                     <button type="button" data-action="edit" data-row-id="item-{{ transaction.id }}" class="mobile-action-btn edit-btn">
@@ -559,6 +596,7 @@
      data-member-role-for-period="{{ member_role_for_period }}"
      data-selected-period="{{ selected_period|default:'' }}"
      data-flow-group-id="{{ flow_group.id|default:'NEW' }}"
+     data-owner-id="{% if flow_group_owner %}{{ flow_group_owner.id }}{% endif %}"
      data-is-credit-card="{% if flow_group.is_credit_card %}true{% else %}false{% endif %}"
      data-is-closed="{% if flow_group.is_credit_card and flow_group.closed %}true{% else %}false{% endif %}"
 
@@ -1052,7 +1090,9 @@
 </style>
 
 <!-- PHASE 3 CSP Compliance: All inline scripts moved to external files -->
-<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260125-010" defer></script>
-<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260125-010" defer></script>
+<script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
+<script src="{% static 'finances/js/calculator.js' %}?v=20260219-10" defer></script>
+<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260219-11" defer"></script>
+<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260217-004" defer></script>
 
 {% endblock content %}

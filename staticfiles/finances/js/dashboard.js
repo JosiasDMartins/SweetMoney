@@ -1,7 +1,7 @@
 /**
  * Dashboard Main Script
  * External JavaScript file (CSP compliant - no inline scripts)
- * Version: 20260101-001 - Added YTD real-time update debug logs
+ * Version: 20260130-1 - Stacked bar chart with investments, trend line excludes current period
  */
 
 'use strict';
@@ -21,6 +21,7 @@ window.DASHBOARD_CONFIG = {
     decimalSeparator: config.dataset.decimalSeparator,
     thousandSeparator: config.dataset.thousandSeparator,
     currencySymbol: config.dataset.currencySymbol,
+    incomeCommitment: parseFloat(config.dataset.incomeCommitment) || 0,
     periodsHistory: JSON.parse(config.dataset.periodsHistory || '[]'),
     urls: {
         deleteItem: config.dataset.urlDeleteItem,
@@ -42,6 +43,7 @@ window.DASHBOARD_CONFIG = {
         onlyParentsChange: config.dataset.i18nOnlyParentsChange,
         others: config.dataset.i18nOthers,
         totalExpenses: config.dataset.i18nTotalExpenses,
+        investments: config.dataset.i18nInvestments,
         trend: config.dataset.i18nTrend,
         overBudget: config.dataset.i18nOverBudget,
         noExpenseGroups: config.dataset.i18nNoExpenseGroups
@@ -56,6 +58,12 @@ initCharts();
 initDragAndDrop();
 initEventHandlers();
 initMobileKeyboardHandling();
+
+// Initialize calculator for amount fields
+if (window.FinancesCalculator) {
+    window.FinancesCalculator.init('input[data-field="amount"]');
+    console.log('[Dashboard] Calculator initialized');
+}
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -73,7 +81,35 @@ function initUtilities() {
     window.thousandSeparator = cfg.thousandSeparator;
 
     console.log('[INIT] decimalSeparator:', window.decimalSeparator, 'thousandSeparator:', window.thousandSeparator);
+
+    // Initialize existing amount fields with money mask on page load (FlowGroup pattern)
+    initInputMasks();
 }
+
+function initInputMasks() {
+    console.log('[initInputMasks] applying masks to amount fields');
+    document.querySelectorAll('input[data-field="amount"]').forEach(function(input) {
+        if (input.value && input.value.trim() !== '') {
+            let value = input.value;
+            // Handle simple decimal case (e.g. from floatformat)
+            if (value.indexOf(thousandSeparator) === -1 && value.indexOf(decimalSeparator) !== -1) {
+                 // Already in potential locale format "5000,00" (if separator is comma)
+                 // Just need to add thousand separators
+            }
+            
+            // Use getRawValue to sanitize first (treat as if it has current separators)
+            let raw = getRawValue(value, thousandSeparator, decimalSeparator);
+            
+            // Then re-apply mask
+            input.value = formatAmountForInput(raw, thousandSeparator, decimalSeparator);
+        } else {
+            input.value = '0' + decimalSeparator + '00';
+        }
+    });
+}
+
+
+
 
 function initCharts() {
     // Charts will be initialized here
@@ -153,7 +189,7 @@ function initIncomeItemsDragDrop() {
 }
 
 function updateKeyMetrics() {
-    updateMetrics();
+    updateMetrics(window.DASHBOARD_CONFIG.incomeCommitment);
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -229,7 +265,7 @@ function initPieChart() {
                             const value = context.parsed || 0;
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
                             const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: $${formatCurrency(value, '', thousandSeparator, decimalSeparator)} (${percentage}%)`;
+                            return `${label}: ${formatCurrency(value, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator)} (${percentage}%)`;
                         }
                     }
                 }
@@ -247,23 +283,31 @@ function initPieChart() {
 }
 
 // Calculate linear regression for trend line
-function calculateTrendLine(values) {
-    const n = values.length;
+// excludeLast: if true, exclude last data point from regression but still extrapolate for it
+function calculateTrendLine(values, excludeLast) {
+    const totalLen = values.length;
+    if (totalLen === 0) return [];
+
+    const regressionValues = excludeLast ? values.slice(0, -1) : values;
+    const n = regressionValues.length;
     if (n === 0) return [];
-    
-    const xValues = values.map((_, i) => i);
+
+    const xValues = regressionValues.map((_, i) => i);
     const sumX = xValues.reduce((a, b) => a + b, 0);
-    const sumY = values.reduce((a, b) => a + b, 0);
-    const sumXY = xValues.reduce((sum, x, i) => sum + x * values[i], 0);
+    const sumY = regressionValues.reduce((a, b) => a + b, 0);
+    const sumXY = xValues.reduce((sum, x, i) => sum + x * regressionValues[i], 0);
     const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
-    
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+    const denominator = n * sumX2 - sumX * sumX;
+    if (denominator === 0) return values.map(() => sumY / n);
+
+    const slope = (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
-    
-    return xValues.map(x => slope * x + intercept);
+
+    return Array.from({length: totalLen}, (_, i) => slope * i + intercept);
 }
 
-// Initialize Bar Chart with dynamic colors and trend line
+// Initialize Bar Chart with stacked expenses/investments and trend line
 function initBarChart() {
     const ctx = document.getElementById('expensesBarChart');
     if (!ctx) return;
@@ -274,12 +318,20 @@ function initBarChart() {
     }
 
     const barData = window.DASHBOARD_CONFIG.periodsHistory;
+    const i18n = window.DASHBOARD_CONFIG.i18n;
+    const currencySymbol = window.DASHBOARD_CONFIG.currencySymbol;
 
-    // Calculate bar colors based on income commitment
+    // Stacked data
+    const expensesOnly = barData.expenses_only || barData.values;
+    const investments = barData.investments || barData.values.map(() => 0);
+    const isCurrent = barData.is_current || [];
+
+    // Colors for expense bars (commitment-based)
     const barColors = barData.colors || barData.values.map(() => 'rgb(239, 68, 68)');
 
-    // Calculate trend line
-    const trendLine = calculateTrendLine(barData.values);
+    // Trend line: uses expenses_only, excludes current (unfished) period
+    const hasCurrentPeriod = isCurrent.length > 0 && isCurrent[isCurrent.length - 1] === true;
+    const trendLine = calculateTrendLine(expensesOnly, hasCurrentPeriod);
 
     barChart = new Chart(ctx, {
         type: 'bar',
@@ -287,18 +339,27 @@ function initBarChart() {
             labels: barData.labels,
             datasets: [
                 {
-                    label: window.DASHBOARD_CONFIG.i18n.totalExpenses,
-                    data: barData.values,
+                    label: i18n.totalExpenses || 'Expenses',
+                    data: expensesOnly,
                     backgroundColor: barColors,
                     borderColor: barColors.map(color => color.replace('rgb', 'rgba').replace(')', ', 0.8)')),
-                    borderWidth: 1
+                    borderWidth: 1,
+                    stack: 'stack0'
                 },
                 {
-                    label: window.DASHBOARD_CONFIG.i18n.trend,
+                    label: i18n.investments || 'Investments',
+                    data: investments,
+                    backgroundColor: 'rgb(59, 130, 246)',
+                    borderColor: 'rgba(59, 130, 246, 0.8)',
+                    borderWidth: 1,
+                    stack: 'stack0'
+                },
+                {
+                    label: i18n.trend || 'Trend',
                     data: trendLine,
                     type: 'line',
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: 'rgb(249, 115, 22)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
                     borderWidth: 2,
                     pointRadius: 0,
                     borderDash: [5, 5],
@@ -312,14 +373,16 @@ function initBarChart() {
             maintainAspectRatio: false,
             scales: {
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return '$' + formatCurrency(value, '', thousandSeparator, decimalSeparator);
+                            return formatCurrency(value, currencySymbol, thousandSeparator, decimalSeparator);
                         }
                     }
                 },
                 x: {
+                    stacked: true,
                     ticks: {
                         maxRotation: 45,
                         minRotation: 45,
@@ -344,11 +407,19 @@ function initBarChart() {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            if (context.datasetIndex === 0) {
-                                return 'Total: $' + formatCurrency(context.parsed.y, '', thousandSeparator, decimalSeparator);
-                            } else {
-                                return 'Trend: $' + formatCurrency(context.parsed.y, '', thousandSeparator, decimalSeparator);
+                            const value = context.parsed.y;
+                            const formatted = formatCurrency(value, currencySymbol, thousandSeparator, decimalSeparator);
+
+                            // Trend line dataset (index 2)
+                            if (context.datasetIndex === 2) {
+                                return (i18n.trend || 'Trend') + ': ' + formatted;
                             }
+
+                            // Stacked bar segments: show label, value and percentage
+                            const idx = context.dataIndex;
+                            const total = (expensesOnly[idx] || 0) + (investments[idx] || 0);
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                            return context.dataset.label + ': ' + formatted + ' (' + pct + '%)';
                         }
                     }
                 }
@@ -370,15 +441,20 @@ function getTop3ExpensesData() {
     const expenseRows = document.querySelectorAll('tbody tr[data-group-id]');
     const expenses = [];
 
+    console.log('[getTop3ExpensesData] Found expense rows:', expenseRows.length);
+
     expenseRows.forEach(row => {
         // Get the first cell (after drag handle) which contains the group name
         const nameCell = row.querySelectorAll('td')[1]; // Second td (index 1)
-        const nameText = nameCell.textContent.trim();
+        const nameText = nameCell ? nameCell.textContent.trim() : '';
         // Get only the first line (group name) before any badges/labels
         const name = nameText.split('\n')[0].trim();
 
         // Use only realized values for the chart
-        const realizedValue = parseFloat(row.querySelector('.group-realized').getAttribute('data-value')) || 0;
+        const realizedCell = row.querySelector('.group-realized');
+        const realizedValue = realizedCell ? (parseFloat(realizedCell.getAttribute('data-value')) || 0) : 0;
+
+        console.log('[getTop3ExpensesData] Group:', name, 'Realized:', realizedValue);
 
         if (realizedValue > 0) {
             expenses.push({ name, value: realizedValue });
@@ -400,6 +476,16 @@ function getTop3ExpensesData() {
         values.push(others);
     }
 
+    console.log('[getTop3ExpensesData] Result - Labels:', labels, 'Values:', values);
+
+    // If no data, return placeholder
+    if (labels.length === 0) {
+        return {
+            labels: ['No Data'],
+            values: [1]
+        };
+    }
+
     return { labels, values };
 }
 
@@ -414,7 +500,7 @@ function updatePieChart() {
 }
 
 // Update metrics card (only dynamic values)
-function updateMetrics() {
+function updateMetrics(commitmentFromBackend) {
     // Highest expense (from current period)
     const expenseRows = document.querySelectorAll('tbody tr[data-group-id]');
     let highestExpense = 0;
@@ -424,22 +510,12 @@ function updateMetrics() {
             highestExpense = realizedValue;
         }
     });
-    document.getElementById('metric-highest').textContent = '$ ' + formatCurrency(highestExpense, '', thousandSeparator, decimalSeparator);
+    document.getElementById('metric-highest').textContent = formatCurrency(highestExpense, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
 
-    // Current commitment percentage (current period only)
-    const incomeElem = document.getElementById('balance-realized-income');
-    const expenseElem = document.getElementById('balance-realized-expense');
+    // Current commitment percentage - use backend value
+    const commitment = commitmentFromBackend !== undefined ? parseFloat(commitmentFromBackend) : _lastCommitment;
+    _lastCommitment = commitment;
 
-    if (!incomeElem || !expenseElem) {
-        console.error('Balance elements not found');
-        return;
-    }
-
-    // Parse localized currency values
-    const realizedIncome = parseCurrency(incomeElem.textContent);
-    const realizedExpense = parseCurrency(expenseElem.textContent);
-
-    const commitment = realizedIncome > 0 ? (realizedExpense / realizedIncome * 100) : 0;
     const commitmentElem = document.getElementById('metric-commitment');
     commitmentElem.textContent = commitment.toFixed(1) + '%';
 
@@ -454,6 +530,8 @@ function updateMetrics() {
         commitmentElem.classList.add('text-green-600', 'dark:text-green-500');
     }
 }
+// Cache last commitment value for calls without explicit backend value (e.g. highest expense only updates)
+var _lastCommitment = 0;
 
 // Money mask functions - using utils.js (applyMoneyMask, getRawValue)
 
@@ -490,6 +568,12 @@ function updateBalanceSheet() {
             document.getElementById('balance-estimated-expense').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.estimated_expense), '', thousandSeparator, decimalSeparator);
             document.getElementById('balance-realized-expense').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.realized_expense), '', thousandSeparator, decimalSeparator);
 
+            // Update investment (hidden, used for commitment calculation)
+            const invElem = document.getElementById('balance-realized-investment');
+            if (invElem) {
+                invElem.textContent = balance.realized_investment || '0.00';
+            }
+
             // Update result
             const estimatedResult = parseFloat(balance.estimated_result);
             const realizedResult = parseFloat(balance.realized_result);
@@ -513,8 +597,8 @@ function updateBalanceSheet() {
                 realResultCell.className = 'py-4 px-4 text-sm text-red-600 dark:text-red-500 font-bold';
             }
 
-            // Update metrics
-            updateMetrics();
+            // Update metrics with backend-calculated commitment
+            updateMetrics(balance.income_commitment);
         } else {
             console.error('Error fetching balance:', data.error);
         }
@@ -576,8 +660,13 @@ window.toggleIncomeRealized = function(rowId) {
     const description = row.querySelector('.cell-description-display').textContent.trim();
     const fullDate = row.getAttribute('data-date');
 
-    // Get amount from data attribute (always use stored value, not formatted input)
-    const amountText = row.getAttribute('data-amount');
+    // Get amount from input field (FlowGroup pattern)
+    // Find the input in the edit cell
+    const amountInput = row.querySelector('input[data-field="amount"]');
+    // If input exists, use its value (masked), otherwise fallback to data-amount
+    const amountText = amountInput 
+        ? getRawValue(amountInput.value, thousandSeparator, decimalSeparator)
+        : row.getAttribute('data-amount');
     const isFixed = row.getAttribute('data-is-fixed') === 'true';
 
     const data = {
@@ -610,11 +699,14 @@ window.toggleIncomeRealized = function(rowId) {
 
             // Update data attributes
             row.setAttribute('data-realized', data.realized ? 'true' : 'false');
-            row.setAttribute('data-amount', data.amount);
+            // Only use getRawValue if amount contains comma (locale format)
+            const amountStr = String(data.amount);
+            const normalizedAmount = amountStr.includes(',') ? getRawValue(amountStr, thousandSeparator, decimalSeparator) : amountStr;
+            row.setAttribute('data-amount', normalizedAmount);
 
             // Update amount display with currency symbol
-            if (data.amount && data.currency_symbol) {
-                amountDisplay.textContent = data.currency_symbol + ' ' + formatCurrency(data.amount, '', thousandSeparator, decimalSeparator);
+            if (data.amount) {
+                amountDisplay.textContent = formatCurrency(data.amount, window.DASHBOARD_CONFIG.currencySymbol, thousandSeparator, decimalSeparator);
             }
 
             // Update amount input field
@@ -900,8 +992,70 @@ window.toggleEditMode = function(rowId, startEdit) {
     }
 
     if(startEdit) {
-         row.querySelector('.cell-description-edit input').focus();
+        // CRITICAL: Restore input values from display values when entering edit mode
+        // This ensures we always edit the saved value, not a cached/stale value
+        const descDisplay = row.querySelector('.cell-description-display');
+        const descInput = row.querySelector('input[data-field="description"]');
+        if (descDisplay && descInput) {
+            descInput.value = descDisplay.textContent.trim();
+        }
+
+        const amountDisplay = row.querySelector('.cell-amount-display');
+        const amountInput = row.querySelector('input[data-field="amount"]');
+        if (amountDisplay && amountInput) {
+            // Get the amount text and remove currency symbol
+            const amountText = amountDisplay.textContent.trim();
+            const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
+            amountInput.value = numericPart;
+        }
+
+        const dateInput = row.querySelector('input[data-field="date"]');
+        if (dateInput) {
+            const fullDate = row.getAttribute('data-date');
+            if (fullDate) {
+                dateInput.value = fullDate;
+            }
+        }
+
+        row.querySelector('.cell-description-edit input').focus();
     }
+}
+
+// Function to cancel edit mode and restore original values
+window.cancelEditIncome = function(rowId) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    // Restore input values from display values
+    const descDisplay = row.querySelector('.cell-description-display');
+    const descInput = row.querySelector('input[data-field="description"]');
+    if (descDisplay && descInput) {
+        descInput.value = descDisplay.textContent.trim();
+    }
+
+    const amountDisplay = row.querySelector('.cell-amount-display');
+    const amountInput = row.querySelector('input[data-field="amount"]');
+    if (amountDisplay && amountInput) {
+        // Get the amount text and remove currency symbol
+        const amountText = amountDisplay.textContent.trim();
+        // Remove currency symbol (everything before the first digit or minus sign)
+        const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
+        amountInput.value = numericPart;
+    }
+
+    const dateDisplay = row.querySelector('.cell-date-display');
+    const dateInput = row.querySelector('input[data-field="date"]');
+    if (dateDisplay && dateInput) {
+        // Date display is DD/MM format, but we need YYYY-MM-DD for input
+        // Use the data-date attribute which stores the full date
+        const fullDate = row.getAttribute('data-date');
+        if (fullDate) {
+            dateInput.value = fullDate;
+        }
+    }
+
+    // Exit edit mode
+    toggleEditMode(rowId, false);
 }
 
 // Function to save edited item
@@ -940,7 +1094,10 @@ window.saveItem = function(rowId) {
     .then(data => {
         if (data.status === 'success') {
             // Update row data
-            row.setAttribute('data-amount', data.amount);
+            // Only use getRawValue if amount contains comma (locale format)
+            const amountStr = String(data.amount);
+            const normalizedAmount = amountStr.includes(',') ? getRawValue(amountStr, thousandSeparator, decimalSeparator) : amountStr;
+            row.setAttribute('data-amount', normalizedAmount);
             row.querySelector('.cell-description-display').textContent = data.description;
             // Use currency_symbol from backend response
             const currencySymbol = data.currency_symbol || 'window.DASHBOARD_CONFIG.currencySymbol';
@@ -1654,19 +1811,18 @@ function initMobileIncomeFeatures() {
         let startTime = 0;
         const swipeThreshold = 60; // Minimum pixels to trigger swipe
         const tapTimeThreshold = 200; // Max ms for tap detection
+        const tapMinTime = 50; // Min ms to register as intentional tap (avoid scroll touches)
+        const scrollThreshold = 15; // Vertical pixels to consider as scroll
 
-        // CORREÇÃO: Variáveis para detectar drag vertical vs swipe horizontal
         let startY = 0;
         let currentY = 0;
-        let isDragMode = false; // true = vertical drag, false = horizontal swipe
-        let isDecided = false; // se já decidimos o modo
+        let isScrolling = false; // true = vertical scroll detected, ignore all swipe/tap
 
         // Touch start
         row.addEventListener('touchstart', (e) => {
-            // CORREÇÃO: Se começou no drag handle, NÃO processar swipe
+            // Se começou no drag handle, NÃO processar swipe
             const isDragHandle = e.target.closest('.drag-handle-income');
             if (isDragHandle) {
-                // Drag handle vai cuidar, não processar swipe aqui
                 return;
             }
 
@@ -1680,14 +1836,13 @@ function initMobileIncomeFeatures() {
             currentY = startY;
             startTime = Date.now();
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Touch move
         row.addEventListener('touchmove', (e) => {
-            // Se já decidiu que é drag, ignora swipe
-            if (isDragMode) return;
+            // Se já detectou scroll, ignora tudo
+            if (isScrolling) return;
 
             if (e.target.closest('.mobile-action-btn-income')) return;
             if (e.target.closest('.edit-save-icon-income')) return;
@@ -1697,10 +1852,15 @@ function initMobileIncomeFeatures() {
             const deltaX = currentX - startX;
             const deltaY = currentY - startY;
 
-            // Processar apenas swipe horizontal
+            // Detect vertical scroll - if vertical movement is greater, it's a scroll
+            if (!isDragging && Math.abs(deltaY) > scrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                isScrolling = true;
+                return;
+            }
+
             // In edit mode: allow swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > 0) {
+                if (deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     const translateX = Math.min(deltaX, 120);
                     row.style.transform = `translateX(${translateX}px)`;
@@ -1708,7 +1868,8 @@ function initMobileIncomeFeatures() {
                 }
             } else {
                 // In display mode: allow swipe left to reveal actions
-                if (deltaX < 0) {
+                // Only start swipe if horizontal movement is dominant
+                if (deltaX < 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
                     isDragging = true;
                     const translateX = Math.max(deltaX, -120);
                     row.style.transform = `translateX(${translateX}px)`;
@@ -1719,22 +1880,26 @@ function initMobileIncomeFeatures() {
 
         // Touch end
         row.addEventListener('touchend', (e) => {
-            // Se foi drag, não processar swipe
-            if (isDragMode) return;
+            // Se foi scroll, não processar nada
+            if (isScrolling) {
+                isScrolling = false;
+                return;
+            }
 
             const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
             const deltaTime = Date.now() - startTime;
             row.style.transition = 'transform 0.3s ease-out';
 
             // In edit mode: swipe right to cancel
             if (row.dataset.mode === 'edit') {
-                if (deltaX > swipeThreshold) {
+                if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     console.log('[MOBILE INCOME SWIPE] Canceling edit mode for:', row.id);
-                    // CRITICAL FIX: If it's the template, call cancelNewIncomeRow instead of toggleEditMode
+                    // CRITICAL FIX: If it's the template, call cancelNewIncomeRow, otherwise cancelEditIncome
                     if (row.id === 'new-income-template') {
                         window.cancelNewIncomeRow('new-income-template');
                     } else {
-                        toggleEditMode(row.id, false);
+                        window.cancelEditIncome(row.id);
                     }
                 } else {
                     row.style.transform = 'translateX(0)';
@@ -1743,8 +1908,9 @@ function initMobileIncomeFeatures() {
                 // CRITICAL FIX: If actions are revealed, tap should close swipe instead of toggling realized
                 const hasActionsRevealed = row.classList.contains('actions-revealed-income');
 
-                // Tap detection
-                if (!isDragging && Math.abs(deltaX) < 10 && deltaTime < tapTimeThreshold) {
+                // Tap detection - with minimum time and vertical movement check to avoid scroll touches
+                if (!isDragging && Math.abs(deltaX) < 10 && Math.abs(deltaY) < scrollThreshold &&
+                    deltaTime >= tapMinTime && deltaTime < tapTimeThreshold) {
                     if (hasActionsRevealed) {
                         // Close swipe instead of toggling realized
                         console.log('[MOBILE INCOME TAP] Closing swipe for:', row.id);
@@ -1760,7 +1926,7 @@ function initMobileIncomeFeatures() {
                     }
                 }
                 // Swipe left to reveal actions
-                else if (deltaX < -swipeThreshold) {
+                else if (deltaX < -swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.style.transform = 'translateX(-120px)';
                     row.classList.add('actions-revealed-income');
                     // CRITICAL FIX: Disable drag when swipe is revealed
@@ -1774,8 +1940,7 @@ function initMobileIncomeFeatures() {
             }
 
             isDragging = false;
-            isDecided = false;
-            isDragMode = false;
+            isScrolling = false;
         }, { passive: true });
 
         // Close actions when tapping outside

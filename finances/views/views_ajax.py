@@ -11,7 +11,11 @@ from django.db import transaction as db_transaction
 from django.db.models import Max, Q, Sum
 from django.shortcuts import get_object_or_404
 from moneyed import Money
-from ..notification_utils import create_new_transaction_notification
+from ..utils.notifications_utils import (
+    create_new_transaction_notification,
+    create_overdue_notifications,
+    create_overbudget_notifications
+)
 
 # Importações relativas do app (.. sobe um nível, de /views/ para /finances/)
 from ..models import Transaction, FlowGroup, FamilyMember, BankBalance, FLOW_TYPE_INCOME
@@ -169,8 +173,12 @@ def save_flow_item_ajax(request):
                 transaction.member = member
 
         transaction.description = description
-        money_obj = Money(abs(amount), currency)
-        print(f"[DEBUG] Creating Money object - Decimal: {abs(amount)}, Currency: {currency}, Money.amount: {money_obj.amount}")
+        # Allow negative amounts for Credit Card groups (refunds), use abs() for other types
+        if flow_group.is_credit_card:
+            money_obj = Money(amount, currency)
+        else:
+            money_obj = Money(abs(amount), currency)
+        print(f"[DEBUG] Creating Money object - Decimal: {amount}, Currency: {currency}, Money.amount: {money_obj.amount}, is_credit_card: {flow_group.is_credit_card}")
         transaction.amount = money_obj
         transaction.date = date
         transaction.realized = realized
@@ -216,15 +224,34 @@ def save_flow_item_ajax(request):
         print(f"[DEBUG] Attempting to create notification for transaction {transaction.id}")
         print(f"[DEBUG] Current member: {current_member.user.username} (ID: {current_member.id})")
         print(f"[DEBUG] FlowGroup: {flow_group.name} (ID: {flow_group.id})")
-        
+        print(f"[DEBUG] Is new transaction: {is_new}, Is edit: {not is_new}")
+
         try:
-            notif_count = create_new_transaction_notification(
-                transaction=transaction,
-                exclude_member=current_member
-            )
-            print(f"[DEBUG] Notifications created: {notif_count}")
+            # Wrap notification creation in a nested atomic block with savepoint.
+            # Use savepoint to isolate database errors without breaking the outer transaction.
+            with db_transaction.atomic():
+                # ✅ NEW_TRANSACTION notification - notifica outros membros sobre edição/criação
+                notif_count = create_new_transaction_notification(
+                    transaction=transaction,
+                    exclude_member=current_member,
+                    is_edit=(not is_new)  # True se é edição, False se é nova
+                )
+                print(f"[DEBUG] New transaction notification created: {notif_count}")
+
+                # ❌ REMOVED: Overdue and overbudget checks
+                # These should ONLY run via the scheduler at midnight, not on every transaction save.
+                # Checking the entire family on every edit is inefficient and creates unnecessary notifications.
+                # The scheduler (notification_scheduler.py) handles these checks daily.
+
+        except db_transaction.DatabaseError as e:
+            # Database-level error (constraint violation, integrity error, etc.)
+            # Log error but don't fail the main transaction
+            print(f"[ERROR] Database error creating notification: {e}")
+            import traceback
+            traceback.print_exc()
+            # The savepoint will be rolled back automatically, outer transaction continues
         except Exception as e:
-            # Log error but don't fail the transaction
+            # Other Python exceptions
             print(f"[ERROR] Error creating notification: {e}")
             import traceback
             traceback.print_exc()
@@ -548,10 +575,10 @@ def delete_flow_group_view(request, group_id):
     family, current_member, _unused = get_family_context(request.user)
     if not family:
         return JsonResponse({'error': _('User is not associated with a family.')}, status=403)
-    
+
     try:
         flow_group = get_object_or_404(FlowGroup, id=group_id, family=family)
-        
+
         if flow_group.owner != request.user and current_member.role != 'ADMIN':
             return JsonResponse({'error': _('Permission denied.')}, status=403)
 
@@ -560,7 +587,18 @@ def delete_flow_group_view(request, group_id):
         family_id = flow_group.family.id
         period_start = flow_group.period_start_date
 
-        # If this FlowGroup was created from a recurring group, unmark the source as recurring
+        # Step 1: Unmark current FlowGroup as recurring to prevent recreation
+        if flow_group.is_recurring:
+            flow_group.is_recurring = False
+            flow_group.save()
+
+        # Step 2: Unmark all fixed transactions in current FlowGroup
+        Transaction.objects.filter(
+            flow_group=flow_group,
+            is_fixed=True
+        ).update(is_fixed=False)
+
+        # Step 3: If this FlowGroup was created from a recurring group, unmark the source as recurring
         # Find the most recent FlowGroup with same name in previous periods
         previous_group = FlowGroup.objects.filter(
             family=family,
@@ -570,7 +608,7 @@ def delete_flow_group_view(request, group_id):
         ).order_by('-period_start_date').first()
 
         if previous_group:
-            # Unmark as recurring
+            # Unmark previous group as recurring to prevent recreation
             previous_group.is_recurring = False
             previous_group.save()
 
@@ -580,6 +618,7 @@ def delete_flow_group_view(request, group_id):
                 is_fixed=True
             ).update(is_fixed=False)
 
+        # Step 4: Now safely delete the FlowGroup
         flow_group.delete()
 
         # Real-time WebSocket broadcast
@@ -1020,7 +1059,6 @@ def get_period_details_ajax(request):
             flow_group__family=family,
             flow_group__period_start_date=period_start,
             flow_group__group_type=FLOW_TYPE_INCOME,
-            date__range=(start_date, end_date)
         )
 
         from ..models import EXPENSE_MAIN, EXPENSE_SECONDARY
@@ -1028,7 +1066,6 @@ def get_period_details_ajax(request):
             flow_group__family=family,
             flow_group__period_start_date=period_start,
             flow_group__group_type__in=[EXPENSE_MAIN, EXPENSE_SECONDARY],
-            date__range=(start_date, end_date)
         )
 
         # Total income
@@ -1266,6 +1303,8 @@ def get_balance_summary_ajax(request):
                 'realized_income': str(summary['total_realized_income']),
                 'estimated_expense': str(summary['total_budgeted_expense']),
                 'realized_expense': str(summary['total_realized_expense']),
+                'realized_investment': str(summary['total_realized_investment']),
+                'income_commitment': str(summary['income_commitment']),
                 'estimated_result': str(summary['estimated_result']),
                 'realized_result': str(summary['realized_result']),
                 'currency_symbol': currency_symbol
@@ -1558,14 +1597,12 @@ def get_bank_reconciliation_summary_ajax(request):
                 flow_group__family=family,
                 flow_group__period_start_date=start_date,
                 flow_group__group_type=FLOW_TYPE_INCOME,
-                date__range=(start_date, end_date),
                 realized=True
             )
             expense_transactions = Transaction.objects.filter(
                 flow_group__family=family,
                 flow_group__period_start_date=start_date,
                 flow_group__group_type__in=['EXPENSE_MAIN', 'EXPENSE_SECONDARY'],
-                date__range=(start_date, end_date),
                 realized=True
             ).exclude(flow_group__is_investment=True)
 
@@ -1717,7 +1754,7 @@ def get_investment_balance_ajax(request):
         investment_balance = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__is_investment=True,
-            date__range=(year_start, end_date),
+            flow_group__period_start_date__range=(year_start, end_date),
             realized=True
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 

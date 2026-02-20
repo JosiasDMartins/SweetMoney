@@ -89,10 +89,16 @@ class EventDelegationManager {
                 }
             },
             'cancel': () => {
-                if (typeof window.toggleEditMode === 'function') {
+                // Use cancelEditIncome for income items, cancelEdit for expenses
+                if (typeof window.cancelEditIncome === 'function' && rowId && rowId.includes('income')) {
+                    window.cancelEditIncome(rowId);
+                } else if (typeof window.cancelEdit === 'function') {
+                    window.cancelEdit(rowId);
+                } else if (typeof window.toggleEditMode === 'function') {
+                    // Fallback for backwards compatibility
                     window.toggleEditMode(rowId, false);
                 } else {
-                    console.error('[EventDelegation] window.toggleEditMode is not defined');
+                    console.error('[EventDelegation] No cancel function available');
                 }
             },
 
@@ -457,10 +463,12 @@ class EventDelegationManager {
      * Toggle bank reconciliation mode (general vs detailed)
      */
     toggleReconciliationMode(isChecked) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const period = urlParams.get('period') || '';
-        const mode = isChecked ? 'detailed' : 'general';
-        window.location.href = `/bank-reconciliation/?period=${period}&mode=${mode}`;
+        // Use broadcast function instead of page reload
+        if (typeof window.toggleReconciliationMode === 'function') {
+            window.toggleReconciliationMode(isChecked);
+        } else {
+            console.error('[EventDelegation] window.toggleReconciliationMode function not found');
+        }
     }
 
     /**

@@ -1,4 +1,5 @@
 // finances/static/finances/js/update_manager.js
+// Version: 20260209-012 - Fixed JSON restore: preserve file extension and content-based detection
 
 class UpdateManager {
     constructor() {
@@ -29,9 +30,11 @@ class UpdateManager {
     }
     
     setupEventListeners() {
+        console.log('[UpdateManager] Setting up event listeners...');
+
         // Manual check button in settings
         document.getElementById('manualCheckUpdates')?.addEventListener('click', () => this.manualCheckUpdates());
-        
+
         // Modal buttons
         document.getElementById('btn-apply-local')?.addEventListener('click', () => this.applyLocalUpdates());
         document.getElementById('btn-install-github')?.addEventListener('click', () => this.installGithubUpdate());
@@ -40,8 +43,23 @@ class UpdateManager {
         document.getElementById('btn-close')?.addEventListener('click', () => this.closeAndReload());
         document.getElementById('btn-view-logs')?.addEventListener('click', () => this.showLogs());
         document.getElementById('btn-view-release')?.addEventListener('click', () => this.viewRelease());
-        document.getElementById('btn-create-backup')?.addEventListener('click', () => this.createBackup());
-        document.getElementById('btn-create-backup-local')?.addEventListener('click', () => this.createBackup());
+
+        // Backup buttons - log if found
+        const btnBackup = document.getElementById('btn-create-backup');
+        const btnBackupLocal = document.getElementById('btn-create-backup-local');
+
+        console.log('[UpdateManager] btn-create-backup found:', !!btnBackup);
+        console.log('[UpdateManager] btn-create-backup-local found:', !!btnBackupLocal);
+
+        if (btnBackup) {
+            btnBackup.addEventListener('click', () => this.createBackup());
+            console.log('[UpdateManager] Event listener added to btn-create-backup');
+        }
+        if (btnBackupLocal) {
+            btnBackupLocal.addEventListener('click', () => this.createBackup());
+            console.log('[UpdateManager] Event listener added to btn-create-backup-local');
+        }
+
         document.getElementById('close-logs')?.addEventListener('click', () => this.closeLogs());
         document.getElementById('btn-logout')?.addEventListener('click', () => this.logout());
 
@@ -52,13 +70,15 @@ class UpdateManager {
                 installBtn.disabled = !e.target.checked;
             }
         });
-        
+
         document.getElementById('backup-confirmed-local')?.addEventListener('change', (e) => {
             const applyBtn = document.getElementById('btn-apply-local');
             if (applyBtn) {
                 applyBtn.disabled = !e.target.checked;
             }
         });
+
+        console.log('[UpdateManager] Event listeners setup complete');
     }
     
     async checkForUpdates(forceShow = false) {
@@ -602,14 +622,23 @@ class UpdateManager {
     }
     
     async createBackup() {
+        console.log('[UpdateManager] createBackup() called');
+
         const btn = document.getElementById('btn-create-backup') || document.getElementById('btn-create-backup-local');
-        if (!btn) return;
-        
+        if (!btn) {
+            console.error('[UpdateManager] Backup button not found! Looking for: btn-create-backup or btn-create-backup-local');
+            alert('Error: Backup button not found');
+            return;
+        }
+
+        console.log('[UpdateManager] Backup button found, starting backup creation...');
+
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Creating...';
-        
+
         try {
+            console.log('[UpdateManager] Sending POST request to /create-backup/');
             const response = await fetch('/create-backup/', {
                 method: 'POST',
                 headers: {
@@ -617,13 +646,18 @@ class UpdateManager {
                     'X-CSRFToken': this.getCookie('csrftoken')
                 }
             });
-            
+
+            console.log('[UpdateManager] Response status:', response.status);
+
             const data = await response.json();
-            
+            console.log('[UpdateManager] Response data:', data);
+
             if (data.success) {
+                console.log('[UpdateManager] Backup successful, filename:', data.filename);
                 window.location.href = `/download-backup/${data.filename}/`;
                 alert(this.t('backupCreatedSuccessfully') || 'Backup created successfully! File will be downloaded.');
             } else {
+                console.error('[UpdateManager] Backup failed:', data.error);
                 alert((this.t('failedToCreateBackup') || 'Failed to create backup: ') + data.error);
             }
         } catch (error) {

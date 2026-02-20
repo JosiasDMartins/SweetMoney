@@ -108,7 +108,9 @@
         data-i18n-period-error-creating="{% trans 'An error occurred while creating the period' %}"
         data-i18n-period-confirm-delete="{% trans 'Are you sure you want to delete this period?' %}"
         data-i18n-period-deleting="{% trans 'Deleting...' %}"
-        data-i18n-period-error-deleting="{% trans 'An error occurred while deleting the period' %}"></div>
+        data-i18n-period-error-deleting="{% trans 'An error occurred while deleting the period' %}"
+        data-i18n-notif-acknowledge="{% trans 'Acknowledge' %}"
+        data-i18n-notif-view-item="{% trans 'View Item' %}"></div>
 
     <div class="flex h-full">
         <aside id="mobile-sidebar"
@@ -543,7 +545,7 @@
         </div>
     </div>
 
-    <script src="{% static 'finances/js/notifications.js' %}?v=20251231-002" defer></script>
+    <script src="{% static 'finances/js/notifications.js' %}?v=20260216-002" defer></script>
 
 
 
@@ -602,12 +604,12 @@
 
     <!-- WebSocket Real-time Updates -->
     {% if user.is_authenticated %}
-    <script src="{% static 'finances/js/websocket_manager.js' %}"></script>
-    <script src="{% static 'finances/js/realtime_ui.js' %}?v=20260125-002"></script>
+    <script src="{% static 'finances/js/websocket_manager.js' %}?v=20260216-001"></script>
+    <script src="{% static 'finances/js/realtime_ui.js' %}?v=20260219-6"></script>
     {% endif %}
 
     <!-- Common Utilities - Must load before other scripts -->
-    <script src="{% static 'finances/js/utils.js' %}?v=20260124-003" defer></script>
+    <script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
 
     <!-- PHASE 3: Generic Modal System (Promise-based API) -->
     <script src="{% static 'finances/js/generic_modal.js' %}?v=20260125-001" defer></script>
