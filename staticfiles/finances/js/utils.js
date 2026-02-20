@@ -205,14 +205,21 @@
             return '0' + decimalSeparator + '00';
         }
 
-        let cents = Math.round(num * 100);
+        // Check if value is negative BEFORE using Math.abs()
+        // This is critical for Credit Card refunds (negative amounts)
+        const isNegative = num < 0;
+
+        // Use absolute value to avoid issues with Math.floor and modulo for negative numbers
+        let cents = Math.round(Math.abs(num) * 100);
         let integerPart = Math.floor(cents / 100).toString();
         let decimalPart = (cents % 100).toString().padStart(2, '0');
 
         // Add thousand separators
         integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
 
-        return integerPart + decimalSeparator + decimalPart;
+        // Format as "-5,00" for negative, "5,00" for positive
+        // Negative sign goes BEFORE the number (no currency symbol in input field)
+        return (isNegative ? '-' : '') + integerPart + decimalSeparator + decimalPart;
     }
 
     /**
