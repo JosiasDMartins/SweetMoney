@@ -192,20 +192,14 @@ def migrate_sqlite_to_postgres(sqlite_path):
         logger.info(f"[DATA_MIGRATION] Data loaded successfully")
 
         # STEP 5: Reset PostgreSQL sequences
+        # Use the utility function to properly reset all sequences
+        from finances.utils.db_sequence_utils import reset_postgres_sequences
         logger.info(f"[DATA_MIGRATION] Resetting PostgreSQL sequences")
-        try:
-            sql_output = StringIO()
-            call_command('sqlsequencereset', 'finances', stdout=sql_output)
-            sql_commands = sql_output.getvalue()
-
-            if sql_commands.strip():
-                with connection.cursor() as cursor:
-                    cursor.execute(sql_commands)
-                logger.info(f"[DATA_MIGRATION] Sequences reset successfully")
-            else:
-                logger.info(f"[DATA_MIGRATION] No sequences to reset")
-        except Exception as e:
-            logger.warning(f"[DATA_MIGRATION] Could not reset sequences: {e}")
+        seq_result = reset_postgres_sequences('finances')
+        if not seq_result['success']:
+            logger.warning(f"[DATA_MIGRATION] Sequence reset failed: {seq_result.get('error')}")
+        else:
+            logger.info(f"[DATA_MIGRATION] Reset {seq_result.get('sequences_reset', 0)} sequences")
 
         # STEP 6: Verify migration
         logger.info(f"[DATA_MIGRATION] Verifying migration")

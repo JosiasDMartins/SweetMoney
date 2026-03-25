@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 from moneyed import Money
+from django.core.exceptions import ObjectDoesNotExist
 
 # Relative imports from the app (.. moves up one level, from /views/ to /finances/)
 from ..models import (
@@ -623,7 +624,9 @@ def bank_reconciliation_view(request):
             total_bank_balance = Decimal(str(tot_bank))
 
         discrepancy = total_bank_balance - calculated_balance
-        discrepancy_percentage = abs(discrepancy / calculated_balance * 100) if calculated_balance != 0 else 0
+        #discrepancy_percentage = abs(discrepancy / calculated_balance * 100) if calculated_balance != 0 else 0
+        #Discrepancy percentage for Bank Statment should be agains the total income.
+        discrepancy_percentage = (discrepancy / total_income_calculated)*100
         has_warning = discrepancy_percentage > tolerance
         
         reconciliation_data = {
@@ -675,7 +678,7 @@ def bank_reconciliation_view(request):
                 member_bank_balance = Decimal(str(mem_bank))
             
             member_discrepancy = member_bank_balance - member_calculated_balance
-            member_discrepancy_percentage = abs(member_discrepancy / member_calculated_balance * 100) if member_calculated_balance != 0 else Decimal('0.00')
+            member_discrepancy_percentage = ((member_discrepancy/member_income)*100) if member_calculated_balance != 0 else Decimal('0.00')
             member_has_warning = member_discrepancy_percentage > tolerance
             
             members_data.append({
@@ -810,6 +813,18 @@ def create_flow_group_view(request):
                 flow_group.assigned_members.set(parents_admins)
             else:
                 form.save_m2m()
+
+                # CRITICAL FIX: Ensure creator (current user) is in assigned_members for shared groups
+                # When creating a new shared group, the creator should always have access
+                if flow_group.is_shared and not flow_group.is_kids_group:
+                    flow_group.refresh_from_db()
+                    current_assigned = list(flow_group.assigned_members.all())
+                    is_creator_member = any(m.user.id == request.user.id for m in current_assigned)
+
+                    if not is_creator_member:
+                        # Add the creator to assigned_members
+                        flow_group.assigned_members.add(current_member)
+                        print(f"[FlowGroup] ADDED: Creator {request.user.username} was added to assigned_members for shared group '{flow_group.name}'")
 
             # Real-time WebSocket broadcast for FlowGroup creation
             # CRITICAL: Send AFTER saving M2M relationships so assigned_members/assigned_children are included
@@ -948,8 +963,30 @@ def edit_flow_group_view(request, group_id):
             if flow_group.is_kids_group:
                 flow_group.is_shared = True
 
+            # CRITICAL FIX: Preserve current user in assigned_members
+            # Store current assigned_members before save_m2m() to prevent accidental removal
+            current_assigned_members_before = list(flow_group.assigned_members.all())
+            current_user_was_member = any(m.user.id == request.user.id for m in current_assigned_members_before)
+
             flow_group.save()
             form.save_m2m()
+
+            # RESTORE: If current user was in assigned_members but was removed, add them back
+            # This can happen when the current user (non-owner) edits the group and their
+            # checkbox is disabled in the template, preventing the value from being sent in POST
+            if current_user_was_member:
+                flow_group.refresh_from_db()
+                current_assigned_members_after = list(flow_group.assigned_members.all())
+                is_current_user_still_member = any(m.user.id == request.user.id for m in current_assigned_members_after)
+
+                if not is_current_user_still_member:
+                    # Find the current user's member record and add it back
+                    try:
+                        current_user_member = FamilyMember.objects.get(family=family, user=request.user)
+                        flow_group.assigned_members.add(current_user_member)
+                        print(f"[FlowGroup] RESTORED: User {request.user.username} was accidentally removed from assigned_members and has been added back")
+                    except Exception as e:
+                        print(f"[FlowGroup] WARNING: Could not restore user {request.user.username} - {e}")
 
             # Real-time WebSocket broadcast for FlowGroup update
             try:

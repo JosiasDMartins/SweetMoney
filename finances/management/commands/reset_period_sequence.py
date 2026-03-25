@@ -1,12 +1,12 @@
 """
-Django management command to reset the Transaction ID sequence.
+Django management command to reset the Period ID sequence.
 
-This command resets the PostgreSQL sequence for the Transaction model's
+This command resets the PostgreSQL sequence for the Period model's
 primary key to the maximum ID + 1. This fixes duplicate key errors that
 can occur when sequences become out of sync.
 
 Usage:
-    python manage.py reset_transaction_sequence
+    python manage.py reset_period_sequence
 
 This is particularly useful after manual data manipulation or when
 importing data where the sequence wasn't properly updated.
@@ -15,15 +15,15 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'Reset Transaction ID sequence to fix duplicate key errors'
+    help = 'Reset Period ID sequence to fix duplicate key errors'
 
     def handle(self, *args, **options):
         """Execute the sequence reset."""
-        self.stdout.write("[SEQUENCE] Resetting Transaction ID sequence...")
+        self.stdout.write("[SEQUENCE] Resetting Period ID sequence...")
 
         try:
             from finances.utils.db_sequence_utils import reset_sequence_for_table
-            result = reset_sequence_for_table('finances_transaction')
+            result = reset_sequence_for_table('finances_period')
 
             if result['success']:
                 self.stdout.write(

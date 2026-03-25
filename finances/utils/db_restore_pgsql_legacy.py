@@ -247,6 +247,16 @@ def restore_postgres_sql_backup(uploaded_file):
             except Exception:
                 pass
 
+            # STEP 7: Reset PostgreSQL sequences to prevent duplicate key errors
+            if connection.vendor == 'postgresql':
+                from finances.utils.db_sequence_utils import reset_postgres_sequences
+                logger.info(f"[LEGACY_RESTORE] Resetting PostgreSQL sequences...")
+                seq_result = reset_postgres_sequences('finances')
+                if not seq_result['success']:
+                    logger.warning(f"[LEGACY_RESTORE] Sequence reset failed: {seq_result.get('error')}")
+                else:
+                    logger.info(f"[LEGACY_RESTORE] Reset {seq_result.get('sequences_reset', 0)} sequences")
+
             logger.info(f"[LEGACY_RESTORE] ========== RESTORE COMPLETED SUCCESSFULLY ==========")
 
             return {
@@ -478,6 +488,17 @@ def _restore_sql_direct(uploaded_file):
                 logger.info(f"[DIRECT_SQL] Reload flag created")
             except Exception:
                 pass
+
+            # STEP 5: Reset PostgreSQL sequences to prevent duplicate key errors
+            from django.db import connection
+            if connection.vendor == 'postgresql':
+                from finances.utils.db_sequence_utils import reset_postgres_sequences
+                logger.info(f"[DIRECT_SQL] Resetting PostgreSQL sequences...")
+                seq_result = reset_postgres_sequences('finances')
+                if not seq_result['success']:
+                    logger.warning(f"[DIRECT_SQL] Sequence reset failed: {seq_result.get('error')}")
+                else:
+                    logger.info(f"[DIRECT_SQL] Reset {seq_result.get('sequences_reset', 0)} sequences")
 
             # Apply any pending updates automatically
             logger.info(f"[DIRECT_SQL] Applying pending updates to ensure database is current...")

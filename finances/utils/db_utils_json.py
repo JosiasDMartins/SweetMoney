@@ -423,17 +423,14 @@ def restore_json_backup(uploaded_file):
             logger.info(f"[JSON_RESTORE] Loaddata success")
 
             # STEP 8: Post-restore cleanup (Sequences)
-            if connection.vendor == 'postgresql':
-                logger.info(f"[JSON_RESTORE] Resetting PostgreSQL sequences...")
-                try:
-                    seq_out = StringIO()
-                    call_command('sqlsequencereset', 'finances', stdout=seq_out)
-                    sql = seq_out.getvalue()
-                    if sql:
-                        with connection.cursor() as cursor:
-                            cursor.execute(sql)
-                except Exception as e:
-                    logger.warning(f"[JSON_RESTORE] Sequence reset failed: {e}")
+            # Reset PostgreSQL sequences to avoid duplicate key errors on next insert
+            from finances.utils.db_sequence_utils import reset_postgres_sequences
+            logger.info(f"[JSON_RESTORE] Resetting PostgreSQL sequences...")
+            seq_result = reset_postgres_sequences('finances')
+            if not seq_result['success']:
+                logger.warning(f"[JSON_RESTORE] Sequence reset failed: {seq_result.get('error')}")
+            else:
+                logger.info(f"[JSON_RESTORE] Reset {seq_result.get('sequences_reset', 0)} sequences")
 
         # Verification (outside atomic block)
         verified_family = Family.objects.filter(id=target_family_id).first()
