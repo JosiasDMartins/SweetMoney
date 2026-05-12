@@ -41,9 +41,8 @@ from .views_utils import (
     get_periods_history,
     get_year_to_date_metrics,
     get_currency_symbol,
-    get_decimal_separator,
-    get_thousand_separator,
     get_balance_summary,
+    money_to_decimal,
     VERSION,
 )
 
@@ -131,9 +130,9 @@ def dashboard_view(request):
     
     # Process accessible groups
     for group in accessible_expense_groups:
-        group.total_estimated = Decimal(str(group.total_estimated.amount)) if hasattr(group.total_estimated, 'amount') else (group.total_estimated or Decimal('0.00'))
-        group.total_spent = Decimal(str(group.total_spent.amount)) if hasattr(group.total_spent, 'amount') else (group.total_spent or Decimal('0.00'))
-        group.credit_card_pending = Decimal(str(group.credit_card_pending.amount)) if hasattr(group.credit_card_pending, 'amount') else (group.credit_card_pending or Decimal('0.00'))
+        group.total_estimated = money_to_decimal(group.total_estimated)
+        group.total_spent = money_to_decimal(group.total_spent)
+        group.credit_card_pending = money_to_decimal(group.credit_card_pending)
 
         group.total_estimated = group.total_estimated.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.total_spent = group.total_spent.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
@@ -146,7 +145,7 @@ def dashboard_view(request):
                 flow_group=group
             ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-            group.child_expenses = Decimal(str(child_exp.amount)) if hasattr(child_exp, 'amount') else child_exp
+            group.child_expenses = money_to_decimal(child_exp)
 
             group.is_child_group = False
             if group.owner:
@@ -154,23 +153,23 @@ def dashboard_view(request):
                 if owner_member and owner_member.role == 'CHILD':
                     group.is_child_group = True
 
-        budgeted_amt = Decimal(str(group.budgeted_amount.amount)) if hasattr(group.budgeted_amount, 'amount') else Decimal(str(group.budgeted_amount))
+        budgeted_amt = money_to_decimal(group.budgeted_amount)
 
         group.budget_warning = group.total_estimated > budgeted_amt
         group.total_estimated = group.total_estimated if group.total_estimated > budgeted_amt else budgeted_amt
 
     # Process display-only groups (only for ADMIN/PARENT, not for CHILD)
     for group in display_only_expense_groups:
-        group.total_estimated = Decimal(str(group.total_estimated.amount)) if hasattr(group.total_estimated, 'amount') else (group.total_estimated or Decimal('0.00'))
-        group.total_spent = Decimal(str(group.total_spent.amount)) if hasattr(group.total_spent, 'amount') else (group.total_spent or Decimal('0.00'))
-        group.credit_card_pending = Decimal(str(group.credit_card_pending.amount)) if hasattr(group.credit_card_pending, 'amount') else (group.credit_card_pending or Decimal('0.00'))
+        group.total_estimated = money_to_decimal(group.total_estimated)
+        group.total_spent = money_to_decimal(group.total_spent)
+        group.credit_card_pending = money_to_decimal(group.credit_card_pending)
 
         group.total_estimated = group.total_estimated.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.total_spent = group.total_spent.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.credit_card_pending = group.credit_card_pending.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.is_accessible = False
 
-        budgeted_amt = Decimal(str(group.budgeted_amount.amount)) if hasattr(group.budgeted_amount, 'amount') else Decimal(str(group.budgeted_amount))
+        budgeted_amt = money_to_decimal(group.budgeted_amount)
 
         group.budget_warning = group.total_estimated > budgeted_amt
         group.total_estimated = group.total_estimated if group.total_estimated > budgeted_amt else budgeted_amt
@@ -197,7 +196,7 @@ def dashboard_view(request):
             is_child_manual_income=True
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
-        child_manual_income_total = Decimal(str(child_manual_sum.amount)) if hasattr(child_manual_sum, 'amount') else child_manual_sum
+        child_manual_income_total = money_to_decimal(child_manual_sum)
         child_can_create_groups = child_manual_income_total > Decimal('0.00')
 
     # Trend chart should always be based on actual current period (today), not selected period
@@ -226,8 +225,6 @@ def dashboard_view(request):
         
     period_currency = get_period_currency(family, start_date)
     context['currency_symbol'] = get_currency_symbol(period_currency)
-    context['decimal_separator'] = get_decimal_separator()
-    context['thousand_separator'] = get_thousand_separator()
     context.update(get_base_template_context(family, query_period, start_date))
     
     return render(request, 'finances/dashboard.html', context)
@@ -718,8 +715,6 @@ def bank_reconciliation_view(request):
         'member_role_for_period': member_role_for_period,
         'reconciliation_data': reconciliation_data,
         'mode': mode,
-        'decimal_separator': get_decimal_separator(),
-        'thousand_separator': get_thousand_separator(),
         'currency_symbol': get_currency_symbol(get_period_currency(family, start_date)),
         'discrepancy_percentage_tolerance': tolerance,
     }
@@ -785,7 +780,7 @@ def create_flow_group_view(request):
                     is_child_manual_income=True
                 ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
                 
-                child_manual_income_total = Decimal(str(child_manual_sum.amount)) if hasattr(child_manual_sum, 'amount') else child_manual_sum
+                child_manual_income_total = money_to_decimal(child_manual_sum)
                 budget_value = flow_group.budgeted_amount.amount
 
                 if budget_value > child_manual_income_total:
@@ -855,7 +850,7 @@ def create_flow_group_view(request):
             is_child_manual_income=True
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
-        child_max_budget = Decimal(str(child_sum.amount)) if hasattr(child_sum, 'amount') else child_sum
+        child_max_budget = money_to_decimal(child_sum)
 
    
     context = {
@@ -868,8 +863,6 @@ def create_flow_group_view(request):
         'start_date': start_date,
         'end_date': end_date,
         'child_max_budget': child_max_budget,
-        'decimal_separator': get_decimal_separator(),
-        'thousand_separator': get_thousand_separator(),
     }
     context.update(get_base_template_context(family, query_period, start_date))
     return render(request, 'finances/FlowGroup.html', context)
@@ -1018,9 +1011,9 @@ def edit_flow_group_view(request, group_id):
         total=Sum('amount')
     )['total'] or Decimal('0.00')
 
-    total_estimated = Decimal(str(total_est.amount)) if hasattr(total_est, 'amount') else total_est
-    total_realized = Decimal(str(total_real.amount)) if hasattr(total_real, 'amount') else total_real
-    budg_amt_val = Decimal(str(group.budgeted_amount.amount)) if hasattr(group.budgeted_amount, 'amount') else Decimal(str(group.budgeted_amount))
+    total_estimated = money_to_decimal(total_est)
+    total_realized = money_to_decimal(total_real)
+    budg_amt_val = money_to_decimal(group.budgeted_amount)
 
     budget_warning = total_estimated > budg_amt_val if budg_amt_val else False
 
@@ -1047,8 +1040,6 @@ def edit_flow_group_view(request, group_id):
         'can_edit_budget': can_edit_budget,
         'member_role_for_period' : member_role_for_period,
         'currency_symbol': currency_symbol,
-        'decimal_separator': get_decimal_separator(),
-        'thousand_separator': get_thousand_separator(),
     }
     context.update(get_base_template_context(family, query_period, start_date))
     return render(request, 'finances/FlowGroup.html', context)
@@ -1337,7 +1328,7 @@ def investments_view(request):
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
     # Convert Money to Decimal
-    available_balance = Decimal(str(investment_balance.amount)) if hasattr(investment_balance, 'amount') else investment_balance
+    available_balance = money_to_decimal(investment_balance)
 
     context = {
         'investment_form': form,

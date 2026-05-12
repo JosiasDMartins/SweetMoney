@@ -1981,6 +1981,29 @@ msgstr "Salvar perfil"
 msgid "Language Preference"
 msgstr "Preferência de idioma"
 
+#: finances/templates/finances/profile.html:82
+msgid "Timezone Preference"
+msgstr "Fuso Horário"
+
+#: finances/templates/finances/profile.html:90
+msgid "Your Timezone"
+msgstr "Seu Fuso Horário"
+
+#: finances/templates/finances/profile.html:140
+msgid "Select the timezone where you live. Dates will be displayed in your local timezone."
+msgstr "Selecione o fuso horário onde você vive. As datas serão exibidas no seu fuso horário local."
+
+#: finances/templates/finances/profile.html:146
+msgid "Update Timezone"
+msgstr "Atualizar Fuso Horário"
+
+#: finances/views/views_auth.py
+msgid "Timezone preference updated successfully."
+msgstr "Fuso horário atualizado com sucesso."
+
+msgid "Invalid timezone selection."
+msgstr "Seleção de fuso horário inválida."
+
 #: finances/templates/finances/profile.html:62
 msgid "Preferred Language"
 msgstr "Idioma preferido"

@@ -21,8 +21,8 @@
         // Try page-specific config first, then fall back to global window settings
         const config = window.FLOWGROUP_CONFIG || window.DASHBOARD_CONFIG || window.BANK_RECON_CONFIG || {};
         return {
-            decimalSeparator: config.decimalSeparator || window.decimalSeparator || ',',
-            thousandSeparator: config.thousandSeparator || window.thousandSeparator || '.',
+            decimalSeparator: config.decimalSeparator || window.decimalSeparator || '.',
+            thousandSeparator: config.thousandSeparator || window.thousandSeparator || ',',
             currencySymbol: config.currencySymbol || window.currencySymbol || '$'
         };
     }
@@ -50,14 +50,20 @@
     }
 
     /**
-     * Format date string to locale format
+     * Format date string to locale format using user's timezone
      */
     function formatDate(dateString) {
         if (!dateString) return '';
 
         try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString();
+            const userTimezone = getUserTimezone();
+            const date = new Date(dateString + 'T00:00:00');
+            return new Intl.DateTimeFormat(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                timeZone: userTimezone
+            }).format(date);
         } catch (e) {
             return dateString;
         }

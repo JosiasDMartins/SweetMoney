@@ -11,6 +11,7 @@ from django.db import connection
 from django.db.utils import OperationalError, DatabaseError
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import translation
+from django.utils import timezone as django_timezone
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,30 @@ class UserLanguageMiddleware:
             # just skip language activation and let SetupRequiredMiddleware handle it
             logger.debug(f"Database error in UserLanguageMiddleware, skipping language activation: {e}")
             pass
+
+        response = self.get_response(request)
+        return response
+
+
+class UserTimezoneMiddleware:
+    """
+    Middleware to activate the user's preferred timezone.
+    Must be placed after AuthenticationMiddleware in settings.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            if request.user.is_authenticated and hasattr(request.user, 'timezone'):
+                user_timezone = request.user.timezone
+                if user_timezone:
+                    try:
+                        django_timezone.activate(user_timezone)
+                    except Exception:
+                        django_timezone.activate('UTC')
+        except (OperationalError, DatabaseError) as e:
+            logger.debug(f"Database error in UserTimezoneMiddleware: {e}")
 
         response = self.get_response(request)
         return response

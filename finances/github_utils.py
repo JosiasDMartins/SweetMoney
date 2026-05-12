@@ -11,7 +11,7 @@ from datetime import datetime
 
 from .version_utils import Version, needs_update
 
-# GitHub repository configuration
+# Default GitHub repository configuration
 GITHUB_OWNER = "JosiasDMartins"
 GITHUB_REPO = "SweetMoney"
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
@@ -21,17 +21,34 @@ GITHUB_RAW_CONTENT_URL = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GIT
 _cached_container_version = None
 
 
+def _get_releases_url() -> str:
+    return getattr(settings, 'UPDATE_RELEASES_URL', GITHUB_RELEASES_URL)
+
+
+def _get_raw_content_url() -> str:
+    return getattr(settings, 'UPDATE_RAW_CONTENT_URL', GITHUB_RAW_CONTENT_URL)
+
+
+def _get_auth_headers() -> dict:
+    token = getattr(settings, 'UPDATE_REPO_TOKEN', None)
+    if token:
+        return {'Authorization': f'token {token}'}
+    return {}
+
+
 def get_latest_github_release() -> Optional[Dict]:
     """
-    Fetches the latest release from GitHub.
+    Fetches the latest release from the configured repository.
     Since /latest endpoint doesn't exist, fetch all releases and get the first one.
-    
+
     Returns:
         Dict with release info or None if failed
     """
     try:
-        print(f"Fetching releases from: {GITHUB_RELEASES_URL}")
-        response = requests.get(GITHUB_RELEASES_URL, timeout=10)
+        releases_url = _get_releases_url()
+        headers = _get_auth_headers()
+        print(f"Fetching releases from: {releases_url}")
+        response = requests.get(releases_url, headers=headers, timeout=10)
         
         if response.status_code == 200:
             releases = response.json()
@@ -73,10 +90,12 @@ def get_min_container_version_from_github(force_refresh: bool = False) -> Option
         return _cached_container_version
 
     try:
-        url = f"{GITHUB_RAW_CONTENT_URL}/need_container_update.txt"
-        print(f"Fetching container version requirement from GitHub: {url}")
+        raw_url = _get_raw_content_url()
+        url = f"{raw_url}/need_container_update.txt"
+        headers = _get_auth_headers()
+        print(f"Fetching container version requirement: {url}")
 
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, headers=headers, timeout=5)
 
         if response.status_code == 200:
             # Read version from file (trim whitespace, newlines, and 'v' prefix)
@@ -244,7 +263,7 @@ def download_and_extract_release(zipball_url: str) -> Tuple[bool, str, list]:
         # Download the zipball
         logs.append(f"Downloading release...")
         print(f"[UPDATE] Downloading release...")
-        response = requests.get(zipball_url, stream=True, timeout=60)
+        response = requests.get(zipball_url, headers=_get_auth_headers(), stream=True, timeout=60)
 
         logs.append(f"Response status: {response.status_code}")
         print(f"[UPDATE] Response status: {response.status_code}")

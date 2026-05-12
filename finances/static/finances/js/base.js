@@ -4,6 +4,11 @@
  * Handles: Dark mode toggle, DPI scaling, Period management, Admin warning, Modals, PWA, WebSocket init, UI Components
  */
 
+// ===== 0. TIMEZONE HELPER =====
+function getUserTimezone() {
+    return document.getElementById('base-config')?.dataset?.userTimezone || 'UTC';
+}
+
 // ===== 1. DARK MODE INITIALIZATION =====
 // NOTE: Initial dark mode setup is now handled by dark_mode_init.js (loaded in <head>)
 // This prevents FOUC (Flash of Unstyled Content) on page load

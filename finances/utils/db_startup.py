@@ -102,49 +102,6 @@ def check_postgres_database_exists():
         }
 
 
-def check_database_has_tables():
-    """
-    Check if the database has tables (is initialized).
-
-    Returns:
-        bool: True if database has tables, False otherwise
-    """
-    try:
-        # Close any stale connections first
-        connections.close_all()
-
-        # Try to get table names
-        with connection.cursor() as cursor:
-            if get_database_engine() == 'postgresql':
-                cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM information_schema.tables
-                    WHERE table_schema = 'public'
-                    AND table_type = 'BASE TABLE'
-                """)
-            else:  # SQLite
-                cursor.execute("""
-                    SELECT COUNT(*)
-                    FROM sqlite_master
-                    WHERE type='table' AND name NOT LIKE 'sqlite_%'
-                """)
-
-            count = cursor.fetchone()[0]
-            has_tables = count > 0
-
-            if has_tables:
-                logger.info(f"[DB_INIT] Database has {count} tables")
-            else:
-                logger.info(f"[DB_INIT] Database is empty (no tables)")
-
-            return has_tables
-
-    except Exception as e:
-        logger.debug(f"[DB_INIT] Cannot check tables (database might not exist or no connection yet): {e}")
-        # If we can't connect, assume no tables
-        return False
-
-
 def run_migrations():
     """
     Run Django migrations to create/update database schema.
@@ -280,18 +237,15 @@ def initialize_database():
         logger.info(f"[DB_INIT] System Database: SQLite")
         logger.info(f"[DB_INIT]   Path: {db_path}")
 
-        has_tables = check_database_has_tables()
-        if not has_tables:
-            logger.info(f"[DB_INIT] SQLite database is empty - initializing schema...")
-            details.append("Initializing SQLite schema...")
-            migration_result = run_migrations()
-            if migration_result['success']:
-                details.append("[OK] SQLite initialized successfully")
-            else:
-                return {'success': False, 'message': migration_result['message'], 'details': details}
+        # ALWAYS run migrations - Django migrate is idempotent and safe
+        # It only applies pending migrations, so it's safe to run on existing databases
+        logger.info(f"[DB_INIT] Running migrations to ensure schema is up to date...")
+        details.append("Running migrations on SQLite...")
+        migration_result = run_migrations()
+        if migration_result['success']:
+            details.append("[OK] SQLite migrations completed successfully")
         else:
-            logger.info(f"[DB_INIT] SQLite schema is already initialized")
-            details.append("SQLite database already initialized")
+            return {'success': False, 'message': migration_result['message'], 'details': details}
 
     logger.info(f"[DB_INIT] ==========================================")
     logger.info(f"[DB_INIT] [OK] DATABASE INITIALIZATION COMPLETE")

@@ -23,21 +23,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (submitButton && submitButton.getAttribute('type') === 'submit') {
                 console.log('[FlowGroup CRITICAL] Main save button clicked - allowing submission');
 
-                // CRITICAL FIX: Convert budgeted_amount to correct format before submit
-                // Use the same getRawValue logic inline (config may not be loaded yet)
+                // CRITICAL FIX: Convert budgeted_amount to standard format before Django form submit
+                // Django's DecimalField with localize=True handles locale input, but
+                // the form submit needs standard format for the non-localized field
                 const budgetInput = flowGroupForm.querySelector('input[name="budgeted_amount"]');
                 if (budgetInput && budgetInput.value) {
                     const configEl = document.getElementById('flowgroup-config');
                     const decimalSep = configEl ? configEl.dataset.decimalSeparator : ',';
                     const thousandSep = configEl ? configEl.dataset.thousandSeparator : '.';
 
-                    let value = budgetInput.value;
-                    // Remove thousand separators
-                    const escapedSeparator = thousandSep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    value = value.replace(new RegExp(escapedSeparator, 'g'), '');
-                    // Replace decimal separator with dot
-                    value = value.replace(decimalSep, '.');
-                    budgetInput.value = value;
+                    // Use parseLocaleNumber to get standard format
+                    budgetInput.value = parseLocaleNumber(budgetInput.value, thousandSep, decimalSep);
                     console.log('[FlowGroup CRITICAL] Converted budget value to:', budgetInput.value);
                 }
 
@@ -284,8 +280,9 @@ function initFlowGroup() {
     // Initialize existing amount fields with money mask on page load
     document.querySelectorAll('input[data-field="amount"]').forEach(function(input) {
         if (input.value && input.value.trim() !== '') {
-            let value = input.value.replace(',', '.');
-            let num = parseFloat(value);
+            // Use parseLocaleNumber to parse the existing value locale-aware
+            let raw = parseLocaleNumber(input.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+            let num = parseFloat(raw);
             if (!isNaN(num)) {
                 let cents = Math.round(num * 100);
                 let integerPart = Math.floor(cents / 100).toString();
@@ -868,7 +865,7 @@ function showSuccessMessage(message) {
 
 
 // Money mask functions
-// Money mask functions - using utils.js (applyMoneyMask, getRawValue, formatAmountForInput, formatCurrency)
+// Money mask functions - using utils.js (applyMoneyMask, parseLocaleNumber, formatAmountForInput, formatCurrency)
 
 // NOTE: Budget warning is now handled exclusively by backend broadcasts via FlowGroup_realtime.js
 // The updateOverbudgetWarningFromBackend() function in FlowGroup_realtime.js handles all budget warning UI updates
@@ -990,9 +987,10 @@ window.toggleRealized = function(rowId, currentStatus) {
     const description = row.querySelector('.cell-description-display')?.textContent ||
                        row.querySelector('input[data-field="description"]')?.value || '';
 
-    // Get amount from edit input and convert from masked format
+    // Get amount from edit input - send locale-formatted value directly
+    // Backend handles both standard and locale format via normalize_decimal_input
     const amountInput = row.querySelector('input[data-field="amount"]');
-    const amountText = amountInput ? getRawValue(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator) : '0';
+    const amountText = amountInput ? amountInput.value : '0';
 
     // Get date from the hidden input (edit mode) which has the correct YYYY-MM-DD format
     const dateInput = row.querySelector('input[data-field="date"]');
@@ -1214,9 +1212,11 @@ window.addNewRow = function() {
         if (dateInput) {
             const today = new Date().toISOString().split('T')[0];
             dateInput.value = today;
-            const [year, month, day] = today.split('-');
-            const displayValue = `${day}/${month}`;
-            dateInput.setAttribute('data-display-value', displayValue);
+            const userTz = getUserTimezone();
+            const displayDate = new Intl.DateTimeFormat(undefined, {
+                day: '2-digit', month: '2-digit', timeZone: userTz
+            }).format(new Date(today + 'T00:00:00'));
+            dateInput.setAttribute('data-display-value', displayDate);
         }
 
         // CRITICAL FIX: Remove both class and inline style
@@ -1274,7 +1274,8 @@ window.saveItem = function(rowId) {
         return;
     }
     const description = descInput.value.trim();
-    const amount = getRawValue(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator);
+    // Send locale-formatted value directly - backend handles parsing
+    const amount = amountInput.value;
     const date = dateInput.value;
     const memberId = memberSelect ? memberSelect.value : '';
 
@@ -1449,9 +1450,10 @@ window.saveItem = function(rowId) {
                 // Create date display
                 const dateDisplayCell = newRow.querySelector('.cell-date-display');
                 if (dateDisplayCell) {
+                    const userTz = getUserTimezone();
                     const dateObj = new Date(data.date + 'T00:00:00');
-                    const day = String(dateObj.getDate()).padStart(2, '0');
-                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', timeZone: userTz }).format(dateObj);
+                    const month = new Intl.DateTimeFormat(undefined, { month: '2-digit', timeZone: userTz }).format(dateObj);
                     dateDisplayCell.innerHTML =
                         '<span class="date-full">' + data.date + '</span>' +
                         '<span class="date-short">' + day + '/' + month + '</span>';
@@ -1507,8 +1509,11 @@ window.saveItem = function(rowId) {
                 if (dateInput) {
                     const today = new Date().toISOString().split('T')[0];
                     dateInput.value = today;
-                    const [year, month, day] = today.split('-');
-                    dateInput.setAttribute('data-display-value', `${day}/${month}`);
+                    const userTz = getUserTimezone();
+                    const displayDate = new Intl.DateTimeFormat(undefined, {
+                        day: '2-digit', month: '2-digit', timeZone: userTz
+                    }).format(new Date(today + 'T00:00:00'));
+                    dateInput.setAttribute('data-display-value', displayDate);
                 }
 
                 // Reset realized toggle
@@ -1644,13 +1649,13 @@ function updateRowDisplay(rowId, data) {
     // Update date display (date-full and date-short spans)
     const dateDisplayCell = row.querySelector('.cell-date-display');
     if (dateDisplayCell && data.date) {
+        const userTz = getUserTimezone();
         const dateObj = new Date(data.date + 'T00:00:00');
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        dateDisplayCell.innerHTML = `
-            <span class="date-full">${data.date}</span>
-            <span class="date-short">${day}/${month}</span>
-        `;
+        const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', timeZone: userTz }).format(dateObj);
+        const month = new Intl.DateTimeFormat(undefined, { month: '2-digit', timeZone: userTz }).format(dateObj);
+        dateDisplayCell.innerHTML =
+            '<span class="date-full">' + data.date + '</span>' +
+            '<span class="date-short">' + day + '/' + month + '</span>';
     }
 
     // Ensure mobile action buttons exist in amount cell
@@ -2042,8 +2047,11 @@ function initializeDragAndDrop() {
             if (offset < 0 && !insertBefore) { insertBefore = row; }
         });
         if (placeholder.parentNode) { placeholder.remove(); }
+        const totalsRow = document.getElementById('totals-row');
         if (insertBefore) {
             tbody.insertBefore(placeholder, insertBefore);
+        } else if (totalsRow) {
+            tbody.insertBefore(placeholder, totalsRow);
         } else {
             tbody.appendChild(placeholder);
         }
@@ -2161,7 +2169,7 @@ function initializeNewItemToggle() {
 
 function updateSummary(customBudget, customRealized) {
     const budgetInput = document.querySelector('input[name="budgeted_amount"]');
-    const budgetValue = customBudget !== undefined ? parseFloat(customBudget) : (budgetInput ? parseFloat(getRawValue(budgetInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) : 0);
+    const budgetValue = customBudget !== undefined ? parseFloat(customBudget) : (budgetInput ? parseFloat(parseLocaleNumber(budgetInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) : 0);
     let totalEstimated = 0;
     let totalRealized = customRealized !== undefined ? parseFloat(customRealized) : 0;
     if (customRealized === undefined) {
@@ -2171,7 +2179,7 @@ function updateSummary(customBudget, customRealized) {
             if (itemId !== 'NEW' && itemId !== 'new-item-template') {
                 const amountInput = row.querySelector('input[data-field="amount"]');
                 if (amountInput && amountInput.value) {
-                    const amount = parseFloat(getRawValue(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
+                    const amount = parseFloat(parseLocaleNumber(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
                     totalEstimated += amount;
                     if (row.getAttribute('data-realized') === 'true') {
                         totalRealized += amount;
@@ -2186,7 +2194,7 @@ function updateSummary(customBudget, customRealized) {
             if (itemId !== 'NEW' && itemId !== 'new-item-template') {
                 const amountInput = row.querySelector('input[data-field="amount"]');
                 if (amountInput && amountInput.value) {
-                    const amount = parseFloat(getRawValue(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
+                    const amount = parseFloat(parseLocaleNumber(amountInput.value, window.FLOWGROUP_CONFIG.thousandSeparator, window.FLOWGROUP_CONFIG.decimalSeparator)) || 0;
                     totalEstimated += amount;
                 }
             }

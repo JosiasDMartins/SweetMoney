@@ -118,10 +118,9 @@
                 if (transactionData.date) {
                     const dateDisplay = row.querySelector('.cell-date-display');
                     if (dateDisplay) {
-                        const dateObj = new Date(transactionData.date);
-                        const day = String(dateObj.getDate()).padStart(2, '0');
-                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                        dateDisplay.textContent = `${day}/${month}`;
+                        dateDisplay.textContent = new Intl.DateTimeFormat(undefined, {
+                            day: '2-digit', month: '2-digit', timeZone: getUserTimezone()
+                        }).format(new Date(transactionData.date + 'T00:00:00'));
                     }
                     const dateInput = row.querySelector('input[data-field="date"]');
                     if (dateInput) {
@@ -143,10 +142,10 @@
                     } else if (amountInput) {
                         amountInput.value = transactionData.amount;
                     }
-                    // Only use getRawValue if amount contains comma (locale format)
+                    // Only use parseLocaleNumber if amount contains comma (locale format)
                     const amountStr = String(transactionData.amount);
-                    if (typeof getRawValue === 'function' && amountStr.includes(',')) {
-                        row.dataset.amount = getRawValue(amountStr, window.thousandSeparator, window.decimalSeparator);
+                    if (typeof parseLocaleNumber === 'function' && amountStr.includes(',')) {
+                        row.dataset.amount = parseLocaleNumber(amountStr, window.thousandSeparator, window.decimalSeparator);
                     } else {
                         row.dataset.amount = transactionData.amount;
                     }
@@ -262,23 +261,22 @@
             tr.dataset.realized = data.realized ? 'true' : 'false';
             tr.dataset.isFixed = data.is_fixed ? 'true' : 'false';
             tr.dataset.date = data.date;
-            // Only use getRawValue if amount contains comma (locale format)
+            // Only use parseLocaleNumber if amount contains comma (locale format)
             const amountStr = String(data.amount);
-            if (typeof getRawValue === 'function' && amountStr.includes(',')) {
-                tr.dataset.amount = getRawValue(amountStr, window.thousandSeparator, window.decimalSeparator);
+            if (typeof parseLocaleNumber === 'function' && amountStr.includes(',')) {
+                tr.dataset.amount = parseLocaleNumber(amountStr, window.thousandSeparator, window.decimalSeparator);
             } else {
                 tr.dataset.amount = data.amount;
             }
             tr.className = `swipeable-row-income ${data.realized ? 'row-realized-income' : 'row-not-realized-income'} hover:bg-slate-50 dark:hover:bg-gray-700/50`;
             tr.style.backgroundColor = 'rgba(34, 197, 94, 0.1)'; // Initial highlight
 
-            // Format date for display
+            // Format date for display using user's timezone
             let dateDisplay = '';
             if (data.date) {
-                const dateObj = new Date(data.date);
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                dateDisplay = `${day}/${month}`;
+                dateDisplay = new Intl.DateTimeFormat(undefined, {
+                    day: '2-digit', month: '2-digit', timeZone: getUserTimezone()
+                }).format(new Date(data.date + 'T00:00:00'));
             }
 
             // Format amount

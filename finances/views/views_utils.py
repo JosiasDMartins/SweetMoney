@@ -1,5 +1,6 @@
 import json
-from decimal import Decimal
+import re
+from decimal import Decimal, InvalidOperation
 from django.utils import translation
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -50,6 +51,48 @@ def get_currency_symbol(currency_code):
     Get the correct currency symbol using Django's active locale.
     """
     return get_currency_symbol_babel(currency_code, locale=_get_babel_locale())
+
+
+def money_to_decimal(value):
+    """
+    Convert any monetary value to Decimal for precise financial calculations.
+    Handles: Money objects, Decimal, string, None, QuerySet aggregates.
+    """
+    if value is None:
+        return Decimal('0.00')
+    if hasattr(value, 'amount'):
+        return Decimal(str(value.amount))
+    return Decimal(str(value))
+
+
+def normalize_decimal_input(value_str):
+    """
+    Normalize a decimal input string from the frontend.
+    Handles both standard format (e.g., "1234.56" from data-attributes)
+    and locale-formatted values (e.g., "1.234,56" PT-BR, "1,234.56" EN).
+    Returns a Decimal object.
+    """
+    if not value_str:
+        return Decimal('0.00')
+    value_str = str(value_str).strip()
+    # Remove currency symbols and whitespace
+    value_str = re.sub(r'[^\d.,\-]', '', value_str)
+    if not value_str:
+        return Decimal('0.00')
+    # Try direct Decimal conversion first (handles standard format like "1234.56")
+    # This works for values from data-attributes that are always in standard format
+    try:
+        return Decimal(value_str)
+    except InvalidOperation:
+        pass
+    # Fall back to locale-aware conversion for locale-formatted input values
+    decimal_sep = get_format('DECIMAL_SEPARATOR')
+    thousand_sep = get_format('THOUSAND_SEPARATOR')
+    # Remove thousand separators
+    value_str = value_str.replace(thousand_sep, '')
+    # Convert decimal separator to dot
+    value_str = value_str.replace(decimal_sep, '.')
+    return Decimal(value_str)
 
 
 def get_family_context(user):
@@ -274,14 +317,14 @@ def get_periods_history(family, current_period_start):
         total_expenses += kids_realized + kids_realized_investments
         investment_expenses += kids_realized_investments
 
-        total_expenses_float = float(total_expenses.amount) if hasattr(total_expenses, 'amount') else float(total_expenses)
-        total_income_float = float(total_income.amount) if hasattr(total_income, 'amount') else float(total_income)
-        investment_float = float(investment_expenses.amount) if hasattr(investment_expenses, 'amount') else float(investment_expenses)
-        expenses_only_float = total_expenses_float - investment_float
+        total_expenses_dec = money_to_decimal(total_expenses)
+        total_income_dec = money_to_decimal(total_income)
+        investment_dec = money_to_decimal(investment_expenses)
+        expenses_only_dec = total_expenses_dec - investment_dec
 
         commitment_pct = 0
-        if total_income_float > 0:
-            commitment_pct = (expenses_only_float / total_income_float * 100)
+        if total_income_dec > 0:
+            commitment_pct = float(expenses_only_dec / total_income_dec * 100)
 
         if commitment_pct >= 98:
             bar_color = 'rgb(239, 68, 68)'
@@ -292,16 +335,17 @@ def get_periods_history(family, current_period_start):
 
         is_current = (period_start == current_period_start)
 
-        savings = total_income_float - total_expenses_float
+        savings = total_income_dec - total_expenses_dec
         savings_values.append(savings)
 
+        # Convert Decimal to float only at final step for Chart.js compatibility
         periods_to_show.append({
             'label': period['label'],
-            'value': total_expenses_float,
-            'expenses_only': expenses_only_float,
-            'investments': investment_float,
+            'value': float(total_expenses_dec.quantize(Decimal('0.01'))),
+            'expenses_only': float(expenses_only_dec.quantize(Decimal('0.01'))),
+            'investments': float(investment_dec.quantize(Decimal('0.01'))),
             'color': bar_color,
-            'savings': savings,
+            'savings': float(savings.quantize(Decimal('0.01'))),
             'is_current': is_current
         })
 
@@ -311,7 +355,7 @@ def get_periods_history(family, current_period_start):
     periods_to_show.reverse()
     savings_values.reverse()
 
-    avg_savings = sum(savings_values) / len(savings_values) if savings_values else 0
+    avg_savings = sum(savings_values) / len(savings_values) if savings_values else Decimal('0.00')
 
     trend = 'stable'
     if len(periods_to_show) >= 6:
@@ -331,7 +375,7 @@ def get_periods_history(family, current_period_start):
         'investments': [p['investments'] for p in periods_to_show],
         'colors': [p['color'] for p in periods_to_show],
         'is_current': [p['is_current'] for p in periods_to_show],
-        'avg_savings': avg_savings,
+        'avg_savings': float(avg_savings.quantize(Decimal('0.01'))),
         'trend': trend
     }
 
@@ -376,7 +420,7 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         total_income = kids_income + manual_income
-        total_income_float = float(total_income.amount) if hasattr(total_income, 'amount') else float(total_income)
+        total_income_dec = money_to_decimal(total_income)
 
         # Expenses = Only their own expense transactions
         total_expenses = Transaction.objects.filter(
@@ -389,7 +433,7 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
             member=current_member
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-        total_expenses_float = float(total_expenses.amount) if hasattr(total_expenses, 'amount') else float(total_expenses)
+        total_expenses_dec = money_to_decimal(total_expenses)
 
         # Investments = Only their own investment transactions
         total_investments = Transaction.objects.filter(
@@ -412,7 +456,7 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
         ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_investments += kids_investment_income
-        total_investments_float = float(total_investments.amount) if hasattr(total_investments, 'amount') else float(total_investments)
+        total_investments_dec = money_to_decimal(total_investments)
     else:
         # ADMIN/PARENT: Calculate family-wide metrics (original logic)
 
@@ -425,7 +469,7 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
             is_child_manual_income=False
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-        total_income_float = float(total_income.amount) if hasattr(total_income, 'amount') else float(total_income)
+        total_income_dec = money_to_decimal(total_income)
 
         # Total Expenses (realized only)
         total_expenses = Transaction.objects.filter(
@@ -446,7 +490,7 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
         ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_expenses += kids_realized
-        total_expenses_float = float(total_expenses.amount) if hasattr(total_expenses, 'amount') else float(total_expenses)
+        total_expenses_dec = money_to_decimal(total_expenses)
 
         # Total Investments (realized only)
         total_investments = Transaction.objects.filter(
@@ -467,15 +511,15 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
         ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_investments += kids_investment_realized
-        total_investments_float = float(total_investments.amount) if hasattr(total_investments, 'amount') else float(total_investments)
+        total_investments_dec = money_to_decimal(total_investments)
 
     # Total Savings = Income - Expenses (investments are considered savings, not expenses)
-    total_savings = total_income_float - total_expenses_float
+    total_savings = total_income_dec - total_expenses_dec
 
     return {
-        'ytd_savings': total_savings,
-        'ytd_investments': total_investments_float,
-        'ytd_income': total_income_float,
+        'ytd_savings': str(total_savings.quantize(Decimal('0.01'))),
+        'ytd_investments': str(total_investments_dec.quantize(Decimal('0.01'))),
+        'ytd_income': str(total_income_dec.quantize(Decimal('0.01'))),
     }
 
 
@@ -517,8 +561,8 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
     budgeted_expense = Decimal('0.00')
 
     for group in accessible_expense_groups_annotated:
-        total_estimated = Decimal(str(group.total_estimated.amount)) if hasattr(group.total_estimated, 'amount') else (group.total_estimated or Decimal('0.00'))
-        budgeted_amt = Decimal(str(group.budgeted_amount.amount)) if hasattr(group.budgeted_amount, 'amount') else Decimal(str(group.budgeted_amount))
+        total_estimated = money_to_decimal(group.total_estimated) or Decimal('0.00')
+        budgeted_amt = money_to_decimal(group.budgeted_amount)
         effective_budget = total_estimated if total_estimated > budgeted_amt else budgeted_amt
 
         is_child_own_group = False
@@ -533,8 +577,8 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             budgeted_expense += effective_budget
 
     for group in display_only_expense_groups_annotated:
-        total_estimated = Decimal(str(group.total_estimated.amount)) if hasattr(group.total_estimated, 'amount') else (group.total_estimated or Decimal('0.00'))
-        budgeted_amt = Decimal(str(group.budgeted_amount.amount)) if hasattr(group.budgeted_amount, 'amount') else Decimal(str(group.budgeted_amount))
+        total_estimated = money_to_decimal(group.total_estimated) or Decimal('0.00')
+        budgeted_amt = money_to_decimal(group.budgeted_amount)
         effective_budget = total_estimated if total_estimated > budgeted_amt else budgeted_amt
 
         if member_role_for_period != 'CHILD':
@@ -557,7 +601,7 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             is_kids_group=True, assigned_children=current_member
         )
         for kids_group in kids_groups:
-            budg_amt = Decimal(str(kids_group.budgeted_amount.amount)) if hasattr(kids_group.budgeted_amount, 'amount') else Decimal(str(kids_group.budgeted_amount))
+            budg_amt = money_to_decimal(kids_group.budgeted_amount)
             kids_income_entries.append({
                 'id': f'kids_{kids_group.id}', 'description': kids_group.name,
                 'amount': budg_amt.quantize(Decimal('0.01'), rounding=ROUND_DOWN),
@@ -575,7 +619,7 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
         ).select_related('member__user').order_by('-date', 'order')
 
         for trans in manual_income_transactions:
-            amt = Decimal(str(trans.amount.amount)) if hasattr(trans.amount, 'amount') else Decimal(str(trans.amount))
+            amt = money_to_decimal(trans.amount)
             budgeted_income += amt
             if trans.realized:
                 realized_income += amt
@@ -593,9 +637,9 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             total_investment=Sum('amount', filter=Q(flow_group__is_investment=True))
         )
         realized_expense = realized_exp_q['total'] or Decimal('0.00')
-        realized_expense = Decimal(str(realized_expense.amount)) if hasattr(realized_expense, 'amount') else realized_expense
+        realized_expense = money_to_decimal(realized_expense)
         realized_investment = realized_exp_q['total_investment'] or Decimal('0.00')
-        realized_investment = Decimal(str(realized_investment.amount)) if hasattr(realized_investment, 'amount') else realized_investment
+        realized_investment = money_to_decimal(realized_investment)
 
     else: # PARENT/ADMIN
         income_group = get_default_income_flow_group(family, current_member.user, start_date)
@@ -607,18 +651,18 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
         budg_inc_q = Transaction.objects.filter(
             flow_group=income_group, is_child_manual_income=False
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        budgeted_income = Decimal(str(budg_inc_q.amount)) if hasattr(budg_inc_q, 'amount') else budg_inc_q
+        budgeted_income = money_to_decimal(budg_inc_q)
 
         real_inc_q = Transaction.objects.filter(
             flow_group=income_group,
             realized=True, is_child_manual_income=False
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        realized_income = Decimal(str(real_inc_q.amount)) if hasattr(real_inc_q, 'amount') else real_inc_q
+        realized_income = money_to_decimal(real_inc_q)
 
         kids_realized_sum = FlowGroup.objects.filter(
             family=family, period_start_date=start_date, is_kids_group=True, realized=True
         ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
-        kids_groups_realized_budget = Decimal(str(kids_realized_sum.amount)) if hasattr(kids_realized_sum, 'amount') else kids_realized_sum
+        kids_groups_realized_budget = money_to_decimal(kids_realized_sum)
 
         for child in family_members.filter(role='CHILD'):
             child_income = Transaction.objects.filter(
@@ -628,11 +672,16 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             if child_income.exists():
                 tot_q = child_income.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
                 real_tot_q = child_income.filter(realized=True).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-                tot = Decimal(str(tot_q.amount)) if hasattr(tot_q, 'amount') else tot_q
-                real_tot = Decimal(str(real_tot_q.amount)) if hasattr(real_tot_q, 'amount') else real_tot_q
+                tot = money_to_decimal(tot_q)
+                real_tot = money_to_decimal(real_tot_q)
+                # Convert Money amounts to Decimal for template compatibility
+                transactions_data = []
+                for t in child_income.values('description', 'amount', 'date', 'realized'):
+                    t['amount'] = money_to_decimal(t['amount'])
+                    transactions_data.append(t)
                 children_manual_income[child.id] = {
                     'member': child, 'total': tot, 'realized_total': real_tot,
-                    'transactions': list(child_income.values('description', 'amount', 'date', 'realized'))
+                    'transactions': transactions_data
                 }
 
         # Calculate realized expense from both accessible and display-only groups
@@ -649,10 +698,10 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             total_investment=Sum('amount', filter=Q(flow_group__is_investment=True))
         )
         realized_expense = realized_exp_calc['total'] or Decimal('0.00')
-        realized_expense = Decimal(str(realized_expense.amount)) if hasattr(realized_expense, 'amount') else realized_expense
+        realized_expense = money_to_decimal(realized_expense)
         realized_expense += kids_groups_realized_budget
         realized_investment = realized_exp_calc['total_investment'] or Decimal('0.00')
-        realized_investment = Decimal(str(realized_investment.amount)) if hasattr(realized_investment, 'amount') else realized_investment
+        realized_investment = money_to_decimal(realized_investment)
     
     # Income commitment: expenses (excluding investments) / income
     expenses_for_commitment = realized_expense - realized_investment

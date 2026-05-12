@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 from finances.websocket_sanitizer import sanitize_broadcast_data
+from .views.views_utils import money_to_decimal
 
 logger = logging.getLogger(__name__)
 
@@ -218,12 +219,7 @@ class WebSocketBroadcaster:
         ).aggregate(total=Sum('amount'))['total']
 
         # Handle Money object or None
-        if tot_bank is None:
-            total_bank_balance = Decimal('0.00')
-        elif hasattr(tot_bank, 'amount'):
-            total_bank_balance = Decimal(str(tot_bank.amount))
-        else:
-            total_bank_balance = Decimal(str(tot_bank))
+        total_bank_balance = money_to_decimal(tot_bank)
 
         WebSocketBroadcaster.broadcast_to_family(
             family_id=bank_balance.family.id,

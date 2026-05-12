@@ -2,6 +2,7 @@
 {% load static %}
 {% load humanize %}
 {% load i18n %}
+{% load math_filters %}
 
 {% block content %}
 <!-- Bank Reconciliation Configuration -->
@@ -90,8 +91,8 @@
                         </td>
                         {% endif %}
                         <td class="px-4 py-3 text-right">
-                            <span class="cell-amount-display text-sm text-green-600 dark:text-green-500 font-semibold">{{ balance.amount|intcomma }}</span>
-                            <input type="text" inputmode="decimal" class="cell-amount-edit hidden w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="{{ balance.amount.amount }}">
+                            <span class="cell-amount-display text-sm text-green-600 dark:text-green-500 font-semibold">{{ currency_symbol }} {{ balance.amount|format_amount }}</span>
+                            <input type="text" inputmode="decimal" class="cell-amount-edit hidden w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="{{ balance.amount.amount|format_amount }}">
                         </td>
                         <td class="px-4 py-3 text-center">
                             <div class="actions-display flex justify-center space-x-2">
@@ -163,7 +164,7 @@
                 <div class="text-right">
                     <span class="text-sm text-gray-600 dark:text-gray-400">{% trans "Total Bank Balance:" %}</span>
                     <span id="total-bank-balance" class="text-lg font-bold text-green-600 dark:text-green-500 ml-2">
-                        {{ currency_symbol }} {{ reconciliation_data.total_bank_balance|default:"0.00"|intcomma }}
+                        {{ currency_symbol }} {{ reconciliation_data.total_bank_balance|default:"0.00"|format_amount }}
                     </span>
                 </div>
             </div>
@@ -182,39 +183,39 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
                     <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">{% trans "Total Income" %}</div>
-                    <div id="reconciliation-total-income" class="text-2xl font-bold text-green-600 dark:text-green-500"> {{ currency_symbol }}{{ reconciliation_data.total_income|intcomma }}</div>
+                    <div id="reconciliation-total-income" class="text-2xl font-bold text-green-600 dark:text-green-500"> {{ currency_symbol }}{{ reconciliation_data.total_income|format_amount }}</div>
                 </div>
                 <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
                     <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">{% trans "Total Expenses" %}</div>
-                    <div id="reconciliation-total-expenses" class="text-2xl font-bold text-red-600 dark:text-red-500">{{ currency_symbol }} {{ reconciliation_data.total_expenses|intcomma }}</div>
+                    <div id="reconciliation-total-expenses" class="text-2xl font-bold text-red-600 dark:text-red-500">{{ currency_symbol }} {{ reconciliation_data.total_expenses|format_amount }}</div>
                 </div>
                 <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                     <div class="text-sm text-gray-600 dark:text-gray-400 mb-1">{% trans "Calculated Balance" %}</div>
                     <div id="reconciliation-calculated-balance" class="text-2xl font-bold {% if reconciliation_data.calculated_balance >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %}">
-                        {{ currency_symbol }} {{ reconciliation_data.calculated_balance|intcomma }}
+                        {{ currency_symbol }} {{ reconciliation_data.calculated_balance|format_amount }}
                     </div>
                 </div>
             </div>
-            
+
             <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <div class="text-sm text-gray-600 dark:text-gray-400">{% trans "Bank Balance" %}</div>
-                        <div id="reconciliation-bank-balance" class="text-2xl font-bold text-[#0d171b] dark:text-white">{{ currency_symbol }} {{ reconciliation_data.total_bank_balance|intcomma }}</div>
+                        <div id="reconciliation-bank-balance" class="text-2xl font-bold text-[#0d171b] dark:text-white">{{ currency_symbol }} {{ reconciliation_data.total_bank_balance|format_amount }}</div>
                     </div>
                     <div class="text-4xl text-gray-300 dark:text-gray-600">−</div>
                     <div>
                         <div class="text-sm text-gray-600 dark:text-gray-400">{% trans "Calculated Balance" %}</div>
-                        <div id="reconciliation-calculated-balance-2" class="text-2xl font-bold text-[#0d171b] dark:text-white">{{ currency_symbol }} {{ reconciliation_data.calculated_balance|intcomma }}</div>
+                        <div id="reconciliation-calculated-balance-2" class="text-2xl font-bold text-[#0d171b] dark:text-white">{{ currency_symbol }} {{ reconciliation_data.calculated_balance|format_amount }}</div>
                     </div>
                     <div class="text-4xl text-gray-300 dark:text-gray-600">=</div>
                     <div>
                         <div class="text-sm text-gray-600 dark:text-gray-400">{% trans "Discrepancy" %}</div>
                         <div id="reconciliation-discrepancy" class="text-2xl font-bold {% if reconciliation_data.discrepancy >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %}">
-                            {{ currency_symbol }} {{ reconciliation_data.discrepancy|intcomma }}
+                            {{ currency_symbol }} {{ reconciliation_data.discrepancy|format_amount }}
                         </div>
                         <div id="reconciliation-discrepancy-percentage" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            ({{ reconciliation_data.discrepancy_percentage|floatformat:2 }}%)
+                            ({{ reconciliation_data.discrepancy_percentage|format_amount }}%)
                         </div>
                     </div>
                 </div>
@@ -263,16 +264,16 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
                         <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">{% trans "Income" %}</div>
-                        <div class="text-lg font-bold text-green-600 dark:text-green-500 reconciliation-member-income">{{ currency_symbol }} {{ member_data.income|intcomma }}</div>
+                        <div class="text-lg font-bold text-green-600 dark:text-green-500 reconciliation-member-income">{{ currency_symbol }} {{ member_data.income|format_amount }}</div>
                     </div>
                     <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
                         <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">{% trans "Expenses" %}</div>
-                        <div class="text-lg font-bold text-red-600 dark:text-red-500 reconciliation-member-expenses">{{ currency_symbol }} {{ member_data.expenses|intcomma }}</div>
+                        <div class="text-lg font-bold text-red-600 dark:text-red-500 reconciliation-member-expenses">{{ currency_symbol }} {{ member_data.expenses|format_amount }}</div>
                     </div>
                     <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
                         <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">{% trans "Calculated" %}</div>
                         <div class="text-lg font-bold {% if member_data.calculated_balance >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} reconciliation-member-calculated">
-                            {{ currency_symbol }} {{ member_data.calculated_balance|intcomma }}
+                            {{ currency_symbol }} {{ member_data.calculated_balance|format_amount }}
                         </div>
                     </div>
                 </div>
@@ -280,21 +281,21 @@
                 <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div class="flex-1 text-center">
                         <div class="text-xs text-gray-600 dark:text-gray-400">{% trans "Bank Balance" %}</div>
-                        <div class="text-xl font-bold text-[#0d171b] dark:text-white reconciliation-member-bank">{{ currency_symbol }} {{ member_data.bank_balance|intcomma }}</div>
+                        <div class="text-xl font-bold text-[#0d171b] dark:text-white reconciliation-member-bank">{{ currency_symbol }} {{ member_data.bank_balance|format_amount }}</div>
                     </div>
                     <div class="text-2xl text-gray-300 dark:text-gray-600 mx-2">−</div>
                     <div class="flex-1 text-center">
                         <div class="text-xs text-gray-600 dark:text-gray-400">{% trans "Calculated" %}</div>
-                        <div class="text-xl font-bold text-[#0d171b] dark:text-white reconciliation-member-calculated-2">{{ currency_symbol }} {{ member_data.calculated_balance|intcomma }}</div>
+                        <div class="text-xl font-bold text-[#0d171b] dark:text-white reconciliation-member-calculated-2">{{ currency_symbol }} {{ member_data.calculated_balance|format_amount }}</div>
                     </div>
                     <div class="text-2xl text-gray-300 dark:text-gray-600 mx-2">=</div>
                     <div class="flex-1 text-center">
                         <div class="text-xs text-gray-600 dark:text-gray-400">{% trans "Discrepancy" %}</div>
                         <div class="text-xl font-bold {% if member_data.discrepancy >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} reconciliation-member-discrepancy">
-                            {{ currency_symbol }} {{ member_data.discrepancy|intcomma }}
+                            {{ currency_symbol }} {{ member_data.discrepancy|format_amount }}
                         </div>
                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 reconciliation-member-discrepancy-percentage">
-                            ({{ member_data.discrepancy_percentage|floatformat:2 }}%)
+                            ({{ member_data.discrepancy_percentage|format_amount }}%)
                         </div>
                     </div>
                 </div>

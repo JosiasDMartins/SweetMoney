@@ -36,27 +36,31 @@
     // ========== MONEY/CURRENCY UTILITIES ==========
 
     /**
-     * Get raw numeric value from masked money input
-     * Removes thousand separators and converts decimal separator to dot
-     * Preserves negative sign for credit card refunds
-     * @param {string} maskedValue - Formatted money value
-     * @param {string} thousandSeparator - Thousand separator character (default: '.')
-     * @param {string} decimalSeparator - Decimal separator character (default: ',')
-     * @returns {string} Raw numeric value with dot as decimal separator
+     * Parse a locale-formatted number string to a JS-usable numeric string.
+     * Removes thousand separators and converts decimal separator to dot.
+     * Used for internal JS calculations only (not for sending to backend).
+     * @param {string} maskedValue - Formatted money value (e.g., "1.234,56" or "1,234.56")
+     * @param {string} thousandSeparator - Thousand separator character
+     * @param {string} decimalSeparator - Decimal separator character
+     * @returns {string} Standard numeric value with dot as decimal separator
      */
-    function getRawValue(maskedValue, thousandSeparator = '.', decimalSeparator = ',') {
+    function parseLocaleNumber(maskedValue, thousandSeparator, decimalSeparator) {
+        thousandSeparator = thousandSeparator || window.thousandSeparator || ',';
+        decimalSeparator = decimalSeparator || window.decimalSeparator || '.';
         if (!maskedValue || maskedValue === '') return '0';
 
-        // Check for negative sign at the start and preserve it
         const isNegative = maskedValue.startsWith('-');
         let value = maskedValue.substring(isNegative ? 1 : 0);
 
-        // Escape special regex characters in the separator
-        const escapedSeparator = thousandSeparator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        value = value.replace(new RegExp(escapedSeparator, 'g'), '');
+        // Remove currency symbols and whitespace
+        value = value.replace(/[^\d.,\-]/g, '');
+
+        // Remove thousand separators
+        const escapedSep = thousandSeparator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        value = value.replace(new RegExp(escapedSep, 'g'), '');
+        // Convert decimal separator to dot
         value = value.replace(decimalSeparator, '.');
 
-        // Restore negative sign if present
         if (isNegative) {
             value = '-' + value;
         }
@@ -68,7 +72,10 @@
      * Apply money mask to input field with robust cursor positioning
      * Now supports negative values for credit card refunds
      */
-    function applyMoneyMask(event, thousandSeparator = '.', decimalSeparator = ',') {
+    function applyMoneyMask(event, thousandSeparator, decimalSeparator) {
+        // Use window globals from template config if not provided
+        thousandSeparator = thousandSeparator || window.thousandSeparator || '.';
+        decimalSeparator = decimalSeparator || window.decimalSeparator || ',';
         const input = event.target;
         // The current cursor position AFTER the user typed/deleted but BEFORE we reformat
         let cursorPos = input.selectionStart;
@@ -195,7 +202,10 @@
      * @param {string} decimalSeparator - Decimal separator (default: ',')
      * @returns {string} Formatted amount
      */
-    function formatAmountForInput(amount, thousandSeparator = '.', decimalSeparator = ',') {
+    function formatAmountForInput(amount, thousandSeparator, decimalSeparator) {
+        // Use window globals from template config if not provided
+        thousandSeparator = thousandSeparator || window.thousandSeparator || '.';
+        decimalSeparator = decimalSeparator || window.decimalSeparator || ',';
         if (amount === null || amount === undefined || amount === '') {
             return '0' + decimalSeparator + '00';
         }
@@ -230,7 +240,11 @@
      * @param {string} decimalSeparator - Decimal separator (default: ',')
      * @returns {string} Formatted currency string
      */
-    function formatCurrency(amount, currencySymbol = 'R$', thousandSeparator = '.', decimalSeparator = ',') {
+    function formatCurrency(amount, currencySymbol, thousandSeparator, decimalSeparator) {
+        // Use window globals from template config if not provided
+        currencySymbol = currencySymbol || window.currencySymbol || '$';
+        thousandSeparator = thousandSeparator || window.thousandSeparator || '.';
+        decimalSeparator = decimalSeparator || window.decimalSeparator || ',';
         const num = parseFloat(amount);
         if (isNaN(num)) return amount;
 
@@ -255,7 +269,10 @@
      * Initialize money input fields with proper event handling
      * Rule: First focus -> Cursor to end. Subsequent clicks -> Free movement.
      */
-    function initializeMoneyInputs(selector, thousandSeparator = '.', decimalSeparator = ',') {
+    function initializeMoneyInputs(selector, thousandSeparator, decimalSeparator) {
+        // Use window globals from template config if not provided
+        thousandSeparator = thousandSeparator || window.thousandSeparator || '.';
+        decimalSeparator = decimalSeparator || window.decimalSeparator || ',';
         const initKey = 'data-money-init-' + selector.replace(/[^a-zA-Z0-9]/g, '_');
         if (document.body.hasAttribute(initKey)) return;
         document.body.setAttribute(initKey, 'true');
@@ -451,7 +468,7 @@
         getCookie: getCookie,
 
         // Money/Currency utilities
-        getRawValue: getRawValue,
+        parseLocaleNumber: parseLocaleNumber,
         applyMoneyMask: applyMoneyMask,
         formatAmountForInput: formatAmountForInput,
         formatCurrency: formatCurrency,
@@ -467,7 +484,7 @@
 
     // Also export individual functions for backward compatibility
     window.getCookie = getCookie;
-    window.getRawValue = getRawValue;
+    window.parseLocaleNumber = parseLocaleNumber;
     window.applyMoneyMask = applyMoneyMask;
     window.formatAmountForInput = formatAmountForInput;
     window.formatCurrency = formatCurrency;

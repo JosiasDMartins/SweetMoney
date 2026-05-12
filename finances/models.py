@@ -29,6 +29,12 @@ class CustomUser(AbstractUser):
         ],
         help_text=_("User's preferred language")
     )
+    timezone = models.CharField(
+        max_length=50,
+        default='UTC',
+        help_text=_("User's preferred timezone for displaying dates")
+    )
+
     email_notifications_enabled = models.BooleanField(
         default=False,
         help_text=_("Enable email notifications")

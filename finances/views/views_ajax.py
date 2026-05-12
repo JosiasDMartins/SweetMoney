@@ -1,6 +1,6 @@
 import json
 import decimal
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime as dt_datetime
 
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
@@ -37,7 +37,9 @@ from .views_utils import (
     get_thousand_separator,
     get_decimal_separator,
     get_balance_summary,
-    get_year_to_date_metrics
+    get_year_to_date_metrics,
+    money_to_decimal,
+    normalize_decimal_input
 )
 
 
@@ -116,29 +118,11 @@ def save_flow_item_ajax(request):
         currency = get_period_currency(family, flow_group.period_start_date)
         
         try:
-            amount_clean = str(amount_str).strip()
-            print(f"[DEBUG] Step 1 - Raw input: '{amount_str}'")
-
-            # IMPORTANT: Frontend getRawValue() already sends values in standard format "1234.56"
-            # We should NOT do locale-based cleaning because:
-            # 1. Frontend already removes thousand separators
-            # 2. Frontend already converts decimal separator to dot
-            # 3. Doing locale cleaning here causes bugs (e.g., "12.34" becomes "1234" in PT_BR)
-
-            # Only remove currency symbol if present (edge case)
-            curr_symbol = get_currency_symbol(currency)
-            if curr_symbol in amount_clean:
-                amount_clean = amount_clean.replace(curr_symbol, '')
-                print(f"[DEBUG] Step 2 - After removing currency symbol '{curr_symbol}': '{amount_clean}'")
-
-            # DO NOT remove thousand separators or replace decimal separators!
-            # Frontend already sends in standard format "1234.56"
-
-            if not amount_clean:
-                return JsonResponse({'error': _('Amount cannot be empty.')}, status=400)
-            amount = Decimal(amount_clean)
-            print(f"[DEBUG] Step 3 - Final Decimal value: {amount}")
-        except (ValueError, decimal.InvalidOperation) as e:
+            # Frontend sends locale-formatted values (e.g., "1.234,56" for PT-BR, "1,234.56" for EN)
+            # normalize_decimal_input handles locale-aware parsing
+            amount = normalize_decimal_input(amount_str)
+            print(f"[DEBUG] Amount normalized: {amount} from input: '{amount_str}'")
+        except (ValueError, decimal.InvalidOperation, InvalidOperation) as e:
             return JsonResponse({'error': _('Invalid amount format: %(amount)s') % {'amount': amount_str}}, status=400)
             
         date = dt_datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -736,16 +720,8 @@ def save_bank_balance_ajax(request):
         period_start_date_str = data.get('period_start_date')
         balance_id = data.get('id')
 
-        # Parse amount - frontend getRawValue() already sends in standard format "1234.56"
-        # DO NOT do locale-based cleaning - it causes the 100x multiplication bug
-        amount_clean = str(amount_str).strip()
-
-        # Only remove currency symbol if present (edge case)
-        curr_symbol = get_currency_symbol(get_period_currency(family, dt_datetime.strptime(period_start_date_str, '%Y-%m-%d').date()))
-        if curr_symbol in amount_clean:
-            amount_clean = amount_clean.replace(curr_symbol, '')
-
-        amount = Decimal(amount_clean)
+        # Frontend sends locale-formatted values - use normalize_decimal_input for parsing
+        amount = normalize_decimal_input(amount_str)
 
         date = dt_datetime.strptime(date_str, '%Y-%m-%d').date()
         period_start_date = dt_datetime.strptime(period_start_date_str, '%Y-%m-%d').date()
@@ -793,13 +769,7 @@ def save_bank_balance_ajax(request):
             period_start_date=period_start_date
         ).aggregate(total=Sum('amount'))['total']
 
-        # Handle Money object or None
-        if tot_bank is None:
-            total_bank_balance = Decimal('0.00')
-        elif hasattr(tot_bank, 'amount'):
-            total_bank_balance = Decimal(str(tot_bank.amount))
-        else:
-            total_bank_balance = Decimal(str(tot_bank))
+        total_bank_balance = money_to_decimal(tot_bank)
 
         amount_value = str(bank_balance.amount.amount)
         
@@ -842,13 +812,7 @@ def delete_bank_balance_ajax(request):
             period_start_date=period_start_date
         ).aggregate(total=Sum('amount'))['total']
 
-        # Handle Money object or None
-        if tot_bank is None:
-            total_bank_balance = Decimal('0.00')
-        elif hasattr(tot_bank, 'amount'):
-            total_bank_balance = Decimal(str(tot_bank.amount))
-        else:
-            total_bank_balance = Decimal(str(tot_bank))
+        total_bank_balance = money_to_decimal(tot_bank)
 
         # Real-time WebSocket broadcast
         try:
@@ -1078,12 +1042,12 @@ def get_period_details_ajax(request):
         total_income_realized = total_income_agg['realized']
 
         if total_income_estimated:
-            total_income_estimated = Decimal(str(total_income_estimated.amount)) if hasattr(total_income_estimated, 'amount') else total_income_estimated
+            total_income_estimated = money_to_decimal(total_income_estimated)
         else:
             total_income_estimated = Decimal('0.00')
 
         if total_income_realized:
-            total_income_realized = Decimal(str(total_income_realized.amount)) if hasattr(total_income_realized, 'amount') else total_income_realized
+            total_income_realized = money_to_decimal(total_income_realized)
         else:
             total_income_realized = Decimal('0.00')
 
@@ -1097,12 +1061,12 @@ def get_period_details_ajax(request):
         total_expense_realized = total_expense_agg['realized']
 
         if total_expense_estimated:
-            total_expense_estimated = Decimal(str(total_expense_estimated.amount)) if hasattr(total_expense_estimated, 'amount') else total_expense_estimated
+            total_expense_estimated = money_to_decimal(total_expense_estimated)
         else:
             total_expense_estimated = Decimal('0.00')
 
         if total_expense_realized:
-            total_expense_realized = Decimal(str(total_expense_realized.amount)) if hasattr(total_expense_realized, 'amount') else total_expense_realized
+            total_expense_realized = money_to_decimal(total_expense_realized)
         else:
             total_expense_realized = Decimal('0.00')
 
@@ -1567,13 +1531,7 @@ def get_bank_reconciliation_summary_ajax(request):
             calculated_balance = total_income - total_expenses
             
             tot_bank = bank_balances.aggregate(total=Sum('amount'))['total']
-            # Handle Money object or None
-            if tot_bank is None:
-                total_bank_balance = Decimal('0.00')
-            elif hasattr(tot_bank, 'amount'):
-                total_bank_balance = Decimal(str(tot_bank.amount))
-            else:
-                total_bank_balance = Decimal(str(tot_bank))
+            total_bank_balance = money_to_decimal(tot_bank)
 
             discrepancy = total_bank_balance - calculated_balance
             if calculated_balance != 0:
@@ -1612,31 +1570,15 @@ def get_bank_reconciliation_summary_ajax(request):
                 mem_exp = expense_transactions.filter(member=member).aggregate(total=Sum('amount'))['total']
 
                 # Handle Money object or None for income
-                if mem_inc is None:
-                    member_income = Decimal('0.00')
-                elif hasattr(mem_inc, 'amount'):
-                    member_income = Decimal(str(mem_inc.amount))
-                else:
-                    member_income = Decimal(str(mem_inc))
+                member_income = money_to_decimal(mem_inc)
 
                 # Handle Money object or None for expenses
-                if mem_exp is None:
-                    member_expenses = Decimal('0.00')
-                elif hasattr(mem_exp, 'amount'):
-                    member_expenses = Decimal(str(mem_exp.amount))
-                else:
-                    member_expenses = Decimal(str(mem_exp))
+                member_expenses = money_to_decimal(mem_exp)
 
                 member_calculated_balance = member_income - member_expenses
 
                 mem_bank = bank_balances.filter(member=member).aggregate(total=Sum('amount'))['total']
-                # Handle Money object or None for bank balance
-                if mem_bank is None:
-                    member_bank_balance = Decimal('0.00')
-                elif hasattr(mem_bank, 'amount'):
-                    member_bank_balance = Decimal(str(mem_bank.amount))
-                else:
-                    member_bank_balance = Decimal(str(mem_bank))
+                member_bank_balance = money_to_decimal(mem_bank)
 
                 member_discrepancy = member_bank_balance - member_calculated_balance
                 if member_calculated_balance != 0:
@@ -1661,10 +1603,8 @@ def get_bank_reconciliation_summary_ajax(request):
             tot_bank_all = bank_balances.aggregate(total=Sum('amount'))['total']
             if tot_bank_all is None:
                 total_bank_balance_detailed = Decimal('0.00')
-            elif hasattr(tot_bank_all, 'amount'):
-                total_bank_balance_detailed = Decimal(str(tot_bank_all.amount))
             else:
-                total_bank_balance_detailed = Decimal(str(tot_bank_all))
+                total_bank_balance_detailed = money_to_decimal(tot_bank_all)
 
             reconciliation_data = {
                 'mode': 'detailed',
@@ -1759,7 +1699,7 @@ def get_investment_balance_ajax(request):
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # Convert Money to Decimal
-        available_balance = Decimal(str(investment_balance.amount)) if hasattr(investment_balance, 'amount') else investment_balance
+        available_balance = money_to_decimal(investment_balance)
         available_balance = available_balance.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
 
         return JsonResponse({

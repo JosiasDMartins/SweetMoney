@@ -89,6 +89,7 @@
         data-is-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
         data-decimal-separator="{{ decimal_separator }}" data-thousand-separator="{{ thousand_separator }}"
         data-currency-symbol="{{ currency_symbol }}"
+        data-user-timezone="{{ user_timezone|default:'UTC' }}"
         data-i18n-error-loading-period-details="{% trans 'Error loading period details:' %}"
         data-i18n-error-loading-period="{% trans 'An error occurred while loading period details' %}"
         data-i18n-pwa-new-version-title="{% trans 'New SweetMoney version available!' %}"

@@ -79,7 +79,7 @@ function initBankReconciliation() {
 
 // ===== UTILITY FUNCTIONS =====
 
-// getCookie, applyMoneyMask, getRawValue, formatCurrency - using utils.js
+// getCookie, applyMoneyMask, parseLocaleNumber, formatCurrency - using utils.js
 
 function initMoneyMask() {
     const selector = '.cell-amount-edit';
@@ -133,16 +133,16 @@ function initMoneyMask() {
     }, true);
 
     // Initialize existing inputs
-    // Template renders values - use getRawValue to properly parse regardless of format
+    // Template renders values - use parseLocaleNumber to properly parse regardless of format
     // This follows the same pattern as dashboard.js initInputMasks()
     document.querySelectorAll('.cell-amount-edit').forEach(function(input) {
         if (input.value && input.value.trim() !== '') {
             console.log('[initMoneyMask] Processing input:', input);
             console.log('[initMoneyMask] Raw Value from DOM:', input.value);
 
-            // Use getRawValue to properly sanitize the value (handles both locale formats)
+            // Use parseLocaleNumber to properly sanitize the value (handles both locale formats)
             // This is the same pattern used in dashboard.js and FlowGroup.js
-            let raw = getRawValue(input.value, thousandSeparator, decimalSeparator);
+            let raw = parseLocaleNumber(input.value, thousandSeparator, decimalSeparator);
 
             if (!isNaN(raw) && raw !== null) {
                 // Format according to user's locale settings
@@ -213,7 +213,7 @@ window.toggleEditBalance = function(rowId, edit) {
             // Get the amount text and remove currency symbol
             const amountText = amountDisplay.textContent.trim();
             const numericPart = amountText.replace(/^[^\d-]+/, '').trim();
-            amountInput.value = formatAmountForInput(getRawValue(numericPart, window.thousandSeparator, window.decimalSeparator), window.thousandSeparator, window.decimalSeparator);
+            amountInput.value = formatAmountForInput(parseLocaleNumber(numericPart, window.thousandSeparator, window.decimalSeparator), window.thousandSeparator, window.decimalSeparator);
         }
 
         const dateInput = row.querySelector('.cell-date-edit');
@@ -241,7 +241,8 @@ window.saveBalance = function(rowId) {
     const isNew = balanceId === 'new';
 
     const description = row.querySelector('.cell-description-edit').value.trim();
-    const amount = getRawValue(row.querySelector('.cell-amount-edit').value, thousandSeparator, decimalSeparator);
+    // Send locale-formatted value directly - backend handles parsing via normalize_decimal_input
+    const amount = row.querySelector('.cell-amount-edit').value;
     const date = row.querySelector('.cell-date-edit').value;
     const memberSelect = row.querySelector('.cell-member-edit');
     const memberId = memberSelect ? memberSelect.value : null;
@@ -291,9 +292,11 @@ window.saveBalance = function(rowId) {
 };
 
 function updateRow(row, data) {
-    // Date: use short month format (Jan, Feb, etc.)
+    // Date: use short month format with user's timezone
     const dateObj = new Date(data.date + 'T00:00:00');
-    const dateDisplay = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const dateDisplay = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric', timeZone: getUserTimezone()
+    }).format(dateObj);
 
     row.querySelector('.cell-description-display').textContent = data.description;
     row.querySelector('.cell-date-display').textContent = dateDisplay;
@@ -636,9 +639,11 @@ window.BankReconciliationRealtime = {
         const isDetailed = headerCells.length === 5;
         console.log('[BankRecon RT] Mode detection - headers:', headerCells.length, 'isDetailed:', isDetailed);
 
-        // Format date with short month (Jan, Feb, etc.)
+        // Format date with short month using user's timezone
         const dateObj = new Date(data.date + 'T00:00:00');
-        const dateDisplay = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        const dateDisplay = new Intl.DateTimeFormat(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric', timeZone: getUserTimezone()
+        }).format(dateObj);
 
         // Format amount
         const formattedAmount = formatCurrency(data.amount, currencySymbol, thousandSeparator, decimalSeparator);
@@ -689,10 +694,13 @@ window.BankReconciliationRealtime = {
         }
 
         // Column (3 or 4): Amount
+        const formattedAmountForEdit = typeof formatAmountForInput === 'function'
+            ? formatAmountForInput(data.amount, window.thousandSeparator, window.decimalSeparator)
+            : data.amount;
         html += `
             <td class="px-4 py-3 text-right">
                 <span class="cell-amount-display text-sm text-green-600 dark:text-green-500 font-semibold">${formattedAmount}</span>
-                <input type="text" inputmode="decimal" class="cell-amount-edit hidden w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="${data.amount}">
+                <input type="text" inputmode="decimal" class="cell-amount-edit hidden w-full px-2 py-1 text-sm border rounded text-right dark:bg-gray-700 dark:text-white" value="${formattedAmountForEdit}">
             </td>`;
 
         // Column (4 or 5): Actions

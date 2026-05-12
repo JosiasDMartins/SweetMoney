@@ -77,6 +77,72 @@
             </form>
         </div>
 
+        <!-- Timezone Preference Card -->
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-6">
+            <h2 class="text-xl font-bold text-[#0d171b] dark:text-white mb-4">{% trans "Timezone Preference" %}</h2>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_timezone">
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{% trans "Your Timezone" %}</label>
+                        <select name="timezone"
+                                class="w-full border rounded-lg bg-background-light dark:bg-background-dark border-slate-300 dark:border-slate-700 focus:ring-primary focus:border-primary text-slate-800 dark:text-slate-200 p-3">
+                            <optgroup label="UTC / Universal">
+                                <option value="UTC" {% if request.user.timezone == 'UTC' %}selected{% endif %}>UTC (Universal Coordinated Time)</option>
+                            </optgroup>
+                            <optgroup label="Americas">
+                                <option value="America/New_York" {% if request.user.timezone == 'America/New_York' %}selected{% endif %}>America/New York (Eastern Time: UTC-5/-4)</option>
+                                <option value="America/Chicago" {% if request.user.timezone == 'America/Chicago' %}selected{% endif %}>America/Chicago (Central Time: UTC-6/-5)</option>
+                                <option value="America/Denver" {% if request.user.timezone == 'America/Denver' %}selected{% endif %}>America/Denver (Mountain Time: UTC-7/-6)</option>
+                                <option value="America/Los_Angeles" {% if request.user.timezone == 'America/Los_Angeles' %}selected{% endif %}>America/Los Angeles (Pacific Time: UTC-8/-7)</option>
+                                <option value="America/Sao_Paulo" {% if request.user.timezone == 'America/Sao_Paulo' %}selected{% endif %}>America/Sao Paulo (Brasil: UTC-3/-2)</option>
+                                <option value="America/Mexico_City" {% if request.user.timezone == 'America/Mexico_City' %}selected{% endif %}>America/Mexico City (Central Time: UTC-6/-5)</option>
+                                <option value="America/Argentina/Buenos_Aires" {% if request.user.timezone == 'America/Argentina/Buenos_Aires' %}selected{% endif %}>America/Argentina (Buenos Aires: UTC-3)</option>
+                                <option value="America/Lima" {% if request.user.timezone == 'America/Lima' %}selected{% endif %}>America/Lima (Peru: UTC-5)</option>
+                                <option value="America/Santiago" {% if request.user.timezone == 'America/Santiago' %}selected{% endif %}>America/Santiago (Chile: UTC-4/-3)</option>
+                            </optgroup>
+                            <optgroup label="Europe">
+                                <option value="Europe/London" {% if request.user.timezone == 'Europe/London' %}selected{% endif %}>Europe/London (UK: UTC+0/+1)</option>
+                                <option value="Europe/Paris" {% if request.user.timezone == 'Europe/Paris' %}selected{% endif %}>Europe/Paris (Central European: UTC+1/+2)</option>
+                                <option value="Europe/Berlin" {% if request.user.timezone == 'Europe/Berlin' %}selected{% endif %}>Europe/Berlin (Central European: UTC+1/+2)</option>
+                                <option value="Europe/Madrid" {% if request.user.timezone == 'Europe/Madrid' %}selected{% endif %}>Europe/Madrid (Spain: UTC+1/+2)</option>
+                                <option value="Europe/Rome" {% if request.user.timezone == 'Europe/Rome' %}selected{% endif %}>Europe/Rome (Italy: UTC+1/+2)</option>
+                                <option value="Europe/Amsterdam" {% if request.user.timezone == 'Europe/Amsterdam' %}selected{% endif %}>Europe/Amsterdam (Netherlands: UTC+1/+2)</option>
+                                <option value="Europe/Moscow" {% if request.user.timezone == 'Europe/Moscow' %}selected{% endif %}>Europe/Moscow (Russia: UTC+3)</option>
+                            </optgroup>
+                            <optgroup label="Asia">
+                                <option value="Asia/Dubai" {% if request.user.timezone == 'Asia/Dubai' %}selected{% endif %}>Asia/Dubai (UAE: UTC+4)</option>
+                                <option value="Asia/Tehran" {% if request.user.timezone == 'Asia/Tehran' %}selected{% endif %}>Asia/Tehran (Iran: UTC+3.5/+4.5)</option>
+                                <option value="Asia/Kolkata" {% if request.user.timezone == 'Asia/Kolkata' %}selected{% endif %}>Asia/Kolkata (India: UTC+5.5)</option>
+                                <option value="Asia/Bangkok" {% if request.user.timezone == 'Asia/Bangkok' %}selected{% endif %}>Asia/Bangkok (Thailand: UTC+7)</option>
+                                <option value="Asia/Singapore" {% if request.user.timezone == 'Asia/Singapore' %}selected{% endif %}>Asia/Singapore (Singapore: UTC+8)</option>
+                                <option value="Asia/Hong_Kong" {% if request.user.timezone == 'Asia/Hong_Kong' %}selected{% endif %}>Asia/Hong Kong (Hong Kong: UTC+8)</option>
+                                <option value="Asia/Shanghai" {% if request.user.timezone == 'Asia/Shanghai' %}selected{% endif %}>Asia/Shanghai (China: UTC+8)</option>
+                                <option value="Asia/Tokyo" {% if request.user.timezone == 'Asia/Tokyo' %}selected{% endif %}>Asia/Tokyo (Japan: UTC+9)</option>
+                                <option value="Asia/Seoul" {% if request.user.timezone == 'Asia/Seoul' %}selected{% endif %}>Asia/Seoul (South Korea: UTC+9)</option>
+                            </optgroup>
+                            <optgroup label="Oceania">
+                                <option value="Australia/Sydney" {% if request.user.timezone == 'Australia/Sydney' %}selected{% endif %}>Australia/Sydney (AEST: UTC+10/+11)</option>
+                                <option value="Australia/Melbourne" {% if request.user.timezone == 'Australia/Melbourne' %}selected{% endif %}>Australia/Melbourne (AEST: UTC+10/+11)</option>
+                                <option value="Pacific/Auckland" {% if request.user.timezone == 'Pacific/Auckland' %}selected{% endif %}>Pacific/Auckland (New Zealand: UTC+12/+13)</option>
+                            </optgroup>
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Select the timezone where you live. Dates will be displayed in your local timezone." %}</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="rounded-lg bg-primary text-white text-base font-medium p-3 hover:bg-primary/90 transition-colors shadow-lg">
+                        <span class="material-symbols-outlined text-lg mr-2 align-middle">schedule</span>
+                        {% trans "Update Timezone" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Email Notifications Card -->
         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-6">
             <h2 class="text-xl font-bold text-[#0d171b] dark:text-white mb-4">{% trans "Email Notifications" %}</h2>

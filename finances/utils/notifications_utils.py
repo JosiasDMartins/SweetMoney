@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.conf import settings
 from django.utils.translation import gettext as _
 from decimal import Decimal
+from ..views.views_utils import money_to_decimal
 from django.db import transaction
 
 
@@ -379,16 +380,10 @@ def create_overbudget_notifications(family, member, flow_group_to_check=None):
         )['total'] or Decimal('0')
 
         # Extract the amount value from Money object and convert to Decimal
-        if hasattr(transaction_total , 'amount'):
-            transaction_total  = Decimal(str(transaction_total .amount))
-        else:
-            transaction_total  = Decimal(str(transaction_total ))
+        transaction_total = money_to_decimal(transaction_total)
 
         # Extract budgeted amount and convert to Decimal
-        if hasattr(flow_group.budgeted_amount, 'amount'):
-            budgeted = Decimal(str(flow_group.budgeted_amount.amount))
-        else:
-            budgeted = Decimal(str(flow_group.budgeted_amount))
+        budgeted = money_to_decimal(flow_group.budgeted_amount)
 
         if debug_enabled:
             print(f"[DEBUG OVERBUDGET]   Realized total: {transaction_total }")

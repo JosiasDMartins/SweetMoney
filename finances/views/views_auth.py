@@ -242,7 +242,17 @@ def user_profile_view(request):
                 messages.success(request, _('Language preference updated successfully.'))
             else:
                 messages.error(request, _('Invalid language selection.'))
-        
+
+        elif action == 'update_timezone':
+            import zoneinfo
+            user_tz = request.POST.get('timezone', '').strip()
+
+            if user_tz and user_tz in zoneinfo.available_timezones():
+                request.user.timezone = user_tz
+                request.user.save()
+                messages.success(request, _('Timezone preference updated successfully.'))
+            else:
+                messages.error(request, _('Invalid timezone selection.'))
         redirect_url = f"?period={query_period}" if query_period else ""
         return redirect(f"/profile/{redirect_url}")
     

@@ -1,13 +1,14 @@
 import logging
 from django.db.utils import OperationalError, ProgrammingError
 from django.conf import settings
+from django.utils.formats import get_format
 from .models import SystemVersion
 from .models import Notification
 
 logger = logging.getLogger(__name__)
 
 #Files version
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 
 #General contect for the entire system
 def database_version(request):
@@ -96,6 +97,23 @@ def is_dashboard_view(request):
     }
 
 
+def user_timezone_processor(request):
+    """
+    Context processor that provides the user's timezone to all templates.
+    """
+    if not request.user.is_authenticated:
+        return {'user_timezone': 'UTC'}
+
+    try:
+        user_tz = getattr(request.user, 'timezone', 'UTC')
+        if not user_tz:
+            user_tz = 'UTC'
+        return {'user_timezone': user_tz}
+    except Exception as e:
+        logger.error(f"Error in user_timezone_processor: {e}")
+        return {'user_timezone': 'UTC'}
+
+
 def notifications_processor(request):
     """
     Context processor that adds unread notifications to all templates.
@@ -140,4 +158,22 @@ def notifications_processor(request):
         return {
             'unread_notifications_count': 0,
             'unread_notifications': []
+        }
+
+
+def locale_settings(request):
+    """
+    Context processor that provides locale formatting settings to all templates.
+    Provides decimal_separator, thousand_separator globally so individual views
+    don't need to pass them manually.
+    """
+    try:
+        return {
+            'decimal_separator': get_format('DECIMAL_SEPARATOR'),
+            'thousand_separator': get_format('THOUSAND_SEPARATOR'),
+        }
+    except Exception:
+        return {
+            'decimal_separator': '.',
+            'thousand_separator': ',',
         }

@@ -393,14 +393,13 @@ def restore_json_backup(uploaded_file):
                     if existing_family.id != target_family_id:
                         logger.info(f"[JSON_RESTORE] Note: Family ID differs (DB: {existing_family.id}, Backup: {target_family_id}), will overwrite")
 
-                # Delete existing family before restore (same family or ID match)
-                if target_family_id:
-                    try:
-                        existing_fam = Family.objects.get(id=target_family_id)
-                        logger.info(f"[JSON_RESTORE] Deleting existing family (ID: {target_family_id}) before restore")
-                        existing_fam.delete()
-                    except Family.DoesNotExist:
-                        logger.debug(f"[JSON_RESTORE] No family with ID {target_family_id} exists, will create new")
+                # Delete existing family before restore.
+                # Use the family we already found by name (existing_family), not the backup's ID.
+                # The backup may have a different ID than the DB, so deleting by backup ID
+                # would miss the existing family and cause duplicates.
+                if existing_family:
+                    logger.info(f"[JSON_RESTORE] Deleting existing family '{existing_family.name}' (ID: {existing_family.id}) before restore")
+                    existing_family.delete()
             else:
                 logger.info(f"[JSON_RESTORE] No existing families found, fresh restore")
             
@@ -433,7 +432,8 @@ def restore_json_backup(uploaded_file):
                 logger.info(f"[JSON_RESTORE] Reset {seq_result.get('sequences_reset', 0)} sequences")
 
         # Verification (outside atomic block)
-        verified_family = Family.objects.filter(id=target_family_id).first()
+        # Use name-based lookup since IDs may differ between backup and DB
+        verified_family = Family.objects.filter(name=target_family_name).first()
         if verified_family:
             user_count = FamilyMember.objects.filter(family=verified_family).count()
             return {

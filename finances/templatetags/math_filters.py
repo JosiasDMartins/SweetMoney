@@ -2,6 +2,7 @@
 
 from django import template
 from django.contrib.humanize.templatetags.humanize import intcomma
+from django.utils.formats import get_format
 from decimal import Decimal, InvalidOperation
 
 register = template.Library()
@@ -76,8 +77,9 @@ def format_money(value, currency_symbol=''):
         # Add thousand separators to integer part
         formatted_integer = intcomma(integer_part)
 
-        # Combine with 2 decimal places
-        formatted_amount = f'{formatted_integer}.{decimal_part}'
+        # Combine with 2 decimal places using locale-aware decimal separator
+        decimal_sep = get_format('DECIMAL_SEPARATOR')
+        formatted_amount = f'{formatted_integer}{decimal_sep}{decimal_part}'
 
         # For negative values, format as "CA$ -50.00"
         # For positive values, format as "CA$ 50.00"
@@ -87,4 +89,38 @@ def format_money(value, currency_symbol=''):
             return f'{currency_symbol} {formatted_amount}'
     except (ValueError, TypeError, InvalidOperation, AttributeError):
         # Return original value if formatting fails
+        return value
+
+
+@register.filter
+def format_amount(value):
+    """
+    Format a numeric value with locale-aware separators, no currency symbol.
+    Handles Money objects, Decimal, float, int, string, and None.
+
+    Usage: {{ transaction.amount|format_amount }}
+    Returns: "1,880.00" (EN) or "1.880,00" (PT-BR)
+    """
+    try:
+        # Handle Money objects (django-money)
+        if hasattr(value, 'amount'):
+            amount = Decimal(str(value.amount))
+        elif value is None or value == '':
+            amount = Decimal('0.00')
+        else:
+            amount = Decimal(str(value))
+
+        abs_amount = abs(amount)
+        integer_part = str(int(abs_amount))
+        decimal_part = '{0:.2f}'.format(abs_amount).split('.')[1]
+
+        formatted_integer = intcomma(integer_part)
+
+        decimal_sep = get_format('DECIMAL_SEPARATOR')
+        formatted_number = f'{formatted_integer}{decimal_sep}{decimal_part}'
+
+        if amount < 0:
+            return f'-{formatted_number}'
+        return formatted_number
+    except (ValueError, TypeError, InvalidOperation, AttributeError):
         return value

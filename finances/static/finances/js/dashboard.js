@@ -103,8 +103,8 @@ function initInputMasks() {
                  // Just need to add thousand separators
             }
             
-            // Use getRawValue to sanitize first (treat as if it has current separators)
-            let raw = getRawValue(value, thousandSeparator, decimalSeparator);
+            // Use parseLocaleNumber to sanitize first (treat as if it has current separators)
+            let raw = parseLocaleNumber(value, thousandSeparator, decimalSeparator);
             
             // Then re-apply mask
             input.value = formatAmountForInput(raw, thousandSeparator, decimalSeparator);
@@ -539,7 +539,7 @@ function updateMetrics(commitmentFromBackend) {
 // Cache last commitment value for calls without explicit backend value (e.g. highest expense only updates)
 var _lastCommitment = 0;
 
-// Money mask functions - using utils.js (applyMoneyMask, getRawValue)
+// Money mask functions - using utils.js (applyMoneyMask, parseLocaleNumber)
 
 // Note: Duplicate DOMContentLoaded listener removed
 // Chart initialization is handled in initDashboard() -> initCharts()
@@ -681,8 +681,9 @@ window.toggleIncomeRealized = function(rowId) {
     // Find the input in the edit cell
     const amountInput = row.querySelector('input[data-field="amount"]');
     // If input exists, use its value (masked), otherwise fallback to data-amount
-    const amountText = amountInput 
-        ? getRawValue(amountInput.value, thousandSeparator, decimalSeparator)
+    // Send locale-formatted value directly - backend handles parsing via normalize_decimal_input
+    const amountText = amountInput
+        ? amountInput.value
         : row.getAttribute('data-amount');
     const isFixed = row.getAttribute('data-is-fixed') === 'true';
 
@@ -716,9 +717,9 @@ window.toggleIncomeRealized = function(rowId) {
 
             // Update data attributes
             row.setAttribute('data-realized', data.realized ? 'true' : 'false');
-            // Only use getRawValue if amount contains comma (locale format)
+            // Only use parseLocaleNumber if amount contains comma (locale format)
             const amountStr = String(data.amount);
-            const normalizedAmount = amountStr.includes(',') ? getRawValue(amountStr, thousandSeparator, decimalSeparator) : amountStr;
+            const normalizedAmount = amountStr.includes(',') ? parseLocaleNumber(amountStr, thousandSeparator, decimalSeparator) : amountStr;
             row.setAttribute('data-amount', normalizedAmount);
 
             // Update amount display with currency symbol
@@ -779,13 +780,14 @@ window.saveIncomeItem = function(rowId) {
     const toggleNew = row.querySelector('.income-realized-toggle-new');
     const realizedValue = toggleNew.classList.contains('bg-green-500');
 
-    const amountValue = getRawValue(row.querySelector('input[data-field="amount"]').value, thousandSeparator, decimalSeparator);
+    // Send locale-formatted value directly - backend handles parsing via normalize_decimal_input
+    const amountValue = row.querySelector('input[data-field="amount"]').value;
 
     const data = {
         'flow_group_id': incomeFlowGroupId,
         'transaction_id': null,
         'description': row.querySelector('input[data-field="description"]').value,
-        'amount': amountValue,  // Send raw value, backend handles locale
+        'amount': amountValue,
         'date': row.querySelector('input[data-field="date"]').value,
         'realized': realizedValue,
         'is_child_manual': memberRoleForPeriod === 'CHILD',  // Flag for child manual income
@@ -1082,13 +1084,14 @@ window.saveItem = function(rowId) {
     const realizedStatus = row.getAttribute('data-realized') === 'true';
 
     const amountInput = row.querySelector('input[data-field="amount"]');
-    const amountText = getRawValue(amountInput.value, thousandSeparator, decimalSeparator);
+    // Send locale-formatted value directly - backend handles both standard and locale format
+    const amountText = amountInput.value;
 
     const data = {
         'flow_group_id': incomeFlowGroupId,
         'transaction_id': transactionId,
         'description': row.querySelector('input[data-field="description"]').value,
-        'amount': amountText,  // Send raw value in standard format
+        'amount': amountText,
         'date': row.querySelector('input[data-field="date"]').value,
         'realized': realizedStatus,
     };
@@ -1111,15 +1114,17 @@ window.saveItem = function(rowId) {
     .then(data => {
         if (data.status === 'success') {
             // Update row data
-            // Only use getRawValue if amount contains comma (locale format)
+            // Only use parseLocaleNumber if amount contains comma (locale format)
             const amountStr = String(data.amount);
-            const normalizedAmount = amountStr.includes(',') ? getRawValue(amountStr, thousandSeparator, decimalSeparator) : amountStr;
+            const normalizedAmount = amountStr.includes(',') ? parseLocaleNumber(amountStr, thousandSeparator, decimalSeparator) : amountStr;
             row.setAttribute('data-amount', normalizedAmount);
             row.querySelector('.cell-description-display').textContent = data.description;
             // Use currency_symbol from backend response
             const currencySymbol = data.currency_symbol || 'window.DASHBOARD_CONFIG.currencySymbol';
             row.querySelector('.cell-amount-display').textContent = currencySymbol + ' ' + formatCurrency(data.amount, '', thousandSeparator, decimalSeparator);
-            row.querySelector('.cell-date-display').textContent = new Date(data.date).toLocaleDateString('en-GB', {day: '2-digit', month: '2-digit'});
+            row.querySelector('.cell-date-display').textContent = new Intl.DateTimeFormat(undefined, {
+                day: '2-digit', month: '2-digit', timeZone: getUserTimezone()
+            }).format(new Date(data.date + 'T00:00:00'));
 
             // Update inputs
             row.querySelector('input[data-field="description"]').value = data.description;
@@ -2096,11 +2101,13 @@ function updateSummary() {
             const metrics = data.ytd_metrics;
             console.log('[Dashboard YTD] YTD metrics received:', metrics);
 
-            // Format values with thousand separators
+            // Format values with thousand separators using locale config
+            const cfg = window.DASHBOARD_CONFIG || {};
+            const thSep = cfg.thousandSeparator || window.thousandSeparator || ',';
+            const dcSep = cfg.decimalSeparator || window.decimalSeparator || '.';
+            const curSym = cfg.currencySymbol || window.currencySymbol || '$';
             const formatValue = (value) => {
-                const num = parseFloat(value);
-                if (isNaN(num)) return value;
-                return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return formatCurrency(value, curSym, thSep, dcSep);
             };
 
             // Update YTD Income

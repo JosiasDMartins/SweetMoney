@@ -149,10 +149,11 @@
             const decimalSeparator = window.FLOWGROUP_CONFIG?.decimalSeparator || ',';
             const isChild = window.FLOWGROUP_CONFIG?.memberRoleForPeriod === 'CHILD';
 
-            // Format date for display
+            // Format date for display using user's timezone
+            const userTimezone = getUserTimezone();
             const dateObj = new Date(data.date + 'T00:00:00');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', timeZone: userTimezone }).format(dateObj);
+            const month = new Intl.DateTimeFormat(undefined, { month: '2-digit', timeZone: userTimezone }).format(dateObj);
             const formattedDate = `${dateObj.getFullYear()}-${month}-${day}`;
             const shortDate = `${day}/${month}`;
 
@@ -343,17 +344,16 @@
                     }
                 }
 
-                // Update date display (fix timezone issue - add T00:00:00 to force local time)
+                // Update date display using user's timezone
                 if (transactionData.date) {
                     const dateFull = row.querySelector('.date-full');
                     const dateShort = row.querySelector('.date-short');
                     if (dateFull && dateShort) {
-                        // Add T00:00:00 to prevent timezone conversion (prevents -1 day bug)
+                        const userTz = getUserTimezone();
                         const dateObj = new Date(transactionData.date + 'T00:00:00');
-                        const year = dateObj.getFullYear();
-                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                        const day = String(dateObj.getDate()).padStart(2, '0');
-                        dateFull.textContent = `${year}-${month}-${day}`;
+                        const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', timeZone: userTz }).format(dateObj);
+                        const month = new Intl.DateTimeFormat(undefined, { month: '2-digit', timeZone: userTz }).format(dateObj);
+                        dateFull.textContent = `${dateObj.getFullYear()}-${month}-${day}`;
                         dateShort.textContent = `${day}/${month}`;
                     }
                 }

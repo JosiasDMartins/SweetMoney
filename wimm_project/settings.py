@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'finances.middleware.UserLanguageMiddleware',  # Per-user language preference
+    'finances.middleware.UserTimezoneMiddleware',  # Per-user timezone preference
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'finances.middleware.SetupRequiredMiddleware',
@@ -83,6 +84,8 @@ TEMPLATES = [
                 'finances.context_processors.user_role_processor',
                 'finances.context_processors.is_dashboard_view',
                 'finances.context_processors.notifications_processor',
+                'finances.context_processors.user_timezone_processor',
+                'finances.context_processors.locale_settings',
             ],
         },
     },
@@ -369,10 +372,11 @@ USE_L10N = True  # Enable localized formatting of numbers
 
 USE_TZ = True
 
-# Brazilian number formats (comma as decimal, dot as thousand separator)
-DECIMAL_SEPARATOR = ','
-THOUSAND_SEPARATOR = '.'
-USE_THOUSAND_SEPARATOR = True
+# Locale format modules provide per-locale number formatting
+# See conf/locale/pt_BR/formats.py and conf/locale/en/formats.py
+FORMAT_MODULE_PATH = [
+    'conf.locale',
+]
 
 
 # Static files (CSS, JavaScript, Images)

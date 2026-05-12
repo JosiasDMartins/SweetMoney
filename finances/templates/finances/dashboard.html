@@ -3,6 +3,7 @@
 {% load humanize %}
 {% load i18n %}
 {% load l10n %}
+{% load math_filters %}
 
 {% block content %}
 <!-- Dashboard Configuration (passed to external JS files) -->
@@ -70,17 +71,17 @@
                 <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 space-y-2">
                     <div class="flex justify-between items-center">
                         <span class="text-xs text-gray-600 dark:text-gray-400">{% trans "YTD Income" %}</span>
-                        <span id="ytd-income-value" class="text-sm font-bold text-green-600 dark:text-green-500">{{ currency_symbol }} {{ ytd_metrics.ytd_income|floatformat:2|intcomma }}</span>
+                        <span id="ytd-income-value" class="text-sm font-bold text-green-600 dark:text-green-500">{{ currency_symbol }} {{ ytd_metrics.ytd_income|format_amount }}</span>
                     </div>
                     <div class="h-px bg-gray-300 dark:bg-gray-600"></div>
                     <div class="flex justify-between items-center">
                         <span class="text-xs text-gray-600 dark:text-gray-400">{% trans "YTD Savings" %}</span>
-                        <span id="ytd-savings-value" class="text-sm font-bold {% if ytd_metrics.ytd_savings >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %}">{{ currency_symbol }} {{ ytd_metrics.ytd_savings|floatformat:2|intcomma }}</span>
+                        <span id="ytd-savings-value" class="text-sm font-bold {% if ytd_metrics.ytd_savings >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %}">{{ currency_symbol }} {{ ytd_metrics.ytd_savings|format_amount }}</span>
                     </div>
                     <div class="h-px bg-gray-300 dark:bg-gray-600"></div>
                     <div class="flex justify-between items-center">
                         <span class="text-xs text-gray-600 dark:text-gray-400">{% trans "YTD Investments" %}</span>
-                        <span class="text-sm font-bold text-blue-600 dark:text-blue-500">{{ currency_symbol }} {{ ytd_metrics.ytd_investments|floatformat:2|intcomma }}</span>
+                        <span class="text-sm font-bold text-blue-600 dark:text-blue-500">{{ currency_symbol }} {{ ytd_metrics.ytd_investments|format_amount }}</span>
                     </div>
                     <div class="h-px bg-gray-300 dark:bg-gray-600"></div>
                     <div class="flex justify-between items-center">
@@ -155,18 +156,18 @@
                                     {% endif %}
                                 </div>
                             </td>
-                            <td class="py-4 px-4 text-sm {% if group.is_child_group %}font-medium{% elif group.budget_warning %}text-yellow-600 dark:text-yellow-500 font-semibold{% elif not group.is_accessible %}text-gray-400 dark:text-gray-500{% else %}text-gray-500 dark:text-gray-400{% endif %} text-right group-estimated" data-value="{{ group.total_estimated }}">{{ currency_symbol }} {{ group.total_estimated|intcomma }}</td>
-                            <td class="py-4 px-4 text-sm {% if group.is_child_group %}font-medium{% elif group.is_credit_card and not group.closed %}text-orange-600 dark:text-orange-500 font-semibold{% elif not group.is_accessible %}text-gray-400 dark:text-gray-500{% else %}text-red-600 dark:text-red-500{% endif %} text-right group-realized" data-value="{{ group.total_spent|default:'0.00' }}">
+                            <td class="py-4 px-4 text-sm {% if group.is_child_group %}font-medium{% elif group.budget_warning %}text-yellow-600 dark:text-yellow-500 font-semibold{% elif not group.is_accessible %}text-gray-400 dark:text-gray-500{% else %}text-gray-500 dark:text-gray-400{% endif %} text-right group-estimated" data-value="{{ group.total_estimated|unlocalize }}">{{ currency_symbol }} {{ group.total_estimated|format_amount }}</td>
+                            <td class="py-4 px-4 text-sm {% if group.is_child_group %}font-medium{% elif group.is_credit_card and not group.closed %}text-orange-600 dark:text-orange-500 font-semibold{% elif not group.is_accessible %}text-gray-400 dark:text-gray-500{% else %}text-red-600 dark:text-red-500{% endif %} text-right group-realized" data-value="{{ group.total_spent|default:'0.00'|unlocalize }}">
                                 {% if group.is_kids_group and member_role_for_period in 'PARENT,ADMIN' %}
                                     {% if group.realized %}
-                                        {{ group.budgeted_amount|floatformat:2|intcomma }} ( {{ group.child_expenses|default:"0.00"|floatformat:2|intcomma }} )
+                                        {{ group.budgeted_amount|format_amount }} ( {{ group.child_expenses|default:"0.00"|format_amount }} )
                                     {% else %}
-                                        ({{ currency_symbol }} {{ group.child_expenses|default:"0.00"|floatformat:2|intcomma }})
+                                        ({{ currency_symbol }} {{ group.child_expenses|default:"0.00"|format_amount }})
                                     {% endif %}
                                 {% elif group.is_credit_card and not group.closed %}
-                                    {{ currency_symbol }} {{ group.credit_card_pending|default:"0.00"|intcomma }} *
+                                    {{ currency_symbol }} {{ group.credit_card_pending|default:"0.00"|format_amount }} *
                                 {% else %}
-                                    {{ currency_symbol }} {{ group.total_spent|default:"0.00"|intcomma }}
+                                    {{ currency_symbol }} {{ group.total_spent|default:"0.00"|format_amount }}
                                 {% endif %}
                             </td>
                         </tr>
@@ -223,7 +224,7 @@
                                     </td>
 
                                     <td class="py-3 px-3 text-sm text-right {% if kids_income.realized %}text-green-600 dark:text-green-500{% else %}text-gray-400 dark:text-gray-500{% endif %}">
-                                        <div class="cell-amount-display"> {{ kids_income.amount|intcomma }}</div>
+                                        <div class="cell-amount-display">{{ currency_symbol }} {{ kids_income.amount|format_amount }}</div>
                                     </td>
 
                                     <td class="px-2 py-3 text-center whitespace-nowrap">
@@ -268,9 +269,9 @@
                                 </td>
 
                                 <td class="py-3 px-3 text-sm text-right {% if transaction.realized %}text-green-600 dark:text-green-500{% else %}text-gray-400 dark:text-gray-500{% endif %} amount-cell-with-actions">
-                                    <div class="cell-amount-display">{{ transaction.amount|intcomma }}</div>
+                                    <div class="cell-amount-display">{{ currency_symbol }} {{ transaction.amount|format_amount }}</div>
                                     <div class="cell-amount-edit hidden">
-                                        <input type="text" inputmode="decimal" data-field="amount" class="w-20 border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-xs text-right p-1" value="{{ transaction.amount.amount|floatformat:2 }}">
+                                        <input type="text" inputmode="decimal" data-field="amount" class="w-20 border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-xs text-right p-1" value="{{ transaction.amount.amount|format_amount }}">
                                     </div>
 
                                     <!-- Mobile action buttons (hidden behind row, revealed on swipe) -->
@@ -323,7 +324,7 @@
                                         <span class="text-xs text-gray-400">-</span>
                                     </td>
                                     <td class="py-3 px-3 text-sm text-right font-medium" style="color: #DAA520;">
-                                        {{ currency_symbol }} {{ child_data.total|intcomma }}
+                                        {{ currency_symbol }} {{ child_data.total|format_amount }}
                                     </td>
                                     <td class="px-2 py-3 text-center">
                                         <span class="text-xs" style="color: #DAA520;">{% trans "Child Income" %}</span>
@@ -335,16 +336,16 @@
                                         {% for trans in child_data.transactions %}
                                             <div class="flex justify-between py-1">
                                                 <span>{{ trans.description }}</span>
-                                                <span class="font-medium">{{ currency_symbol }} {{ trans.amount|intcomma }}</span>
+                                                <span class="font-medium">{{ currency_symbol }} {{ trans.amount|format_amount }}</span>
                                             </div>
                                         {% endfor %}
                                         <div class="flex justify-between pt-2 mt-2 border-t border-gray-700 font-semibold">
                                             <span>{% trans "Total:" %}</span>
-                                            <span>{{ currency_symbol }} {{ child_data.total|intcomma }}</span>
+                                            <span>{{ currency_symbol }} {{ child_data.total|format_amount }}</span>
                                         </div>
                                         <div class="flex justify-between pt-1 text-green-400">
                                             <span>{% trans "Realized:" %}</span>
-                                            <span>{{ currency_symbol }} {{ child_data.realized_total|intcomma }}</span>
+                                            <span>{{ currency_symbol }} {{ child_data.realized_total|format_amount }}</span>
                                         </div>
                                     </div>
                                 </tr>
@@ -426,18 +427,18 @@
                         </tr>
                         <tr>
                             <td class="py-4 px-4 text-sm text-[#0d171b] dark:text-white">{% trans "Income" %}</td>
-                            <td id="balance-estimated-income" class="py-4 px-4 text-sm text-green-600 dark:text-green-500">{{ currency_symbol }} {{ summary_totals.total_budgeted_income|default:"0.00"|intcomma }}</td>
-                            <td id="balance-realized-income" class="py-4 px-4 text-sm text-green-600 dark:text-green-500">{{ currency_symbol }} {{ summary_totals.total_realized_income|default:"0.00"|intcomma }}</td>
+                            <td id="balance-estimated-income" class="py-4 px-4 text-sm text-green-600 dark:text-green-500">{{ currency_symbol }} {{ summary_totals.total_budgeted_income|default:"0.00"|format_amount }}</td>
+                            <td id="balance-realized-income" class="py-4 px-4 text-sm text-green-600 dark:text-green-500">{{ currency_symbol }} {{ summary_totals.total_realized_income|default:"0.00"|format_amount }}</td>
                         </tr>
                         <tr>
                             <td class="py-4 px-4 text-sm text-[#0d171b] dark:text-white">{% trans "Expenses" %}</td>
-                            <td id="balance-estimated-expense" class="py-4 px-4 text-sm text-red-600 dark:text-red-500">{{ currency_symbol }} {{ summary_totals.total_budgeted_expense|default:"0.00"|intcomma }}</td>
-                            <td id="balance-realized-expense" class="py-4 px-4 text-sm text-red-600 dark:text-red-500">{{ currency_symbol }} {{ summary_totals.total_realized_expense|default:"0.00"|intcomma }}</td>
+                            <td id="balance-estimated-expense" class="py-4 px-4 text-sm text-red-600 dark:text-red-500">{{ currency_symbol }} {{ summary_totals.total_budgeted_expense|default:"0.00"|format_amount }}</td>
+                            <td id="balance-realized-expense" class="py-4 px-4 text-sm text-red-600 dark:text-red-500">{{ currency_symbol }} {{ summary_totals.total_realized_expense|default:"0.00"|format_amount }}</td>
                         </tr>
                         <tr>
                             <td class="py-4 px-4 text-sm text-[#0d171b] dark:text-white font-bold">{% trans "Result" %}</td>
-                            <td id="balance-estimated-result" class="py-4 px-4 text-sm {% if summary_totals.estimated_result >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} font-bold">{{ currency_symbol }} {{ summary_totals.estimated_result|default:"0.00"|intcomma }}</td>
-                            <td id="balance-realized-result" class="py-4 px-4 text-sm {% if summary_totals.realized_result >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} font-bold">{{ currency_symbol }} {{ summary_totals.realized_result|default:"0.00"|intcomma }}</td>
+                            <td id="balance-estimated-result" class="py-4 px-4 text-sm {% if summary_totals.estimated_result >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} font-bold">{{ currency_symbol }} {{ summary_totals.estimated_result|default:"0.00"|format_amount }}</td>
+                            <td id="balance-realized-result" class="py-4 px-4 text-sm {% if summary_totals.realized_result >= 0 %}text-green-600 dark:text-green-500{% else %}text-red-600 dark:text-red-500{% endif %} font-bold">{{ currency_symbol }} {{ summary_totals.realized_result|default:"0.00"|format_amount }}</td>
                         </tr>
                     </tbody>
                 </table>
