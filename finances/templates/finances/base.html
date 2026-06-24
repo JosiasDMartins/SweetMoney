@@ -92,10 +92,6 @@
         data-user-timezone="{{ user_timezone|default:'UTC' }}"
         data-i18n-error-loading-period-details="{% trans 'Error loading period details:' %}"
         data-i18n-error-loading-period="{% trans 'An error occurred while loading period details' %}"
-        data-i18n-pwa-new-version-title="{% trans 'New SweetMoney version available!' %}"
-        data-i18n-pwa-installed="{% trans 'Installed:' %}" data-i18n-pwa-available="{% trans 'Available:' %}"
-        data-i18n-pwa-update-instructions="{% trans 'To update, please reinstall the app.' %}"
-        data-i18n-pwa-click-to-dismiss="{% trans 'Click OK to dismiss this message.' %}"
         data-i18n-pwa-ios-instructions="{% trans 'To install this app on your iPhone/iPad:' %}"
         data-i18n-pwa-ios-step1="{% trans 'Tap the Share button (square with arrow)' %}"
         data-i18n-pwa-ios-step2="{% trans 'Scroll down and tap \" Add to Home Screen\"' %}"
@@ -139,6 +135,12 @@
                         href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
                         <span class="material-symbols-outlined">dashboard</span>
                         <span class="mx-4 font-medium">{% trans "Dashboard" %}</span>
+                    </a>
+
+                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'shop_lists_dashboard' or request.resolver_match.url_name == 'edit_shop_list' or request.resolver_match.url_name == 'add_shop_list' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
+                        href="{% url 'shop_lists_dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
+                        <span class="material-symbols-outlined">checklist</span>
+                        <span class="mx-4 font-medium">{% trans "Lists" %}</span>
                     </a>
 
                     {% if not is_child %}
@@ -621,7 +623,7 @@
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to external base.js -->
     <!-- This file handles: Dark mode, DPI scaling, Periods, Admin warning, PWA, WebSocket, UI Components -->
     <!-- NOTE: NO defer - dark mode init must run immediately to prevent FOUC -->
-    <script src="{% static 'finances/js/base.js' %}?v=20260125-013"></script>
+    <script src="{% static 'finances/js/base.js' %}?v=20260622-001"></script>
 </body>
 
 </html>

@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 from django.db import transaction as db_transaction
-from django.db.models import Max, Q, Sum
+from django.db.models import F, Q, Sum, Max
 from django.shortcuts import get_object_or_404
 from moneyed import Money
 from ..utils.notifications_utils import (
@@ -18,7 +18,7 @@ from ..utils.notifications_utils import (
 )
 
 # Importações relativas do app (.. sobe um nível, de /views/ para /finances/)
-from ..models import Transaction, FlowGroup, FamilyMember, BankBalance, FLOW_TYPE_INCOME
+from ..models import Transaction, FlowGroup, FamilyMember, BankBalance, ShopList, ShopListItem, FLOW_TYPE_INCOME
 from ..utils import (
     current_period_has_data,
     copy_previous_period_data,
@@ -33,6 +33,7 @@ from ..websocket_utils import WebSocketBroadcaster
 from .views_utils import (
     get_family_context,
     can_access_flow_group,
+    can_access_shop_list,
     get_currency_symbol,
     get_thousand_separator,
     get_decimal_separator,
@@ -1709,3 +1710,235 @@ def get_investment_balance_ajax(request):
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+
+
+# --- Shopping List AJAX Views ---
+
+@login_required
+@require_POST
+def save_shop_list_item_ajax(request):
+    """AJAX: Saves or updates a shopping list item."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    try:
+        data = json.loads(request.body)
+        shop_list_id = data.get('shop_list_id')
+        item_id = data.get('item_id')
+        description = data.get('description', '').strip()
+        amount_str = data.get('amount', '0')
+        link = data.get('link', '').strip()
+        realized = data.get('realized', False)
+
+        if not all([shop_list_id, description, amount_str]):
+            return JsonResponse({'error': _('Description and Amount are required.')}, status=400)
+
+        shop_list = get_object_or_404(ShopList, id=shop_list_id, family=family)
+
+        if not can_access_shop_list(shop_list, current_member):
+            return HttpResponseForbidden(_("You don't have permission to edit this list."))
+
+        try:
+            amount = normalize_decimal_input(amount_str)
+        except (ValueError, decimal.InvalidOperation, InvalidOperation):
+            return JsonResponse({'error': _('Invalid amount format.')}, status=400)
+
+        config = getattr(family, 'configuration', None)
+        currency = config.base_currency if config else 'USD'
+
+        is_new = not item_id or item_id == '0' or item_id == 'NEW'
+
+        if is_new:
+            max_order = ShopListItem.objects.filter(shop_list=shop_list).aggregate(
+                max_order=Max('order')
+            )['max_order']
+            new_order = (max_order or 0) + 1
+            item = ShopListItem(
+                shop_list=shop_list,
+                description=description,
+                amount=Money(amount, currency),
+                link=link,
+                realized=bool(realized),
+                order=new_order
+            )
+            item.save()
+            item_id = item.id
+        else:
+            item = get_object_or_404(ShopListItem, id=item_id, shop_list=shop_list)
+            item.description = description
+            item.amount = Money(amount, currency)
+            item.link = link
+            item.realized = bool(realized)
+            item.save()
+
+        from urllib.parse import urlparse
+        link_domain = ''
+        if item.link:
+            parsed = urlparse(item.link)
+            link_domain = parsed.netloc
+
+        return JsonResponse({
+            'status': 'success',
+            'item_id': item.id,
+            'description': item.description,
+            'amount': str(money_to_decimal(item.amount)),
+            'link': item.link,
+            'link_domain': link_domain,
+            'realized': item.realized,
+            'is_new': is_new,
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def delete_shop_list_item_ajax(request):
+    """AJAX: Deletes a shopping list item."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    try:
+        data = json.loads(request.body)
+        item_id = data.get('item_id')
+
+        if not item_id:
+            return JsonResponse({'error': _('Item ID is required.')}, status=400)
+
+        item = get_object_or_404(ShopListItem, id=item_id, shop_list__family=family)
+
+        if not can_access_shop_list(item.shop_list, current_member):
+            return HttpResponseForbidden(_("You don't have permission to edit this list."))
+
+        item.delete()
+        return JsonResponse({'status': 'success'})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@db_transaction.atomic
+def reorder_shop_list_items_ajax(request):
+    """AJAX: Reorders items within a shopping list."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    try:
+        data = json.loads(request.body)
+        items_data = data.get('items', [])
+
+        if not items_data:
+            return JsonResponse({'error': _('No items data provided.')}, status=400)
+
+        for item_data in items_data:
+            item_id = item_data.get('id')
+            new_order = item_data.get('order')
+
+            if item_id and new_order is not None:
+                item = ShopListItem.objects.filter(
+                    id=item_id,
+                    shop_list__family=family
+                ).first()
+
+                if item and can_access_shop_list(item.shop_list, current_member):
+                    item.order = new_order
+                    item.save(update_fields=['order'])
+
+        return JsonResponse({'status': 'success'})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def delete_shop_list_ajax(request, list_id):
+    """AJAX: Deletes a shopping list and all its items."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    try:
+        shop_list = get_object_or_404(ShopList, id=list_id, family=family)
+
+        # Only the owner or an ADMIN can delete a list
+        if shop_list.owner != request.user and current_member.role != 'ADMIN':
+            return HttpResponseForbidden(_("Permission denied. Only the list owner or an Admin can delete it."))
+
+        shop_list.delete()
+        return JsonResponse({
+            'status': 'success',
+            'redirect_url': '/lists/'
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@db_transaction.atomic
+def clone_shop_list_ajax(request, list_id):
+    """AJAX: Clones a shopping list with all its items."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    try:
+        original = get_object_or_404(ShopList, id=list_id, family=family)
+
+        if not can_access_shop_list(original, current_member):
+            return HttpResponseForbidden(_("You don't have permission to clone this list."))
+
+        cloned = ShopList(
+            name=f"{original.name} ({_('Copy')})",
+            family=family,
+            owner=request.user,
+            is_shared=False,
+            order=0,
+        )
+        cloned.save()
+
+        original_items = original.items.all().order_by('order')
+        cloned_items = []
+        for orig_item in original_items:
+            cloned_items.append(ShopListItem(
+                shop_list=cloned,
+                description=orig_item.description,
+                amount=orig_item.amount,
+                link=orig_item.link,
+                order=orig_item.order,
+            ))
+        ShopListItem.objects.bulk_create(cloned_items)
+
+        request.session['pending_clone_id'] = cloned.id
+
+        return JsonResponse({
+            'status': 'success',
+            'new_list_id': cloned.id,
+            'redirect_url': f'/list/{cloned.id}/edit/'
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

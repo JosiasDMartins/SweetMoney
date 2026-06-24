@@ -1,0 +1,567 @@
+{% extends "finances/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load i18n %}
+{% load l10n %}
+{% load math_filters %}
+
+{% block title %}{% trans "Shopping List" %}: {{ shop_list.name|default:"New List" }}{% endblock title %}
+
+{% block content %}
+<div class="p-6 md:p-10 lg:p-12">
+
+    <div class="flex justify-between items-center mb-6">
+        <button type="button" data-action="back-to-lists" class="flex items-center text-primary hover:text-primary/80 transition-colors">
+            <span class="material-symbols-outlined mr-2">arrow_back</span>
+            {% trans "Back" %}
+        </button>
+
+        <div class="flex space-x-4">
+            {% if not is_new and can_edit_list %}
+            <button type="button" data-action="clone-shop-list" data-list-id="{{ shop_list.id }}" class="rounded-lg border border-green-500 text-green-500 text-base font-medium p-3 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center">
+                <span class="material-symbols-outlined text-lg mr-2">content_copy</span>
+                {% trans "Clone" %}
+            </button>
+            <button type="button" data-action="delete-shop-list" data-list-id="{{ shop_list.id }}" class="rounded-lg border border-red-500 text-red-500 text-base font-medium p-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center">
+                <span class="material-symbols-outlined text-lg mr-2">delete</span>
+                {% trans "List" %}
+            </button>
+            {% endif %}
+            <button type="submit" form="shop-list-form" class="rounded-lg bg-primary text-white text-base font-medium p-3 hover:bg-primary/90 transition-colors shadow-lg flex items-center">
+                <span class="material-symbols-outlined text-lg mr-2">save</span>
+                {% trans "Save" %}
+            </button>
+        </div>
+    </div>
+
+    <form id="shop-list-form" method="POST"
+          action="{% if shop_list.id %}{% url 'edit_shop_list' shop_list.id %}{% else %}{% url 'add_shop_list' %}{% endif %}"
+          data-shop-list-id="{{ shop_list.id|default:'NEW' }}" novalidate>
+        {% csrf_token %}
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-8">
+            <!-- Desktop: Title -->
+            <div class="hidden lg:!flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-[#0d171b] dark:text-white">{{ shop_list.name|default:"Create New List" }}</h1>
+                <div class="text-right">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Total" %}</span>
+                    <span id="total-amount-desktop" class="text-2xl font-bold text-primary ml-2">{{ currency_symbol }} {{ total_amount|floatformat:2|intcomma }}</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                <!-- List Name -->
+                <div class="flex flex-row gap-4 items-start">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="{{ form.name.id_for_label }}">{% trans "List Name" %}</label>
+                        <div style="width: 200px;">
+                            {{ form.name }}
+                        </div>
+                    </div>
+                    <!-- Mobile: Total -->
+                    <div class="lg:hidden">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{% trans "Total" %}</label>
+                        <span id="total-amount-mobile" class="text-xl font-bold text-primary">{{ currency_symbol }} {{ total_amount|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+
+                <!-- Share checkbox + member selection -->
+                {% if current_member.role != 'CHILD' %}
+                <div class="flex flex-wrap items-start gap-6">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer">
+                            <input class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                   id="id_is_shared"
+                                   name="is_shared"
+                                   type="checkbox"
+                                   data-change-action="handle-shared-change"
+                                   {% if shop_list.is_shared %}checked{% endif %}>
+                            <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">{% trans "Shared List" %}</span>
+                        </label>
+
+                        <div id="members-selection-container"
+                             class="flex items-center gap-2 flex-wrap"
+                             data-owner-id="{% if shop_list.owner %}{{ shop_list.owner.id }}{% endif %}"
+                             data-current-user-id="{{ current_user_id }}"
+                             style="display: {% if shop_list.is_shared %}flex{% else %}none{% endif %};">
+                            {% for member in form.assigned_members.field.queryset %}
+                                {% if is_new %}
+                                    {% if member.user.id != current_user_id %}
+                                    <label class="flex items-center p-2 border border-green-500/50 dark:border-green-500/30 rounded-lg bg-green-50 dark:bg-green-900/20 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30">
+                                        <input type="checkbox"
+                                               name="assigned_members"
+                                               value="{{ member.id }}"
+                                               class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                        <span class="ml-2 text-sm text-slate-700 dark:text-slate-200">{{ member.user.username }}</span>
+                                    </label>
+                                    {% endif %}
+                                {% else %}
+                                    {% if shop_list.owner and shop_list.owner.id == member.user.id %}
+                                    {% elif member.user.id == current_user_id %}
+                                        <label class="flex items-center p-2 border border-green-500/30 dark:border-green-500/20 rounded-lg bg-green-50/50 dark:bg-green-900/10 cursor-not-allowed opacity-50 grayscale">
+                                            {% if member in shop_list.assigned_members.all %}
+                                            <input type="hidden" name="assigned_members" value="{{ member.id }}">
+                                            {% endif %}
+                                            <input type="checkbox"
+                                                   name="assigned_members"
+                                                   value="{{ member.id }}"
+                                                   class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                                   disabled
+                                                   {% if member in shop_list.assigned_members.all %}checked{% endif %}>
+                                            <span class="ml-2 text-sm text-slate-500 dark:text-slate-400">{{ member.user.username }}</span>
+                                        </label>
+                                    {% else %}
+                                        <label class="flex items-center p-2 border border-green-500/50 dark:border-green-500/30 rounded-lg bg-green-50 dark:bg-green-900/20 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30">
+                                            <input type="checkbox"
+                                                   name="assigned_members"
+                                                   value="{{ member.id }}"
+                                                   class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                                   {% if member in shop_list.assigned_members.all %}checked{% endif %}>
+                                            <span class="ml-2 text-sm text-slate-700 dark:text-slate-200">{{ member.user.username }}</span>
+                                        </label>
+                                    {% endif %}
+                                {% endif %}
+                            {% empty %}
+                            <span class="text-sm text-gray-500 dark:text-gray-400 p-2">{% trans "No other members" %}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if form.errors %}
+                <div class="mt-4 p-3 bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300">
+                    <p class="font-bold">{% trans "Please correct the errors below:" %}</p>
+                    {{ form.non_field_errors }}
+                    <ul class="list-disc list-inside">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if shop_list.id %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead>
+                    <tr>
+                        <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style="width: 40px;"></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style="width: 250px; max-width: 250px;">{% trans "Description" %}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider link-header">{% trans "Link" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Realized" %}</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{% trans "Amount" %}</th>
+                        <th class="px-6 py-3 text-left w-24 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody id="list-items-body" class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for item in items %}
+                    <tr id="item-{{ item.id }}"
+                        data-item-id="{{ item.id }}"
+                        data-mode="display"
+                        data-realized="{{ item.realized|yesno:'true,false' }}"
+                        data-amount="{{ item.amount.amount|default:item.amount|default:'0.00' }}"
+                        data-order="{{ forloop.counter }}"
+                        draggable="true"
+                        class="draggable-row swipeable-row {% if item.realized %}row-realized{% else %}row-not-realized{% endif %} hover:bg-slate-50 dark:hover:bg-gray-700/50">
+
+                        <!-- Drag handle / Mobile save icon -->
+                        <td class="px-2 py-4 text-center drag-handle-cell" data-row-id="item-{{ item.id }}">
+                            <button type="button" data-action="save" data-row-id="item-{{ item.id }}" class="edit-save-icon" style="display: none;">
+                                <span class="material-symbols-outlined text-green-500 text-2xl">check_circle</span>
+                            </button>
+                            <span class="material-symbols-outlined text-gray-400 dark:text-gray-500 drag-handle cursor-grab active:cursor-grabbing">drag_indicator</span>
+                        </td>
+
+                        <!-- Description -->
+                        <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-display">{{ item.description }}</td>
+                        <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-edit hidden">
+                            <input type="text" value="{{ item.description }}" data-field="description" maxlength="255" class="border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm p-1">
+                        </td>
+
+                        <!-- Link -->
+                        <td class="px-6 py-4 text-sm cell-link-display">
+                            {% if item.link %}
+                            <a href="{{ item.link }}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
+                                {{ item.link_domain }}
+                            </a>
+                            {% else %}
+                            <span class="text-gray-400 dark:text-gray-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm cell-link-edit hidden">
+                            <input type="url" value="{{ item.link }}" data-field="link" maxlength="500" placeholder="https://..." class="w-full border-b border-primary dark:text-white dark:bg-gray-800 bg-transparent focus:outline-none focus:ring-0 text-sm p-1">
+                        </td>
+
+                        <!-- Realized toggle -->
+                        <td class="px-6 py-4 mobile-hide-column">
+                            <div class="flex items-center justify-center w-full">
+                                <button type="button" data-toggle="realized" data-item-id="item-{{ item.id }}" data-current-state="{{ item.realized|yesno:'true,false' }}" class="realized-toggle relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer {% if item.realized %}bg-green-500{% else %}bg-gray-300 dark:bg-gray-600{% endif %}">
+                                    <span class="absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full {% if item.realized %}translate-x-4{% endif %}"></span>
+                                </button>
+                            </div>
+                        </td>
+
+                        <!-- Amount -->
+                        <td class="px-6 py-4 text-right text-primary cell-budget-display amount-cell-with-actions">
+                            {{ item.amount|format_money:currency_symbol }}
+                            <!-- Mobile action buttons -->
+                            <div class="mobile-actions-btns">
+                                <button type="button" data-action="edit" data-row-id="item-{{ item.id }}" class="mobile-action-btn edit-btn">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button type="button" data-action="delete" data-row-id="item-{{ item.id }}" class="mobile-action-btn delete-btn">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right text-primary cell-budget-edit hidden">
+                            <input type="text" inputmode="decimal" value="{{ item.amount.amount|default:item.amount|default:'0.00'|floatformat:2 }}" data-field="amount" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm text-right p-1">
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="px-6 py-4 whitespace-nowrap mobile-hide-column">
+                            <div class="actions-display">
+                                <button type="button" data-action="edit" data-row-id="item-{{ item.id }}" class="p-1 text-slate-500 hover:text-primary"><span class="material-symbols-outlined text-lg">edit</span></button>
+                                <button type="button" data-action="delete" data-row-id="item-{{ item.id }}" class="p-1 text-slate-500 hover:text-red-500"><span class="material-symbols-outlined text-lg">delete</span></button>
+                            </div>
+                            <div class="actions-edit hidden space-x-2">
+                                <button type="button" data-action="save" data-row-id="item-{{ item.id }}" class="p-1 text-primary hover:text-primary/80"><span class="material-symbols-outlined text-lg">check</span></button>
+                                <button type="button" data-action="cancel" data-row-id="item-{{ item.id }}" class="p-1 text-slate-500 hover:text-red-500"><span class="material-symbols-outlined text-lg">close</span></button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="empty-state-row">
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                            {% trans "No items in this list yet." %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- New item template -->
+                    <tr id="new-item-template" data-item-id="NEW" data-mode="edit" data-realized="false" class="swipeable-row hover:bg-slate-50 dark:hover:bg-gray-700/50 hidden">
+                        <td class="px-2 py-4 text-center drag-handle-cell">
+                            <button type="button" data-action="save" data-item-id="new-item-template" class="edit-save-icon">
+                                <span class="material-symbols-outlined text-green-500 text-2xl">check_circle</span>
+                            </button>
+                        </td>
+                        <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-display hidden"></td>
+                        <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-edit">
+                            <input type="text" data-field="description" maxlength="255" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm p-1" placeholder="{% trans "New Item Description" %}">
+                        </td>
+                        <td class="px-6 py-4 text-sm cell-link-display hidden"></td>
+                        <td class="px-6 py-4 text-sm cell-link-edit">
+                            <input type="url" data-field="link" maxlength="500" placeholder="https://..." class="w-full border-b border-primary dark:text-white dark:bg-gray-800 bg-transparent focus:outline-none focus:ring-0 text-sm p-1">
+                        </td>
+                        <!-- Realized toggle (new) -->
+                        <td class="px-6 py-4 mobile-hide-column">
+                            <div class="flex items-center justify-center w-full">
+                                <div class="realized-toggle-new relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full bg-gray-300 dark:bg-gray-600">
+                                    <span class="absolute left-1 top-1 inline-block w-4 h-4 transition-transform duration-200 ease-in-out transform bg-white rounded-full"></span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right text-primary cell-budget-display hidden"></td>
+                        <td class="px-6 py-4 text-right text-primary cell-budget-edit amount-cell-with-actions">
+                            <input type="text" inputmode="decimal" data-field="amount" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm text-right p-1" value="0{{ decimal_separator }}00">
+                            <div class="mobile-actions-btns">
+                                <button type="button" data-action="save" data-row-id="new-item-template" class="mobile-action-btn edit-btn">
+                                    <span class="material-symbols-outlined">check</span>
+                                </button>
+                                <button type="button" data-action="cancel-new-row" data-row-id="new-item-template" class="mobile-action-btn delete-btn">
+                                    <span class="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap mobile-hide-column">
+                            <div class="actions-display hidden"></div>
+                            <div class="actions-edit space-x-2">
+                                <button type="button" data-action="save" data-item-id="new-item-template" class="p-1 text-primary hover:text-primary/80"><span class="material-symbols-outlined text-lg">check</span></button>
+                                <button type="button" data-action="cancel-new-row" data-item-id="new-item-template" class="p-1 text-slate-500 hover:text-red-500"><span class="material-symbols-outlined text-lg">close</span></button>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Totals Row with Add New Item button -->
+                    <tr id="totals-row" class="bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-600 font-semibold">
+                        <td colspan="2" class="px-4 py-3">
+                            <button type="button" data-action="add-new-row" class="totals-add-btn flex items-center text-sm font-medium">
+                                <span class="material-symbols-outlined text-lg mr-1">add_circle</span>
+                                {% trans "Add New Item" %}
+                            </button>
+                        </td>
+                        <!-- Link column (empty) -->
+                        <td class="px-6 py-3 link-header"></td>
+                        <!-- Realized column (hidden on mobile, empty on desktop) -->
+                        <td class="px-6 py-3 mobile-hide-column"></td>
+                        <!-- Amount column -->
+                        <td class="py-3 text-right totals-amount-col">
+                            <!-- Desktop: Value only -->
+                            <div class="totals-amount-desktop flex flex-col gap-1 pl-2 pr-6">
+                                <div class="text-sm">
+                                    <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
+                                    <span id="total-expenses-desktop" class="totals-value font-bold ml-2">{{ currency_symbol }} {{ total_amount|floatformat:2|intcomma }}</span>
+                                </div>
+                            </div>
+                            <!-- Mobile: Label + Value inline -->
+                            <div class="totals-amount-mobile">
+                                <div class="text-sm flex justify-end items-center gap-2">
+                                    <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
+                                    <span id="total-expenses-mobile" class="totals-value font-bold">{{ currency_symbol }} {{ total_amount|floatformat:2|intcomma }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <!-- Actions column (hidden on mobile) -->
+                        <td class="px-6 py-3 mobile-hide-column totals-actions-col"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<!-- CSP Config -->
+<div id="shoplist-config" style="display: none;"
+     data-decimal-separator="{{ decimal_separator }}"
+     data-thousand-separator="{{ thousand_separator }}"
+     data-currency-symbol="{{ currency_symbol|default:'$' }}"
+     data-shop-list-id="{{ shop_list.id|default:'NEW' }}"
+     data-csrf-token="{{ csrf_token }}"
+     data-is-just-cloned="{{ is_just_cloned|yesno:'true,false' }}"
+
+     data-url-save-item="{% url 'save_shop_list_item_ajax' %}"
+     data-url-delete-item="{% url 'delete_shop_list_item_ajax' %}"
+     data-url-reorder-items="{% url 'reorder_shop_list_items_ajax' %}"
+     data-url-delete-list="{% url 'delete_shop_list_ajax' shop_list.id|default:0 %}"
+     data-url-clone-list="{% url 'clone_shop_list_ajax' shop_list.id|default:0 %}"
+     data-url-shop-lists="{% url 'shop_lists_dashboard' %}"
+
+     data-i18n-confirm-delete-item="{% trans 'Are you sure you want to delete this item?' %}"
+     data-i18n-confirm-delete-list="{% trans 'Are you sure you want to delete this list and all its items?' %}"
+     data-i18n-description-required="{% trans 'Description is required.' %}"
+     data-i18n-network-error="{% trans 'A network error occurred.' %}"
+     data-i18n-list-cloned="{% trans 'List cloned successfully' %}"
+     data-i18n-list-deleted="{% trans 'List deleted successfully' %}"
+     data-i18n-unsaved-changes="{% trans 'You have unsaved changes. Are you sure you want to leave?' %}"
+     data-i18n-unsaved-changes-title="{% trans 'Unsaved Changes' %}"
+     data-i18n-ok="{% trans 'OK' %}"
+></div>
+
+<!-- Mobile-specific CSS -->
+<style>
+    @media (max-width: 768px) {
+        .mobile-hide-column {
+            display: none !important;
+        }
+
+        .link-header {
+            width: 80px;
+            max-width: 80px;
+        }
+
+        /* Swipeable row styles */
+        .swipeable-row {
+            position: relative;
+            transition: transform 0.3s ease-out;
+            will-change: transform;
+        }
+
+        .amount-cell-with-actions {
+            position: relative;
+            overflow: visible;
+        }
+
+        .mobile-actions-btns {
+            position: absolute;
+            right: -120px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .swipeable-row.actions-revealed .mobile-actions-btns {
+            pointer-events: auto;
+        }
+
+        .mobile-action-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            pointer-events: auto;
+            border: none;
+            cursor: pointer;
+        }
+
+        .mobile-action-btn.edit-btn {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .mobile-action-btn.delete-btn {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .mobile-action-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Drag handle */
+        .drag-handle-cell {
+            position: relative;
+            overflow: visible;
+        }
+
+        .drag-handle-cell .drag-handle {
+            cursor: default;
+            opacity: 0.3;
+        }
+
+        .edit-save-icon {
+            border: none;
+            background: transparent;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .swipeable-row td {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .swipeable-row .px-6 {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        #list-items-body {
+            overflow: visible;
+        }
+
+        tbody tr {
+            overflow: visible;
+        }
+
+        /* Cell description edit on mobile */
+        .cell-description-edit {
+            max-width: 110px !important;
+            overflow: hidden;
+        }
+        .cell-description-edit input {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        /* Realized status visual feedback */
+        .row-realized {
+            background-color: rgba(34, 197, 94, 0.15) !important;
+        }
+        .dark .row-realized {
+            background-color: rgba(34, 197, 94, 0.1) !important;
+        }
+        .row-not-realized {
+            background-color: rgba(148, 163, 184, 0.08) !important;
+        }
+        .dark .row-not-realized {
+            background-color: rgba(148, 163, 184, 0.05) !important;
+        }
+        .row-realized input,
+        .row-realized select,
+        .row-not-realized input,
+        .row-not-realized select {
+            background-color: transparent !important;
+        }
+
+        /* Totals row - mobile */
+        #totals-row {
+            position: relative;
+        }
+        .totals-amount-desktop {
+            display: none !important;
+        }
+        .totals-amount-mobile {
+            display: flex !important;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            width: 100%;
+            padding-right: 0.75rem;
+        }
+        .totals-actions-col {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .mobile-actions-btns {
+            display: none !important;
+        }
+
+        .edit-save-icon {
+            display: none !important;
+        }
+
+        .totals-amount-desktop {
+            display: flex !important;
+        }
+        .totals-amount-mobile {
+            display: none !important;
+        }
+        .totals-actions-col {
+            display: table-cell !important;
+        }
+
+        .drag-handle-cell {
+            overflow: hidden;
+        }
+    }
+
+    /* Totals row styles */
+    .totals-add-btn {
+        color: #13a4ec;
+    }
+    .totals-add-btn:hover {
+        color: #0e7ab8;
+    }
+    .totals-label {
+        color: #6b7280;
+    }
+    .totals-value {
+        color: #111827;
+    }
+    .dark .totals-add-btn {
+        color: #60a5fa !important;
+    }
+    .dark .totals-add-btn:hover {
+        color: #93c5fd !important;
+    }
+    .dark .totals-label {
+        color: #9ca3af !important;
+    }
+    .dark .totals-value {
+        color: #ffffff !important;
+    }
+</style>
+
+<script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
+<script src="{% static 'finances/js/calculator.js' %}?v=20260219-10" defer></script>
+<script src="{% static 'finances/js/ShopLists.js' %}?v=20260529-4" defer></script>
+
+{% endblock content %}

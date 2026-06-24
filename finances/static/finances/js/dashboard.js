@@ -572,15 +572,17 @@ function updateBalanceSheet() {
     .then(data => {
         if (data.status === 'success') {
             const balance = data.balance;
-            const symbol = balance.currency_symbol || '$';
+            // formatCurrency prepends the symbol, so pass the real symbol directly
+            // (do NOT prepend it manually — that would duplicate it)
+            const symbol = balance.currency_symbol || window.DASHBOARD_CONFIG.currencySymbol || '$';
 
             // Update income
-            document.getElementById('balance-estimated-income').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.estimated_income), '', thousandSeparator, decimalSeparator);
-            document.getElementById('balance-realized-income').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.realized_income), '', thousandSeparator, decimalSeparator);
+            document.getElementById('balance-estimated-income').textContent = formatCurrency(parseFloat(balance.estimated_income), symbol, thousandSeparator, decimalSeparator);
+            document.getElementById('balance-realized-income').textContent = formatCurrency(parseFloat(balance.realized_income), symbol, thousandSeparator, decimalSeparator);
 
             // Update expense
-            document.getElementById('balance-estimated-expense').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.estimated_expense), '', thousandSeparator, decimalSeparator);
-            document.getElementById('balance-realized-expense').textContent = symbol + ' ' + formatCurrency(parseFloat(balance.realized_expense), '', thousandSeparator, decimalSeparator);
+            document.getElementById('balance-estimated-expense').textContent = formatCurrency(parseFloat(balance.estimated_expense), symbol, thousandSeparator, decimalSeparator);
+            document.getElementById('balance-realized-expense').textContent = formatCurrency(parseFloat(balance.realized_expense), symbol, thousandSeparator, decimalSeparator);
 
             // Update investment (hidden, used for commitment calculation)
             const invElem = document.getElementById('balance-realized-investment');
@@ -595,8 +597,8 @@ function updateBalanceSheet() {
             const estResultCell = document.getElementById('balance-estimated-result');
             const realResultCell = document.getElementById('balance-realized-result');
 
-            estResultCell.textContent = symbol + ' ' + formatCurrency(estimatedResult, '', thousandSeparator, decimalSeparator);
-            realResultCell.textContent = symbol + ' ' + formatCurrency(realizedResult, '', thousandSeparator, decimalSeparator);
+            estResultCell.textContent = formatCurrency(estimatedResult, symbol, thousandSeparator, decimalSeparator);
+            realResultCell.textContent = formatCurrency(realizedResult, symbol, thousandSeparator, decimalSeparator);
 
             // Update colors
             if (estimatedResult >= 0) {
@@ -1119,9 +1121,10 @@ window.saveItem = function(rowId) {
             const normalizedAmount = amountStr.includes(',') ? parseLocaleNumber(amountStr, thousandSeparator, decimalSeparator) : amountStr;
             row.setAttribute('data-amount', normalizedAmount);
             row.querySelector('.cell-description-display').textContent = data.description;
-            // Use currency_symbol from backend response
-            const currencySymbol = data.currency_symbol || 'window.DASHBOARD_CONFIG.currencySymbol';
-            row.querySelector('.cell-amount-display').textContent = currencySymbol + ' ' + formatCurrency(data.amount, '', thousandSeparator, decimalSeparator);
+            // Use currency_symbol from backend response; formatCurrency prepends the symbol
+            // (do NOT prepend it manually — that would duplicate it)
+            const currencySymbol = data.currency_symbol || window.DASHBOARD_CONFIG.currencySymbol || '$';
+            row.querySelector('.cell-amount-display').textContent = formatCurrency(data.amount, currencySymbol, thousandSeparator, decimalSeparator);
             row.querySelector('.cell-date-display').textContent = new Intl.DateTimeFormat(undefined, {
                 day: '2-digit', month: '2-digit', timeZone: getUserTimezone()
             }).format(new Date(data.date + 'T00:00:00'));
@@ -2101,11 +2104,14 @@ function updateSummary() {
             const metrics = data.ytd_metrics;
             console.log('[Dashboard YTD] YTD metrics received:', metrics);
 
-            // Format values with thousand separators using locale config
+            // Format values with thousand separators using locale config.
+            // formatCurrency prepends the symbol, so use the backend symbol as
+            // the single source of truth (do NOT prepend it manually — that
+            // would duplicate it).
             const cfg = window.DASHBOARD_CONFIG || {};
             const thSep = cfg.thousandSeparator || window.thousandSeparator || ',';
             const dcSep = cfg.decimalSeparator || window.decimalSeparator || '.';
-            const curSym = cfg.currencySymbol || window.currencySymbol || '$';
+            const curSym = metrics.currency_symbol || cfg.currencySymbol || window.currencySymbol || '$';
             const formatValue = (value) => {
                 return formatCurrency(value, curSym, thSep, dcSep);
             };
@@ -2113,7 +2119,7 @@ function updateSummary() {
             // Update YTD Income
             const ytdIncomeEl = document.getElementById('ytd-income-value');
             if (ytdIncomeEl) {
-                ytdIncomeEl.textContent = `${metrics.currency_symbol} ${formatValue(metrics.ytd_income)}`;
+                ytdIncomeEl.textContent = formatValue(metrics.ytd_income);
                 console.log('[Dashboard YTD] Updated YTD Income to:', ytdIncomeEl.textContent);
             } else {
                 console.warn('[Dashboard YTD] ytd-income-value element not found');
@@ -2122,7 +2128,7 @@ function updateSummary() {
             // Update YTD Savings (with color logic)
             const ytdSavingsEl = document.getElementById('ytd-savings-value');
             if (ytdSavingsEl) {
-                ytdSavingsEl.textContent = `${metrics.currency_symbol} ${formatValue(metrics.ytd_savings)}`;
+                ytdSavingsEl.textContent = formatValue(metrics.ytd_savings);
 
                 // Update color based on positive/negative
                 const savingsValue = parseFloat(metrics.ytd_savings);

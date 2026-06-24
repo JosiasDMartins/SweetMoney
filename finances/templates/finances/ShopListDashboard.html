@@ -1,0 +1,194 @@
+{% extends "finances/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load i18n %}
+{% load l10n %}
+{% load math_filters %}
+
+{% block title %}{% trans "Shopping Lists" %}{% endblock title %}
+
+{% block content %}
+<div class="p-6 md:p-10 lg:p-12">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <a href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}" class="flex items-center text-primary hover:text-primary/80 transition-colors">
+            <span class="material-symbols-outlined mr-2">arrow_back</span>
+            {% trans "Back" %}
+        </a>
+        <a href="{% url 'add_shop_list' %}" class="rounded-lg bg-primary text-white text-base font-medium p-3 hover:bg-primary/90 transition-colors shadow-lg flex items-center">
+            <span class="material-symbols-outlined text-lg mr-2">add</span>
+            {% trans "Add List" %}
+        </a>
+    </div>
+
+    <h1 class="text-3xl font-bold text-[#0d171b] dark:text-white mb-6">{% trans "Shopping Lists" %}</h1>
+
+    <!-- Empty state -->
+    {% if not shop_lists %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+        <span class="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4">checklist</span>
+        <p class="text-gray-500 dark:text-gray-400 text-lg">{% trans "No lists yet. Create your first shopping list!" %}</p>
+    </div>
+    {% else %}
+
+    <!-- Desktop: Card grid -->
+    <div class="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {% for sl in shop_lists %}
+        <div class="shoplist-card group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 overflow-hidden"
+             data-list-id="{{ sl.id }}">
+            <a href="{% url 'edit_shop_list' sl.id %}" class="block">
+                <h3 class="text-lg font-semibold text-[#0d171b] dark:text-white mb-2 truncate">{{ sl.name }}</h3>
+                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                    <span class="material-symbols-outlined text-base">shopping_cart</span>
+                    <span>{{ sl.item_count }} {% trans "items" %}</span>
+                </div>
+                <div class="text-xl font-bold text-primary">
+                    {{ currency_symbol }} {{ sl.total_amount_value|format_amount }}
+                </div>
+            </a>
+            <!-- Hover overlay buttons (bottom-right, delayed) -->
+            <div class="card-actions absolute bottom-2 right-2 flex gap-1 z-10">
+                <button type="button" data-action="clone-list" data-list-id="{{ sl.id }}" class="card-action-btn w-7 h-7 flex items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors" title="{% trans 'Clone' %}">
+                    <span class="material-symbols-outlined text-sm">content_copy</span>
+                </button>
+                <button type="button" data-action="delete-list" data-list-id="{{ sl.id }}" class="card-action-btn w-7 h-7 flex items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors" title="{% trans 'Delete' %}">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Mobile: Swipeable rows -->
+    <div class="md:hidden space-y-0">
+        {% for sl in shop_lists %}
+        <div class="swipeable-list-row relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-out"
+             data-list-id="{{ sl.id }}">
+            <!-- Mobile action buttons (hidden behind row, revealed on swipe) -->
+            <div class="mobile-list-actions">
+                <a href="{% url 'edit_shop_list' sl.id %}" class="mobile-action-btn edit-btn" title="{% trans 'Edit' %}">
+                    <span class="material-symbols-outlined">edit</span>
+                </a>
+                <button type="button" data-action="clone-list" data-list-id="{{ sl.id }}" class="mobile-action-btn clone-btn" title="{% trans 'Clone' %}">
+                    <span class="material-symbols-outlined">content_copy</span>
+                </button>
+                <button type="button" data-action="delete-list" data-list-id="{{ sl.id }}" class="mobile-action-btn delete-btn" title="{% trans 'Delete' %}">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
+            </div>
+            <!-- Row content -->
+            <a href="{% url 'edit_shop_list' sl.id %}" class="list-row-content flex items-center justify-between px-4 py-4">
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold text-[#0d171b] dark:text-white truncate">{{ sl.name }}</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ sl.item_count }} {% trans "items" %}</p>
+                </div>
+                <div class="text-right ml-4">
+                    <span class="text-base font-bold text-primary">{{ currency_symbol }} {{ sl.total_amount_value|format_amount }}</span>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- CSP Config -->
+<div id="shoplists-config" style="display: none;"
+     data-csrf-token="{{ csrf_token }}"
+     data-url-shop-lists="{% url 'shop_lists_dashboard' %}"
+     data-i18n-confirm-delete="{% trans 'Are you sure you want to delete this list and all its items?' %}"
+     data-i18n-confirm-delete-title="{% trans 'Delete List' %}"
+     data-i18n-clone-success="{% trans 'List cloned successfully' %}"
+     data-i18n-error="{% trans 'An error occurred.' %}"
+     data-i18n-network-error="{% trans 'A network error occurred.' %}"
+></div>
+
+<style>
+    /* Tailwind compiled CSS lacks md:grid and group-hover:flex — provide them here */
+    @media (min-width: 768px) {
+        .md\:grid {
+            display: grid !important;
+        }
+    }
+
+    /* Desktop card action buttons — appear on hover with delay */
+    @media (min-width: 769px) {
+        .card-actions {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease 0.4s, visibility 0s linear 0.7s;
+        }
+
+        .shoplist-card:hover .card-actions {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease 0.4s, visibility 0s linear 0s;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .swipeable-list-row {
+            overflow: visible;
+        }
+
+        .mobile-list-actions {
+            position: absolute;
+            right: -168px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .swipeable-list-row.actions-revealed .mobile-list-actions {
+            pointer-events: auto;
+        }
+
+        .mobile-action-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            pointer-events: auto;
+            border: none;
+            cursor: pointer;
+        }
+
+        .mobile-action-btn.edit-btn {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .mobile-action-btn.clone-btn {
+            background-color: #22c55e;
+            color: white;
+        }
+
+        .mobile-action-btn.delete-btn {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .mobile-action-btn:active {
+            transform: scale(0.95);
+        }
+    }
+
+    @media (min-width: 769px) {
+        .mobile-list-actions {
+            display: none !important;
+        }
+    }
+</style>
+
+<script src="{% static 'finances/js/ShopListDashboard.js' %}?v=20260529-3" defer></script>
+
+{% endblock content %}

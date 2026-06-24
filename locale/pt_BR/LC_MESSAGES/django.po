@@ -623,6 +623,14 @@ msgstr "Grupo de fluxo excluído com sucesso"
 msgid "OK"
 msgstr "OK"
 
+#: finances/templates/finances/ShopLists.html
+msgid "You have unsaved changes. Are you sure you want to leave?"
+msgstr "Você tem alterações não salvas. Tem certeza que deseja sair?"
+
+#: finances/templates/finances/ShopLists.html
+msgid "Unsaved Changes"
+msgstr "Alterações Não Salvas"
+
 #: finances/templates/finances/FlowGroup.html:611
 #: finances/templates/finances/dashboard.html:28
 msgid "A network error occurred while saving order."
@@ -2003,6 +2011,30 @@ msgstr "Fuso horário atualizado com sucesso."
 
 msgid "Invalid timezone selection."
 msgstr "Seleção de fuso horário inválida."
+
+msgid "UTC / Universal"
+msgstr "UTC / Universal"
+
+msgid "Canada"
+msgstr "Canadá"
+
+msgid "United States"
+msgstr "Estados Unidos"
+
+msgid "Brazil"
+msgstr "Brasil"
+
+msgid "Other Americas"
+msgstr "Outras Américas"
+
+msgid "Europe"
+msgstr "Europa"
+
+msgid "Asia"
+msgstr "Ásia"
+
+msgid "Oceania"
+msgstr "Oceania"
 
 #: finances/templates/finances/profile.html:62
 msgid "Preferred Language"
@@ -3415,3 +3447,100 @@ msgid ""
 "Version %(version)s will not be shown again until a newer version is "
 "available"
 msgstr ""
+"A versão %(version)s não será exibida novamente até que uma versão mais "
+"recente esteja disponível"
+
+# --- Shopping Lists (v1.7.0) ---
+
+msgid "Shopping Lists"
+msgstr "Listas de Compras"
+
+msgid "Shopping List"
+msgstr "Lista de Compras"
+
+msgid "Shopping List Item"
+msgstr "Item da Lista"
+
+msgid "Lists"
+msgstr "Listas"
+
+msgid "Add List"
+msgstr "Adicionar Lista"
+
+msgid "Clone"
+msgstr "Clonar"
+
+msgid "List Name"
+msgstr "Nome da Lista"
+
+msgid "Shared List"
+msgstr "Lista Compartilhada"
+
+msgid "Share with"
+msgstr "Compartilhar com"
+
+msgid "Link"
+msgstr "Link"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "items"
+msgstr "itens"
+
+msgid "No lists yet. Create your first shopping list!"
+msgstr "Nenhuma lista ainda. Crie sua primeira lista de compras!"
+
+msgid "No items in this list yet."
+msgstr "Nenhum item nesta lista ainda."
+
+msgid "New Item Description"
+msgstr "Descrição do Novo Item"
+
+msgid "No other members"
+msgstr "Nenhum outro membro"
+
+msgid "Are you sure you want to delete this list and all its items?"
+msgstr "Tem certeza de que deseja excluir esta lista e todos os seus itens?"
+
+msgid "Are you sure you want to delete this item?"
+msgstr "Tem certeza de que deseja excluir este item?"
+
+msgid "Description and Amount are required."
+msgstr "Descrição e Valor são obrigatórios."
+
+msgid "Description is required."
+msgstr "A descrição é obrigatória."
+
+msgid "Invalid amount format."
+msgstr "Formato de valor inválido."
+
+msgid "Item ID is required."
+msgstr "O ID do item é obrigatório."
+
+msgid "No items data provided."
+msgstr "Nenhum dado de itens fornecido."
+
+msgid "You don't have permission to access this list."
+msgstr "Você não tem permissão para acessar esta lista."
+
+msgid "You don't have permission to edit this list."
+msgstr "Você não tem permissão para editar esta lista."
+
+msgid "You don't have permission to clone this list."
+msgstr "Você não tem permissão para clonar esta lista."
+
+msgid "List cloned successfully"
+msgstr "Lista clonada com sucesso"
+
+msgid "List deleted successfully"
+msgstr "Lista excluída com sucesso"
+
+msgid "A list with the name '%(name)s' already exists."
+msgstr "Uma lista com o nome '%(name)s' já existe."
+
+msgid "Copy"
+msgstr "Cópia"
+
+msgid "An error occurred."
+msgstr "Ocorreu um erro."

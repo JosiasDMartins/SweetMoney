@@ -1,7 +1,7 @@
 /**
  * FlowGroup_realtime.js - Real-time Updates for FlowGroup Page
  * PHASE 3 CSP Compliance: All inline real-time scripts moved to external file
- * Version: 20260217-004
+ * Version: 20260615-001 - Keep stored date verbatim for date-full/input (fix timezone date rebuild bug)
  * Handles WebSocket broadcasts to update the page when other users make changes
  */
 
@@ -149,12 +149,15 @@
             const decimalSeparator = window.FLOWGROUP_CONFIG?.decimalSeparator || ',';
             const isChild = window.FLOWGROUP_CONFIG?.memberRoleForPeriod === 'CHILD';
 
-            // Format date for display using user's timezone
+            // .date-full and <input type="date"> must use the stored date verbatim
+            // (YYYY-MM-DD). Only the short label (dd/mm) is localized to the user's
+            // timezone. Mixing getFullYear() with tz-converted day/month produced
+            // inconsistent dates that corrupted the value on edit/save.
+            const formattedDate = data.date;
             const userTimezone = getUserTimezone();
             const dateObj = new Date(data.date + 'T00:00:00');
             const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', timeZone: userTimezone }).format(dateObj);
             const month = new Intl.DateTimeFormat(undefined, { month: '2-digit', timeZone: userTimezone }).format(dateObj);
-            const formattedDate = `${dateObj.getFullYear()}-${month}-${day}`;
             const shortDate = `${day}/${month}`;
 
             // Format amount - explicitly use FLOWGROUP_CONFIG like dashboard.js does
@@ -344,7 +347,8 @@
                     }
                 }
 
-                // Update date display using user's timezone
+                // Update date display: .date-full keeps the stored date verbatim
+                // (YYYY-MM-DD); only the short label (dd/mm) is localized.
                 if (transactionData.date) {
                     const dateFull = row.querySelector('.date-full');
                     const dateShort = row.querySelector('.date-short');
@@ -353,7 +357,7 @@
                         const dateObj = new Date(transactionData.date + 'T00:00:00');
                         const day = new Intl.DateTimeFormat(undefined, { day: '2-digit', timeZone: userTz }).format(dateObj);
                         const month = new Intl.DateTimeFormat(undefined, { month: '2-digit', timeZone: userTz }).format(dateObj);
-                        dateFull.textContent = `${dateObj.getFullYear()}-${month}-${day}`;
+                        dateFull.textContent = transactionData.date;
                         dateShort.textContent = `${day}/${month}`;
                     }
                 }

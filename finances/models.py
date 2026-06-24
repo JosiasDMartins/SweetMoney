@@ -422,6 +422,55 @@ class Investment(models.Model):
     def __str__(self):
         return f"{self.name} ({self.amount})"
 
+
+# --- Shopping List Models ---
+class ShopList(models.Model):
+    """A shopping list owned by a family member."""
+    name = models.CharField(max_length=100)
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='shop_lists')
+    owner = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='owned_shop_lists')
+    is_shared = models.BooleanField(default=False)
+    assigned_members = models.ManyToManyField(
+        FamilyMember,
+        blank=True,
+        related_name='shared_shop_lists',
+    )
+    order = models.PositiveIntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name = _("Shopping List")
+        verbose_name_plural = _("Shopping Lists")
+
+    def __str__(self):
+        return f"{self.name} ({self.family.name})"
+
+
+class ShopListItem(models.Model):
+    """An item within a shopping list."""
+    description = models.CharField(max_length=255)
+    amount = MoneyField(
+        max_digits=14,
+        decimal_places=2,
+        default_currency='USD',
+        default=Decimal('0.00')
+    )
+    link = models.URLField(max_length=500, blank=True, default='')
+    realized = models.BooleanField(default=False)
+    shop_list = models.ForeignKey(ShopList, on_delete=models.CASCADE, related_name='items')
+    order = models.PositiveIntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'description']
+        verbose_name = _("Shopping List Item")
+        verbose_name_plural = _("Shopping List Items")
+
+    def __str__(self):
+        return f"{self.description}: {self.amount}"
+
+
 class BankBalance(models.Model):
     """
     Stores bank balance entries for reconciliation.

@@ -34,6 +34,13 @@ urlpatterns = [
     path('investments/add/', views.investment_add_view, name='investment_add'),
     path('api/investments/balance/', views.get_investment_balance_ajax, name='get_investment_balance_ajax'),
 
+    # Shopping Lists
+    path('lists/', views.shop_lists_dashboard_view, name='shop_lists_dashboard'),
+    path('list/new/', views.create_shop_list_view, name='add_shop_list'),
+    path('list/<int:list_id>/edit/', views.edit_shop_list_view, name='edit_shop_list'),
+    path('list/<int:list_id>/delete/', views.delete_shop_list_ajax, name='delete_shop_list_ajax'),
+    path('list/<int:list_id>/clone/', views.clone_shop_list_ajax, name='clone_shop_list_ajax'),
+
     # Flow Group
     path('flow-group/new/', views.create_flow_group_view, name='add_flow_group'), 
     path('flow-group/<int:group_id>/edit/', views.edit_flow_group_view, name='edit_flow_group'),
@@ -57,6 +64,11 @@ urlpatterns = [
     # Toggle recurring FlowGroup and fixed Transaction status
     path('api/flowgroup/toggle-recurring/', views.toggle_flowgroup_recurring_ajax, name='toggle_flowgroup_recurring_ajax'),
     path('api/transaction/toggle-fixed/', views.toggle_transaction_fixed_ajax, name='toggle_transaction_fixed_ajax'),
+
+    # Shopping Lists AJAX
+    path('api/shop-list/item/save/', views.save_shop_list_item_ajax, name='save_shop_list_item_ajax'),
+    path('api/shop-list/item/delete/', views.delete_shop_list_item_ajax, name='delete_shop_list_item_ajax'),
+    path('api/shop-list/item/reorder/', views.reorder_shop_list_items_ajax, name='reorder_shop_list_items_ajax'),
 
     # Get balance summary for dashboard
     path('api/balance-summary/', views.get_balance_summary_ajax, name='get_balance_summary_ajax'),

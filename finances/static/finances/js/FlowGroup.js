@@ -1,7 +1,7 @@
 /**
  * FlowGroup.js - FlowGroup page functionality
  * PHASE 3 CSP Compliance: All inline scripts moved to external file
- * Version: 20260219-11 - Remove toast notification when blocking negative input
+ * Version: 20260615-001 - Use timezone-aware default date (fix off-by-one for users behind UTC)
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1210,7 +1210,7 @@ window.addNewRow = function() {
         // Ensure date field is initialized BEFORE showing the row
         const dateInput = templateRow.querySelector('input[data-field="date"]');
         if (dateInput) {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getTodayInUserTimezone();
             dateInput.value = today;
             const userTz = getUserTimezone();
             const displayDate = new Intl.DateTimeFormat(undefined, {
@@ -1507,7 +1507,7 @@ window.saveItem = function(rowId) {
 
                 const dateInput = templateRow.querySelector('input[data-field="date"]');
                 if (dateInput) {
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = getTodayInUserTimezone();
                     dateInput.value = today;
                     const userTz = getUserTimezone();
                     const displayDate = new Intl.DateTimeFormat(undefined, {

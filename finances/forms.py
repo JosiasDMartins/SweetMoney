@@ -3,8 +3,8 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from .models import (
-    Family, FamilyMember, FamilyConfiguration, FlowGroup, 
-    Transaction, Investment, EXPENSE_MAIN
+    Family, FamilyMember, FamilyConfiguration, FlowGroup,
+    Transaction, Investment, ShopList, EXPENSE_MAIN
 )
 from django.utils.translation import gettext_lazy as _
 from django.forms import modelformset_factory
@@ -352,6 +352,55 @@ class InvestmentForm(forms.ModelForm):
             # amount Ã© MoneyField - widget automÃ¡tico
             'amount': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '0.00'}),
         }
+
+
+# --- ShopList Form ---
+class ShopListForm(forms.ModelForm):
+    assigned_members = forms.ModelMultipleChoiceField(
+        queryset=FamilyMember.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'members-checkbox'}),
+        label=_('Share with')
+    )
+
+    class Meta:
+        model = ShopList
+        fields = ['name', 'is_shared', 'assigned_members']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'w-full border rounded-lg bg-white dark:bg-gray-700 '
+                         'border-slate-300 dark:border-slate-600 focus:ring-primary '
+                         'focus:border-primary text-slate-800 dark:text-slate-200 p-2'
+            }),
+            'is_shared': forms.CheckboxInput(attrs={'class': 'shared-checkbox'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.family = kwargs.pop('family', None)
+        self.current_member = kwargs.pop('current_member', None)
+        super().__init__(*args, **kwargs)
+        if self.family:
+            self.fields['assigned_members'].queryset = FamilyMember.objects.filter(
+                family=self.family
+            ).exclude(
+                user=self.current_member.user
+            ).select_related('user').order_by('user__username')
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if not name:
+            return name
+        duplicate_check = ShopList.objects.filter(
+            family=self.family,
+            name=name
+        )
+        if self.instance and self.instance.pk:
+            duplicate_check = duplicate_check.exclude(pk=self.instance.pk)
+        if duplicate_check.exists():
+            raise forms.ValidationError(
+                _("A list with the name '%(name)s' already exists.") % {'name': name}
+            )
+        return name
 
 
 # --- Member Management Form ---

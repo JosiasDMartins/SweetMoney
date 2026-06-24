@@ -2,11 +2,34 @@
  * Base Template JavaScript
  * External JavaScript file (CSP compliant - no inline scripts)
  * Handles: Dark mode toggle, DPI scaling, Period management, Admin warning, Modals, PWA, WebSocket init, UI Components
+ * Version: 20260622-001 - Remove obsolete PWA "outdated WebApp" reinstall popup (app self-updates via SW)
  */
 
-// ===== 0. TIMEZONE HELPER =====
+// ===== 0. TIMEZONE HELPERS =====
 function getUserTimezone() {
     return document.getElementById('base-config')?.dataset?.userTimezone || 'UTC';
+}
+
+/**
+ * Returns today's date (YYYY-MM-DD) in the user's configured timezone.
+ *
+ * 'en-CA' locale reliably formats as YYYY-MM-DD regardless of the browser
+ * language. This avoids the classic off-by-one bug where new Date().toISOString()
+ * (which is UTC) would report the next day for users behind UTC (e.g. 9 PM in
+ * Saskatoon / UTC-6 is already the next day in UTC).
+ */
+function getTodayInUserTimezone() {
+    try {
+        return new Intl.DateTimeFormat('en-CA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: getUserTimezone()
+        }).format(new Date());
+    } catch (e) {
+        console.error('[getTodayInUserTimezone] Falling back to UTC date:', e);
+        return new Date().toISOString().split('T')[0];
+    }
 }
 
 // ===== 1. DARK MODE INITIALIZATION =====
@@ -91,11 +114,6 @@ function initializeBaseConfig() {
     window.BASE_I18N = {
         errorLoadingPeriodDetails: config.dataset.i18nErrorLoadingPeriodDetails,
         errorLoadingPeriod: config.dataset.i18nErrorLoadingPeriod,
-        pwaNewVersionTitle: config.dataset.i18nPwaNewVersionTitle,
-        pwaInstalled: config.dataset.i18nPwaInstalled,
-        pwaAvailable: config.dataset.i18nPwaAvailable,
-        pwaUpdateInstructions: config.dataset.i18nPwaUpdateInstructions,
-        pwaClickToDismiss: config.dataset.i18nPwaClickToDismiss,
         pwaIosInstructions: config.dataset.i18nPwaIosInstructions,
         pwaIosStep1: config.dataset.i18nPwaIosStep1,
         pwaIosStep2: config.dataset.i18nPwaIosStep2,
@@ -515,15 +533,12 @@ function initializeDarkModeToggle() {
 // MOVED TO: generic_modal.js (loaded separately for better organization)
 // GenericModal provides alert() and confirm() methods via Promise-based API
 
-// ===== 9. PWA SERVICE WORKER & VERSION MANAGEMENT =====
+// ===== 9. PWA SERVICE WORKER REGISTRATION =====
 function initializePWA() {
     const SERVER_VERSION = window.SERVER_VERSION || window.DB_VERSION;
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            // Check if running as installed PWA
-            const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-
             // Register service worker
             const swUrl = document.querySelector('meta[name="service-worker-url"]')?.content || '/service-worker.js';
             navigator.serviceWorker.register(swUrl)
@@ -531,17 +546,13 @@ function initializePWA() {
                     console.log('[PWA] Service Worker registered successfully:', registration.scope);
                     console.log('[PWA] Server version: ' + SERVER_VERSION);
 
-                    // Check for manifest version updates (for installed apps)
-                    if (isInstalled) {
-                        checkManifestVersion();
-                    }
-
-                    // Check for updates periodically
+                    // Check for service worker updates periodically.
+                    // New versions are applied AUTOMATICALLY: the SW calls skipWaiting() +
+                    // clients.claim(), and the controllerchange listener below reloads the page.
+                    // HTML pages and versioned JS (?v=...) are never cached, so a reinstall is
+                    // NOT required to see new features — the installed app self-updates.
                     setInterval(() => {
                         registration.update();
-                        if (isInstalled) {
-                            checkManifestVersion();
-                        }
                     }, 60000); // Check every minute
                 })
                 .catch((error) => {
@@ -554,75 +565,6 @@ function initializePWA() {
                 window.location.reload();
             });
         });
-    }
-
-    // Check manifest version and prompt for reinstall if needed
-    function checkManifestVersion() {
-        try {
-            // Get cached installed version
-            const installedVersion = localStorage.getItem('pwa_installed_version');
-
-            if (!installedVersion) {
-                // First time running, save current version
-                localStorage.setItem('pwa_installed_version', SERVER_VERSION);
-                console.log('[PWA] Saved installed version: ' + SERVER_VERSION);
-                return;
-            }
-
-            // Compare versions
-            if (installedVersion !== SERVER_VERSION) {
-                console.log('[PWA] Version mismatch! Installed: ' + installedVersion + ', Server: ' + SERVER_VERSION);
-
-                // Show update notification
-                showUpdateNotification(installedVersion, SERVER_VERSION);
-            }
-        } catch (error) {
-            console.error('[PWA] Error checking manifest version:', error);
-        }
-    }
-
-    function showUpdateNotification(oldVersion, newVersion) {
-        // Only show once per version
-        const notificationShown = sessionStorage.getItem('update_notification_' + newVersion);
-        if (notificationShown) {
-            return;
-        }
-
-        // Mark as shown
-        sessionStorage.setItem('update_notification_' + newVersion, 'true');
-
-        // Use existing modal system if available
-        if (typeof window.showModal === 'function') {
-            const title = '🎉 New Version Available!';
-            const content = `
-                <div class="space-y-4">
-                    <p class="text-gray-700 dark:text-gray-300">
-                        SweetMoney has been updated from <strong>v${oldVersion}</strong> to <strong>v${newVersion}</strong>!
-                    </p>
-                    <p class="text-gray-700 dark:text-gray-300">
-                        To see the latest features and improvements, please reinstall the app:
-                    </p>
-                    <ol class="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300 text-sm">
-                        <li>Uninstall the current app from your device</li>
-                        <li>Visit SweetMoney in your browser</li>
-                        <li>Click "Install App" to reinstall with the new version</li>
-                    </ol>
-                    <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <p class="text-xs text-blue-700 dark:text-blue-400">
-                            💡 Your data is safe and will remain intact after reinstalling.
-                        </p>
-                    </div>
-                </div>
-            `;
-            window.showModal(title, content);
-        } else {
-            // Fallback to alert
-            alert(window.BASE_I18N.pwaNewVersionTitle + '\n\n' +
-                window.BASE_I18N.pwaInstalled + ' v' + oldVersion + '\n' +
-                window.BASE_I18N.pwaAvailable + ' v' + newVersion + '\n\n' +
-                window.BASE_I18N.pwaUpdateInstructions + '\n' +
-                window.BASE_I18N.pwaClickToDismiss);
-        }
     }
 }
 

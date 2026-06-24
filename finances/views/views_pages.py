@@ -1,6 +1,7 @@
 import json
 from decimal import Decimal, ROUND_DOWN
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Q
 from django.db import transaction as db_transaction
@@ -14,6 +15,7 @@ from django.core.exceptions import ObjectDoesNotExist
 # Relative imports from the app (.. moves up one level, from /views/ to /finances/)
 from ..models import (
     FamilyMember, FlowGroup, Transaction, Investment, BankBalance,
+    ShopList, ShopListItem,
     FLOW_TYPE_INCOME, FLOW_TYPE_EXPENSE, EXPENSE_MAIN, EXPENSE_SECONDARY
 )
 from ..utils import (
@@ -26,8 +28,8 @@ from ..utils import (
     get_member_role_for_period
 )
 from ..forms import (
-    FamilyConfigurationForm, FlowGroupForm, InvestmentForm, 
-    NewUserAndMemberForm
+    FamilyConfigurationForm, FlowGroupForm, InvestmentForm,
+    ShopListForm, NewUserAndMemberForm
 )
 
 # Importing local utilities (same package /views/)
@@ -35,7 +37,9 @@ from .views_utils import (
     get_family_context,
     get_default_income_flow_group,
     get_visible_flow_groups_for_dashboard,
+    get_visible_shop_lists,
     can_access_flow_group,
+    can_access_shop_list,
     get_base_template_context,
     get_default_date_for_period,
     get_periods_history,
@@ -1383,3 +1387,144 @@ def offline_view(request):
     No authentication required as this is a fallback page.
     """
     return render(request, 'finances/offline.html')
+
+
+# --- Shopping Lists Views ---
+
+@login_required
+def shop_lists_dashboard_view(request):
+    """Dashboard showing all visible shopping lists."""
+    family, current_member, family_members = get_family_context(request.user)
+    if not family:
+        return redirect('dashboard')
+
+    from django.db.models import Count, Sum as DbSum
+    shop_lists_qs = get_visible_shop_lists(family, current_member).annotate(
+        item_count=Count('items'),
+        total_amount=DbSum('items__amount')
+    ).order_by('order', 'name')
+
+    # Evaluate queryset once and attach total_amount_value to each instance.
+    # Must convert to list — if we pass a QuerySet to the template, Django will
+    # re-evaluate it during iteration, losing the dynamically set attributes.
+    shop_lists = list(shop_lists_qs)
+    for sl in shop_lists:
+        sl.total_amount_value = money_to_decimal(sl.total_amount)
+
+    config = getattr(family, 'configuration', None)
+    currency = config.base_currency if config else 'USD'
+
+    context = {
+        'shop_lists': shop_lists,
+        'current_member': current_member,
+        'family_members': family_members,
+        'currency_symbol': get_currency_symbol(currency),
+        'is_child': current_member.role == 'CHILD',
+    }
+    from django.utils import timezone
+    start_date = timezone.localdate()
+    context.update(get_base_template_context(family, None, start_date))
+    return render(request, 'finances/ShopListDashboard.html', context)
+
+
+@login_required
+def create_shop_list_view(request):
+    """Create a new shopping list."""
+    family, current_member, family_members = get_family_context(request.user)
+    if not family:
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = ShopListForm(request.POST, family=family, current_member=current_member)
+        if form.is_valid():
+            shop_list = form.save(commit=False)
+            shop_list.family = family
+            shop_list.owner = request.user
+            shop_list.save()
+            form.save_m2m()
+            return redirect('edit_shop_list', list_id=shop_list.id)
+        elif request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'error': form.errors.as_json()}, status=400)
+    else:
+        form = ShopListForm(family=family, current_member=current_member)
+
+    config = getattr(family, 'configuration', None)
+    currency = config.base_currency if config else 'USD'
+
+    context = {
+        'form': form,
+        'shop_list': ShopList(),
+        'is_new': True,
+        'current_member': current_member,
+        'family_members': family_members,
+        'current_user_id': request.user.id,
+        'currency_symbol': get_currency_symbol(currency),
+        'is_child': current_member.role == 'CHILD',
+    }
+    from django.utils import timezone
+    start_date = timezone.localdate()
+    context.update(get_base_template_context(family, None, start_date))
+    return render(request, 'finances/ShopLists.html', context)
+
+
+@login_required
+def edit_shop_list_view(request, list_id):
+    """Edit an existing shopping list."""
+    family, current_member, family_members = get_family_context(request.user)
+    if not family:
+        return redirect('dashboard')
+
+    shop_list = get_object_or_404(ShopList, id=list_id, family=family)
+
+    if not can_access_shop_list(shop_list, current_member):
+        messages.error(request, _("You don't have permission to access this list."))
+        return redirect('shop_lists_dashboard')
+
+    if request.method == 'POST':
+        form = ShopListForm(request.POST, instance=shop_list, family=family, current_member=current_member)
+        if form.is_valid():
+            form.save()
+            request.session.pop('pending_clone_id', None)
+            return redirect('edit_shop_list', list_id=shop_list.id)
+        elif request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'error': form.errors.as_json()}, status=400)
+    else:
+        form = ShopListForm(instance=shop_list, family=family, current_member=current_member)
+
+    items = shop_list.items.all().order_by('order')
+    total_amount = sum(money_to_decimal(item.amount) for item in items)
+
+    # Extract link domains for display
+    from urllib.parse import urlparse
+    for item in items:
+        if item.link:
+            parsed = urlparse(item.link)
+            item.link_domain = parsed.netloc
+        else:
+            item.link_domain = ''
+
+    can_edit = (shop_list.owner == request.user or current_member.role in ['ADMIN', 'PARENT'])
+
+    is_just_cloned = str(request.session.get('pending_clone_id', '')) == str(shop_list.id)
+
+    config = getattr(family, 'configuration', None)
+    currency = config.base_currency if config else 'USD'
+
+    context = {
+        'form': form,
+        'shop_list': shop_list,
+        'is_new': False,
+        'can_edit_list': can_edit,
+        'is_just_cloned': is_just_cloned,
+        'items': items,
+        'total_amount': total_amount,
+        'current_member': current_member,
+        'family_members': family_members,
+        'current_user_id': request.user.id,
+        'currency_symbol': get_currency_symbol(currency),
+        'is_child': current_member.role == 'CHILD',
+    }
+    from django.utils import timezone
+    start_date = timezone.localdate()
+    context.update(get_base_template_context(family, None, start_date))
+    return render(request, 'finances/ShopLists.html', context)

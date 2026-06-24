@@ -219,6 +219,41 @@ def get_visible_flow_groups(family, family_member, period_start_date, group_type
     return visible_groups.distinct()
 
 
+def can_access_shop_list(shop_list, family_member):
+    """Checks if a family member can access a specific ShopList."""
+    # Owner always has access
+    if shop_list.owner_id is not None and shop_list.owner_id == family_member.user_id:
+        return True
+
+    # ADMIN has unrestricted access
+    if family_member.role == 'ADMIN':
+        return True
+
+    # PARENT: all family lists are visible (shopping lists are shared by nature)
+    if family_member.role == 'PARENT':
+        return True
+
+    # CHILD: only sees lists explicitly shared with them via assigned_members
+    if family_member.role == 'CHILD':
+        return shop_list.assigned_members.filter(id=family_member.id).exists()
+
+    return False
+
+
+def get_visible_shop_lists(family, family_member):
+    """Returns ShopLists visible to the given family member."""
+    from ..models import ShopList
+
+    qs = ShopList.objects.filter(family=family)
+
+    # ADMIN and PARENT see all family lists
+    if family_member.role in ['ADMIN', 'PARENT']:
+        return qs
+
+    # CHILD: only lists explicitly shared with them via assigned_members
+    return qs.filter(assigned_members=family_member)
+
+
 def get_base_template_context(family, query_period, start_date):
     """Retrieves the base context for the template (period selector, version)."""
     available_periods = get_available_periods(family)
