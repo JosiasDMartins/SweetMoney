@@ -61,7 +61,7 @@
     </div>
 
     <!-- Mobile: Swipeable rows -->
-    <div class="md:hidden space-y-0">
+    <div class="md:hidden space-y-0 shoplists-mobile-rows">
         {% for sl in shop_lists %}
         <div class="swipeable-list-row relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-out"
              data-list-id="{{ sl.id }}">
@@ -129,6 +129,13 @@
     }
 
     @media (max-width: 768px) {
+        /* Clip the off-screen action buttons so their edge does not peek past the
+           page padding (rows are inset by p-6, so right:-168px otherwise shows ~16px). */
+        .shoplists-mobile-rows {
+            overflow-x: hidden; /* fallback */
+            overflow-x: clip;   /* preferred: clips horizontal overflow without forcing vertical scroll */
+        }
+
         .swipeable-list-row {
             overflow: visible;
         }
@@ -189,6 +196,6 @@
     }
 </style>
 
-<script src="{% static 'finances/js/ShopListDashboard.js' %}?v=20260529-3" defer></script>
+<script src="{% static 'finances/js/ShopListDashboard.js' %}?v=20260625-1" defer></script>
 
 {% endblock content %}

@@ -1493,6 +1493,7 @@ def edit_shop_list_view(request, list_id):
 
     items = shop_list.items.all().order_by('order')
     total_amount = sum(money_to_decimal(item.amount) for item in items)
+    total_realized = sum(money_to_decimal(item.amount) for item in items if item.realized)
 
     # Extract link domains for display
     from urllib.parse import urlparse
@@ -1518,6 +1519,7 @@ def edit_shop_list_view(request, list_id):
         'is_just_cloned': is_just_cloned,
         'items': items,
         'total_amount': total_amount,
+        'total_realized': total_realized,
         'current_member': current_member,
         'family_members': family_members,
         'current_user_id': request.user.id,

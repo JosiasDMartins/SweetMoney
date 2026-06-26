@@ -302,18 +302,26 @@
                         <td class="px-6 py-3 mobile-hide-column"></td>
                         <!-- Amount column -->
                         <td class="py-3 text-right totals-amount-col">
-                            <!-- Desktop: Value only -->
+                            <!-- Desktop: Total + Realized stacked -->
                             <div class="totals-amount-desktop flex flex-col gap-1 pl-2 pr-6">
                                 <div class="text-sm">
                                     <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
                                     <span id="total-expenses-desktop" class="totals-value font-bold ml-2">{{ currency_symbol }} {{ total_amount|floatformat:2|intcomma }}</span>
                                 </div>
+                                <div class="text-sm">
+                                    <span class="totals-label text-xs uppercase">{% trans "Realized:" %}</span>
+                                    <span id="total-realized-desktop" class="totals-realized font-bold ml-2">{{ currency_symbol }} {{ total_realized|floatformat:2|intcomma }}</span>
+                                </div>
                             </div>
-                            <!-- Mobile: Label + Value inline -->
+                            <!-- Mobile: Total + Realized (label + value, stacked) -->
                             <div class="totals-amount-mobile">
                                 <div class="text-sm flex justify-end items-center gap-2">
                                     <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
                                     <span id="total-expenses-mobile" class="totals-value font-bold">{{ currency_symbol }} {{ total_amount|floatformat:2|intcomma }}</span>
+                                </div>
+                                <div class="text-sm flex justify-end items-center gap-2">
+                                    <span class="totals-label text-xs uppercase">{% trans "Realized:" %}</span>
+                                    <span id="total-realized-mobile" class="totals-realized font-bold">{{ currency_symbol }} {{ total_realized|floatformat:2|intcomma }}</span>
                                 </div>
                             </div>
                         </td>
@@ -497,10 +505,10 @@
         }
         .totals-amount-mobile {
             display: flex !important;
-            flex-direction: row;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.5rem;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 0.25rem;
             width: 100%;
             padding-right: 0.75rem;
         }
@@ -546,6 +554,9 @@
     .totals-value {
         color: #111827;
     }
+    .totals-realized {
+        color: #16a34a;
+    }
     .dark .totals-add-btn {
         color: #60a5fa !important;
     }
@@ -558,10 +569,13 @@
     .dark .totals-value {
         color: #ffffff !important;
     }
+    .dark .totals-realized {
+        color: #4ade80 !important;
+    }
 </style>
 
 <script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
 <script src="{% static 'finances/js/calculator.js' %}?v=20260219-10" defer></script>
-<script src="{% static 'finances/js/ShopLists.js' %}?v=20260529-4" defer></script>
+<script src="{% static 'finances/js/ShopLists.js' %}?v=20260624-6" defer></script>
 
 {% endblock content %}

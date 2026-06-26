@@ -99,18 +99,28 @@
         if (!rows.length) return;
 
         let currentRevealedRow = null;
+        const swipeThreshold = 80;   // min px (leftward) to reveal the action buttons
+        const moveThreshold = 10;    // horizontal px before a gesture counts as a swipe
+        const scrollThreshold = 15;  // vertical px that means the user is scrolling
 
         rows.forEach(function(row) {
             const content = row.querySelector('.list-row-content');
             if (!content) return;
 
             let startX = 0;
+            let startY = 0;
             let currentX = 0;
+            let currentY = 0;
             let isDragging = false;
+            let isScrolling = false;
 
             content.addEventListener('touchstart', function(e) {
                 startX = e.touches[0].clientX;
-                isDragging = true;
+                startY = e.touches[0].clientY;
+                currentX = startX;
+                currentY = startY;
+                isDragging = false;
+                isScrolling = false;
                 if (currentRevealedRow && currentRevealedRow !== row) {
                     currentRevealedRow.classList.remove('actions-revealed');
                     currentRevealedRow.style.transform = '';
@@ -119,20 +129,42 @@
             }, { passive: true });
 
             content.addEventListener('touchmove', function(e) {
-                if (!isDragging) return;
+                if (isScrolling) return;
                 currentX = e.touches[0].clientX;
-                const diff = currentX - startX;
-                if (diff < 0) {
-                    const translateX = Math.max(diff, -168);
+                currentY = e.touches[0].clientY;
+                const deltaX = currentX - startX;
+                const deltaY = currentY - startY;
+
+                // Vertical scroll dominates -> not a swipe (let the page scroll)
+                if (!isDragging && Math.abs(deltaY) > scrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                    isScrolling = true;
+                    return;
+                }
+
+                // Only a deliberate leftward horizontal gesture starts swiping, so a tap
+                // (or natural finger jitter) does not involuntarily shift the row.
+                if (deltaX < -moveThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    isDragging = true;
+                    const translateX = Math.max(deltaX, -168);
                     row.style.transform = 'translateX(' + translateX + 'px)';
+                    row.style.transition = 'none';
                 }
             }, { passive: true });
 
             content.addEventListener('touchend', function() {
+                if (isScrolling) {
+                    isScrolling = false;
+                    return;
+                }
+                // A tap (no deliberate swipe) leaves the transform untouched so the row's
+                // link click navigates normally with no involuntary shift.
                 if (!isDragging) return;
                 isDragging = false;
-                const diff = currentX - startX;
-                if (diff < -80) {
+                const deltaX = currentX - startX;
+                const deltaY = currentY - startY;
+                row.style.transition = '';
+
+                if (deltaX < -swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     row.classList.add('actions-revealed');
                     row.style.transform = 'translateX(-168px)';
                     currentRevealedRow = row;
@@ -143,7 +175,7 @@
                 }
                 startX = 0;
                 currentX = 0;
-            });
+            }, { passive: true });
         });
 
         // Tap elsewhere to close

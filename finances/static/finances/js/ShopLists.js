@@ -60,6 +60,40 @@ document.addEventListener('DOMContentLoaded', function() {
     initEventDelegation();
     initializeDragAndDrop();
     initializeMobileSwipe();
+    initializeAmountFields();
+
+    // --- Amount field behavior: locale money mask, cursor positioning, calculator ---
+    // Reuses shared utils to match the Flow Group value-field behavior (no duplication).
+    function initializeAmountFields() {
+        var decimalSep = window.SHOPLIST_CONFIG.decimalSeparator;
+        var thousandSep = window.SHOPLIST_CONFIG.thousandSeparator;
+
+        // Expose locale globals so the calculator modal (calculator.js) formats with the
+        // family locale. calculator.js reads window.thousandSeparator/decimalSeparator first
+        // (it has no SHOPLIST_CONFIG case, unlike FLOWGROUP_CONFIG/DASHBOARD_CONFIG).
+        window.thousandSeparator = thousandSep;
+        window.decimalSeparator = decimalSep;
+
+        // Money mask + cursor-to-end on first focus + key filtering (shared util)
+        if (window.FinancesUtils && typeof window.FinancesUtils.initializeMoneyInputs === 'function') {
+            window.FinancesUtils.initializeMoneyInputs('input[data-field="amount"]', thousandSep, decimalSep);
+        }
+
+        // Reformat server-rendered amounts (Django floatformat:2 -> standard "1234.56") to locale.
+        // Uses parseFloat-based formatAmountForInput so comma-decimal families don't misparse.
+        document.querySelectorAll('input[data-field="amount"]').forEach(function (input) {
+            if (input.value && input.value.trim() !== '') {
+                input.value = formatAmountForInput(input.value, thousandSep, decimalSep);
+            } else {
+                input.value = '0' + decimalSep + '00';
+            }
+        });
+
+        // Calculator modal (typing + - * / opens it)
+        if (window.FinancesCalculator) {
+            window.FinancesCalculator.init('input[data-field="amount"]');
+        }
+    }
 
     // --- Checkbox Handlers ---
     function initCheckboxHandlers() {
@@ -94,6 +128,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
 
+            // ShopLists handles item actions via local delegation. Stop propagation so the
+            // global event_delegation.js dispatcher (which expects window.toggleEditMode /
+            // window.saveItem etc. that ShopLists does not define) does not re-handle the
+            // same click and log "... is not defined" errors.
+            e.preventDefault();
+            e.stopPropagation();
+
             const action = btn.dataset.action;
             const rowId = btn.dataset.rowId || btn.dataset.itemId;
 
@@ -118,12 +159,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     break;
             }
         });
-
-        // Add new item button
-        const addBtn = document.querySelector('[data-action="add-new-row"]');
-        if (addBtn) {
-            addBtn.addEventListener('click', addNewRow);
-        }
     }
 
     // --- Toggle Realized ---
@@ -209,12 +244,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Reset a row's mobile swipe state so it returns to center.
+    // Mirrors FlowGroup toggleEditMode's transform reset on every mode change.
+    function resetRowSwipe(row) {
+        if (!row) return;
+        row.style.transform = 'translateX(0)';
+        row.classList.remove('actions-revealed');
+        if (currentRevealedRow === row) {
+            currentRevealedRow = null;
+        }
+    }
+
     // --- Edit Row ---
     function editRow(rowId) {
         var row = document.getElementById(rowId);
         if (!row) return;
 
         row.setAttribute('data-mode', 'edit');
+        // Bring the row back to center on mobile (it may be swiped open revealing the edit btn)
+        resetRowSwipe(row);
         row.querySelectorAll('.cell-description-display, .cell-link-display, .cell-budget-display').forEach(function(el) {
             el.classList.add('hidden');
         });
@@ -446,6 +494,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateRowDisplay(row, data) {
+        resetRowSwipe(row);
         row.setAttribute('data-mode', 'display');
         row.setAttribute('data-amount', data.amount);
         row.setAttribute('data-realized', data.realized ? 'true' : 'false');
@@ -516,6 +565,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var row = document.getElementById(rowId);
         if (!row) return;
 
+        resetRowSwipe(row);
         row.setAttribute('data-mode', 'display');
         row.setAttribute('draggable', 'true');
 
@@ -543,6 +593,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function cancelNewRow(rowId) {
         var template = document.getElementById('new-item-template');
         if (template) {
+            resetRowSwipe(template);
             template.classList.add('hidden');
         }
     }
@@ -603,13 +654,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Update Totals ---
     function updateTotals() {
         var total = 0;
+        var realized = 0;
         var rows = document.querySelectorAll('#list-items-body tr[data-item-id]:not(#new-item-template):not(#empty-state-row)');
         rows.forEach(function(row) {
             var amount = parseFloat(row.getAttribute('data-amount')) || 0;
             total += amount;
+            if (row.getAttribute('data-realized') === 'true') {
+                realized += amount;
+            }
         });
 
         var formattedTotal = window.SHOPLIST_CONFIG.currencySymbol + ' ' + formatAmount(total.toFixed(2));
+        var formattedRealized = window.SHOPLIST_CONFIG.currencySymbol + ' ' + formatAmount(realized.toFixed(2));
 
         var desktopTotal = document.getElementById('total-amount-desktop');
         if (desktopTotal) desktopTotal.textContent = formattedTotal;
@@ -622,6 +678,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var mobileExpense = document.getElementById('total-expenses-mobile');
         if (mobileExpense) mobileExpense.textContent = formattedTotal;
+
+        var desktopRealized = document.getElementById('total-realized-desktop');
+        if (desktopRealized) desktopRealized.textContent = formattedRealized;
+
+        var mobileRealized = document.getElementById('total-realized-mobile');
+        if (mobileRealized) mobileRealized.textContent = formattedRealized;
     }
 
     // --- Drag and Drop ---
@@ -717,14 +779,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function initializeMobileSwipeForRow(row) {
         var startX = 0;
+        var startY = 0;
         var currentX = 0;
+        var currentY = 0;
         var isDragging = false;
+        var isScrolling = false;
+        var startedOnControl = false;
+        var startTime = 0;
+        var swipeThreshold = 60;
+        var scrollThreshold = 15;
+        var tapMoveThreshold = 10;   // max horizontal px that still counts as a tap
+        var tapMinTime = 50;         // min ms to register as an intentional tap
+        var tapTimeThreshold = 200;  // max ms for a tap (FlowGroup parity)
 
         row.addEventListener('touchstart', function(e) {
-            if (row.getAttribute('data-mode') === 'edit') return;
+            // Don't treat a touch as a row gesture when it starts on a control that should
+            // handle its own tap (action buttons, drag handle, save icon, or the item link).
+            // NOTE: inputs/selects are intentionally NOT skipped so swipe-right-to-cancel
+            // still works when the gesture starts on a field while editing (FlowGroup parity).
+            startedOnControl = !!(e.target.closest('.mobile-action-btn, .drag-handle, .edit-save-icon, a'));
+            if (startedOnControl) return;
+
             startX = e.touches[0].clientX;
-            isDragging = true;
-            if (currentRevealedRow && currentRevealedRow !== row) {
+            startY = e.touches[0].clientY;
+            currentX = startX;
+            currentY = startY;
+            startTime = Date.now();
+            isDragging = false;
+            isScrolling = false;
+
+            // Display mode: close any other revealed row when starting a touch
+            if (row.getAttribute('data-mode') !== 'edit' && currentRevealedRow && currentRevealedRow !== row) {
                 currentRevealedRow.classList.remove('actions-revealed');
                 currentRevealedRow.style.transform = '';
                 currentRevealedRow = null;
@@ -732,31 +817,92 @@ document.addEventListener('DOMContentLoaded', function() {
         }, { passive: true });
 
         row.addEventListener('touchmove', function(e) {
-            if (!isDragging) return;
+            if (isScrolling || startedOnControl) return;
+
             currentX = e.touches[0].clientX;
-            var diff = currentX - startX;
-            if (diff < 0) {
-                var translateX = Math.max(diff, -120);
-                row.style.transform = 'translateX(' + translateX + 'px)';
+            currentY = e.touches[0].clientY;
+            var deltaX = currentX - startX;
+            var deltaY = currentY - startY;
+
+            // Vertical scroll dominates -> ignore swipe
+            if (!isDragging && Math.abs(deltaY) > scrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                isScrolling = true;
+                return;
+            }
+
+            if (row.getAttribute('data-mode') === 'edit') {
+                // Edit mode: only a rightward swipe is meaningful (to cancel the edit)
+                if (deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    isDragging = true;
+                    var txEdit = Math.min(deltaX, 120);
+                    row.style.transform = 'translateX(' + txEdit + 'px)';
+                    row.style.transition = 'none';
+                }
+            } else {
+                // Display mode: swipe left reveals edit/delete
+                if (deltaX < 0 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    isDragging = true;
+                    var txDisplay = Math.max(deltaX, -120);
+                    row.style.transform = 'translateX(' + txDisplay + 'px)';
+                    row.style.transition = 'none';
+                }
             }
         }, { passive: true });
 
         row.addEventListener('touchend', function() {
-            if (!isDragging) return;
-            isDragging = false;
-            var diff = currentX - startX;
-            if (diff < -60) {
-                row.classList.add('actions-revealed');
-                row.style.transform = 'translateX(-120px)';
-                currentRevealedRow = row;
-            } else {
-                row.classList.remove('actions-revealed');
-                row.style.transform = '';
-                if (currentRevealedRow === row) currentRevealedRow = null;
+            if (isScrolling) {
+                isScrolling = false;
+                return;
             }
+            var deltaX = currentX - startX;
+            var deltaY = currentY - startY;
+            row.style.transition = 'transform 0.3s ease-out';
+
+            if (row.getAttribute('data-mode') === 'edit') {
+                // Swipe right past threshold cancels the edit (template -> cancel new row).
+                // Requires isDragging so a tap (or a gesture started on a skipped control
+                // with stale coordinates) does not accidentally cancel.
+                if (isDragging && deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    if (row.id === 'new-item-template') {
+                        cancelNewRow(row.id);
+                    } else {
+                        cancelEdit(row.id);
+                    }
+                } else {
+                    row.style.transform = 'translateX(0)';
+                }
+            } else {
+                var deltaTime = Date.now() - startTime;
+                var hasRevealedActions = row.classList.contains('actions-revealed');
+
+                // Tap (no swipe, small movement, quick, not on a control) toggles realized
+                // (matches FlowGroup). If actions are revealed, a tap closes them instead.
+                if (!isDragging && !startedOnControl &&
+                    Math.abs(deltaX) < tapMoveThreshold && Math.abs(deltaY) < scrollThreshold &&
+                    deltaTime >= tapMinTime && deltaTime < tapTimeThreshold) {
+                    if (hasRevealedActions) {
+                        row.style.transform = 'translateX(0)';
+                        row.classList.remove('actions-revealed');
+                        if (currentRevealedRow === row) currentRevealedRow = null;
+                    } else {
+                        toggleRealized(row.id, row.getAttribute('data-realized') === 'true');
+                    }
+                } else if (deltaX < -swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    row.classList.add('actions-revealed');
+                    row.style.transform = 'translateX(-120px)';
+                    currentRevealedRow = row;
+                } else {
+                    row.classList.remove('actions-revealed');
+                    row.style.transform = '';
+                    if (currentRevealedRow === row) currentRevealedRow = null;
+                }
+            }
+
+            isDragging = false;
+            startedOnControl = false;
             startX = 0;
             currentX = 0;
-        });
+        }, { passive: true });
     }
 
     // --- Clone and Delete List buttons ---
