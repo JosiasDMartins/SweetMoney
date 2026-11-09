@@ -158,16 +158,24 @@ def can_access_flow_group(flow_group, family_member):
     return False
 
 
-def get_visible_flow_groups_for_dashboard(family, family_member, period_start_date, group_type_filter=None):
+def get_visible_flow_groups_for_dashboard(family, family_member, period_start_date, group_type_filter=None, exclude_cards=False):
     """
     Returns FlowGroups visible on the dashboard.
     (accessible_groups, display_only_groups)
+
+    exclude_cards: hide card containers (is_credit_card + no linked_card).
+    Cards are rendered in the Credit Cards box instead of the expense table.
+    Balance/summary calculations must NOT pass this flag so totals stay
+    unchanged (a card is a grouping view, not an extra value).
     """
     base_query = FlowGroup.objects.filter(
         family=family,
         period_start_date=period_start_date
     )
-    
+
+    if exclude_cards:
+        base_query = base_query.exclude(is_credit_card=True, linked_card__isnull=True)
+
     if group_type_filter:
         base_query = base_query.filter(group_type__in=group_type_filter)
     

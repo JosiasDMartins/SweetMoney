@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from django.db.utils import OperationalError, ProgrammingError
 from django.conf import settings
 
+from django.contrib.auth.decorators import login_required
 from ..models import SystemVersion, SkippedUpdate
 from ..version_utils import Version, needs_update
 from ..github_utils import (
@@ -312,11 +313,9 @@ def apply_local_updates(request):
                 
                 results.append(result)
         
-        # 3. Update version in DB if all successful
+        # 3. The system version is NOT written here: the post-update screen
+        # finalizes it after the server reloads with the new files.
         if all_success:
-            SystemVersion.set_version(VERSION)
-            print(f"[APPLY_UPDATES] Version updated to {VERSION}")
-
             # 4. Create reload flag for Docker hot-reload
             if create_reload_flag():
                 print(f"[APPLY_UPDATES] Reload flag created for Docker")
@@ -324,7 +323,8 @@ def apply_local_updates(request):
         response_data = {
             'success': all_success,
             'results': results,
-            'new_version': VERSION if all_success else SystemVersion.get_current_version()
+            'new_version': VERSION if all_success else get_db_version(),
+            'post_update_required': all_success,
         }
 
         print(f"[APPLY_UPDATES] Finished. Success: {all_success}")
@@ -382,11 +382,9 @@ def apply_updates_programmatically():
                     all_success = False
                     break
 
-        # 3. Update version in DB if all successful
+        # 3. The system version is NOT written here: the post-update screen
+        # finalizes it after the server reloads with the new files.
         if all_success:
-            SystemVersion.set_version(VERSION)
-            print(f"[AUTO_APPLY_UPDATES] Version updated to {VERSION}")
-
             # 4. Create reload flag for Docker hot-reload
             if create_reload_flag():
                 print(f"[AUTO_APPLY_UPDATES] Reload flag created for Docker")
@@ -510,8 +508,10 @@ def download_github_update(request):
                 'logs': logs_text
             })
 
-        print(f"[DOWNLOAD_GITHUB_UPDATE] Setting version to {target_version}")
-        SystemVersion.set_version(target_version)
+        # The system version is NOT written here: the post-update screen
+        # finalizes it on the first startup after the server reloads with
+        # the new files.
+        print(f"[DOWNLOAD_GITHUB_UPDATE] Version will be finalized by the post-update screen")
 
         # Run migrations in development environment
         # In production (Docker), create flag for update_monitor to run migrations
@@ -572,6 +572,45 @@ def download_github_update(request):
 # - create_backup()
 # - download_backup()
 # - restore_backup()
+
+
+@require_POST
+@login_required
+def verify_admin_password(request):
+    """
+    Verify the admin password for the current user's family.
+    Used by the OTA update flow to require admin authorization before applying updates.
+    """
+    import json as _json
+    from ..models import FamilyMember
+
+    try:
+        data = _json.loads(request.body)
+    except (ValueError, _json.JSONDecodeError):
+        return JsonResponse({'success': False, 'error': _('Invalid request.')}, status=400)
+
+    password = data.get('password', '')
+    if not password:
+        return JsonResponse({'success': False, 'error': _('Password is required.')}, status=400)
+
+    # Get the current user's family
+    member = FamilyMember.objects.filter(user=request.user).select_related('family').first()
+    if not member:
+        return JsonResponse({'success': False, 'error': _('Family member not found.')}, status=400)
+
+    # Find the admin user for this family
+    admin_member = FamilyMember.objects.filter(
+        family=member.family,
+        role='ADMIN'
+    ).select_related('user').first()
+
+    if not admin_member:
+        return JsonResponse({'success': False, 'error': _('No Admin user found for this family.')}, status=400)
+
+    if not admin_member.user.check_password(password):
+        return JsonResponse({'success': False, 'error': _('Incorrect admin password.')}, status=400)
+
+    return JsonResponse({'success': True, 'message': _('Admin password verified.')})
 
 
 @require_http_methods(["POST"])

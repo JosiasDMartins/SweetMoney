@@ -63,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'finances.middleware.SetupRequiredMiddleware',
+    'finances.middleware.PostUpdateRequiredMiddleware',
 ]
 
 ROOT_URLCONF = 'wimm_project.urls'
@@ -324,6 +325,17 @@ AUTH_USER_MODEL = 'finances.CustomUser'
 
 # 2. Redireciona para o login se o usuário não estiver autenticado
 LOGIN_URL = '/login/'
+
+# 2a. Custom authentication backends
+# NonAdminModelBackend blocks direct login for ADMIN users; they must elevate
+# from a PARENT session via the "Admin Mode" button on the profile page.
+AUTHENTICATION_BACKENDS = [
+    'finances.backends.NonAdminModelBackend',
+]
+
+# username is intentionally non-unique so multiple families can each have
+# their own 'admin' user.  NonAdminModelBackend.authenticate() handles this.
+SILENCED_SYSTEM_CHECKS = ['auth.W004']
 
 # 3. Redireciona para o Dashboard (página inicial) após o login
 LOGIN_REDIRECT_URL = '/'

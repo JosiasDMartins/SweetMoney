@@ -812,14 +812,20 @@ window.saveIncomeItem = function(rowId) {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            // FIXED: Don't manually add the row here - WebSocket will handle it
-            // This prevents duplicate items (one from manual add + one from WebSocket broadcast)
+            // Render the actor's own row immediately from the AJAX response
+            // (issue #41). addTransaction/updateBalanceSheet dedupe by row id,
+            // so the later WebSocket broadcast of the same transaction is
+            // harmless: it hits the 'already exists' path and just refreshes
+            // the row. When the WebSocket is unavailable, the row still
+            // appears because it is added here.
+            if (data.transaction && window.DashboardRealtime && window.DashboardRealtime.addTransaction) {
+                window.DashboardRealtime.addTransaction(data.transaction);
+            }
 
-            // Just hide and reset the template row
+            // Hide and reset the template row
             cancelNewIncomeRow('new-income-template');
 
-            // Update balance sheet (WebSocket will update after adding the row)
-            // We do a small delay to ensure WebSocket has processed first
+            // Refresh the balance sheet totals from the server
             setTimeout(() => {
                 updateBalanceSheet();
             }, 100);

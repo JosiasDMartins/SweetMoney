@@ -15,6 +15,20 @@ from .currency_utils import ensure_period_exists
 logger = logging.getLogger(__name__)
 
 
+def find_card_in_period(family, source_group, new_period_start):
+    """Find the copy of a card (container FlowGroup) in another period.
+
+    Cards are matched by name within the same family. Returns the card or
+    None; callers copy linked groups with linked_card=None when no match
+    exists yet.
+    """
+    return FlowGroup.objects.filter(
+        family=family,
+        name=source_group.linked_card.name,
+        period_start_date=new_period_start,
+    ).first()
+
+
 def copy_previous_period_data(family, old_period_start, new_period_start, new_period_end):
     """
     Copies FlowGroups and their structure from one period to another.
@@ -22,10 +36,15 @@ def copy_previous_period_data(family, old_period_start, new_period_start, new_pe
 
     Returns the number of FlowGroups copied.
     """
-    # Get all FlowGroups from the old period
-    old_flow_groups = FlowGroup.objects.filter(
-        family=family,
-        period_start_date=old_period_start
+    # Get all FlowGroups from the old period.
+    # Cards (linked_card NULL) are copied first so linked groups can
+    # re-point to the card copy of the new period.
+    old_flow_groups = sorted(
+        list(FlowGroup.objects.filter(
+            family=family,
+            period_start_date=old_period_start
+        )),
+        key=lambda g: g.linked_card_id is not None
     )
 
     copied_count = 0
@@ -39,6 +58,16 @@ def copy_previous_period_data(family, old_period_start, new_period_start, new_pe
         ).first()
 
         if not existing:
+            # Resolve card link against the new period before copying
+            new_linked_card = None
+            if old_group.linked_card_id:
+                new_linked_card = find_card_in_period(family, old_group, new_period_start)
+                if new_linked_card is None:
+                    logger.warning(
+                        "Linked card '%s' not found in period %s; copying group '%s' without link",
+                        old_group.linked_card.name, new_period_start, old_group.name
+                    )
+
             # Create new FlowGroup for new period
             new_group = FlowGroup.objects.create(
                 family=family,
@@ -52,6 +81,8 @@ def copy_previous_period_data(family, old_period_start, new_period_start, new_pe
                 realized=False,  # Reset realized status
                 is_investment=old_group.is_investment,
                 is_credit_card=old_group.is_credit_card,  # Copy credit card flag
+                due_day=old_group.due_day,  # Carry credit card bill day
+                linked_card=new_linked_card,  # Re-point to the card of this period
                 closed=False,  # Reset closed status for new period
                 order=old_group.order
             )

@@ -18,7 +18,7 @@ from ..utils.notifications_utils import (
 )
 
 # Importações relativas do app (.. sobe um nível, de /views/ para /finances/)
-from ..models import Transaction, FlowGroup, FamilyMember, BankBalance, ShopList, ShopListItem, FLOW_TYPE_INCOME
+from ..models import Transaction, FlowGroup, FamilyMember, BankBalance, ShopList, ShopListItem, FLOW_TYPE_INCOME, EXPENSE_SECONDARY
 from ..utils import (
     current_period_has_data,
     copy_previous_period_data,
@@ -62,7 +62,20 @@ def reorder_flow_items_ajax(request):
         
         if not items_data:
             return JsonResponse({'error': _('No items data provided.')}, status=400)
-        
+
+        payload_ids = [d.get('id') for d in items_data if d.get('id')]
+        group_ids = set(
+            Transaction.objects.filter(
+                id__in=payload_ids,
+                flow_group__family=family
+            ).values_list('flow_group_id', flat=True)
+        )
+        if len(group_ids) > 1:
+            return JsonResponse(
+                {'error': _('All items must belong to the same Flow Group.')},
+                status=400
+            )
+
         for item_data in items_data:
             item_id = item_data.get('id')
             new_order = item_data.get('order')
@@ -262,6 +275,10 @@ def save_flow_item_ajax(request):
             'member_name': transaction.member.user.username,
             'realized': transaction.realized,
             'is_fixed': transaction.is_fixed,
+            # Full payload in the same shape as the WebSocket broadcast, so the
+            # actor's client can render the row immediately without waiting
+            # for (or depending on) the broadcast (issue #41).
+            'transaction': WebSocketBroadcaster.transaction_payload(transaction),
         })
 
     except ValueError as e:
@@ -459,6 +476,262 @@ def toggle_credit_card_closed_ajax(request):
         return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
 
 
+def _serialize_credit_card(card):
+    """Serialize a card (container FlowGroup) for JSON responses."""
+    return {
+        'id': card.id,
+        'name': card.name,
+        'due_day': card.due_day,
+        'is_shared': card.is_shared,
+        'closed': card.closed,
+        'order': card.order,
+        'period_start_date': card.period_start_date.isoformat(),
+    }
+
+
+def _validate_credit_card_payload(family, data, exclude_id=None):
+    """Validate shared fields for card create/update.
+
+    Returns (name, due_day, is_shared, budget_decimal, assigned_ids, error_response).
+    error_response is None when validation passes.
+    """
+    name = (data.get('name') or '').strip()
+    if not name:
+        return None, None, None, None, None, JsonResponse(
+            {'error': _('Card name is required.')}, status=400)
+
+    due_day_raw = data.get('due_day')
+    try:
+        due_day = int(due_day_raw)
+    except (TypeError, ValueError):
+        return None, None, None, None, None, JsonResponse(
+            {'error': _('Due day must be a number between 1 and 31.')}, status=400)
+    if not 1 <= due_day <= 31:
+        return None, None, None, None, None, JsonResponse(
+            {'error': _('Due day must be a number between 1 and 31.')}, status=400)
+
+    is_shared = bool(data.get('is_shared', False))
+
+    budget_str = data.get('budgeted_amount')
+    budget_decimal = Decimal('0.00')
+    if budget_str not in (None, ''):
+        try:
+            budget_decimal = normalize_decimal_input(budget_str)
+        except (ValueError, decimal.InvalidOperation, InvalidOperation):
+            return None, None, None, None, None, JsonResponse(
+                {'error': _('Invalid amount format: %(amount)s') % {'amount': budget_str}},
+                status=400)
+
+    assigned_ids = data.get('assigned_member_ids') or []
+    if is_shared and assigned_ids:
+        valid_ids = set(FamilyMember.objects.filter(
+            family=family, id__in=assigned_ids
+        ).values_list('id', flat=True))
+        assigned_ids = [aid for aid in assigned_ids if aid in valid_ids]
+
+    return name, due_day, is_shared, budget_decimal, assigned_ids, None
+
+
+@login_required
+@require_POST
+@db_transaction.atomic
+def create_credit_card_ajax(request):
+    """AJAX: Creates a credit card (container FlowGroup) for the current period."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    if current_member.role not in ['ADMIN', 'PARENT']:
+        return HttpResponseForbidden(_("Only Parents and Admins can manage credit cards."))
+
+    try:
+        data = json.loads(request.body)
+        name, due_day, is_shared, budget_decimal, assigned_ids, error = \
+            _validate_credit_card_payload(family, data)
+        if error is not None:
+            return error
+
+        start_date, end_date, _unused_label = get_current_period_dates(family)
+
+        if FlowGroup.objects.filter(
+            family=family, name=name, period_start_date=start_date
+        ).exists():
+            return JsonResponse(
+                {'error': _('A Flow Group with the name \'%(name)s\' already exists in this period.') % {'name': name}},
+                status=400)
+
+        currency = get_period_currency(family, start_date)
+        card = FlowGroup.objects.create(
+            family=family,
+            owner=request.user,
+            name=name,
+            group_type=EXPENSE_SECONDARY,
+            budgeted_amount=Money(budget_decimal, currency),
+            period_start_date=start_date,
+            is_shared=is_shared,
+            is_credit_card=True,
+            due_day=due_day,
+            closed=False,
+            is_recurring=True,
+            order=0
+        )
+
+        if is_shared:
+            if assigned_ids:
+                card.assigned_members.set(
+                    FamilyMember.objects.filter(family=family, id__in=assigned_ids))
+            else:
+                parents_admins = FamilyMember.objects.filter(
+                    family=family, role__in=['ADMIN', 'PARENT'])
+                card.assigned_members.set(parents_admins)
+            if not card.assigned_members.filter(user=request.user).exists():
+                card.assigned_members.add(current_member)
+
+        # Real-time WebSocket broadcast
+        try:
+            db_transaction.on_commit(lambda: WebSocketBroadcaster.broadcast_flowgroup_created(
+                flowgroup=card,
+                actor_user=request.user
+            ))
+        except Exception as e:
+            print(f"[WebSocket] Broadcast error: {e}")
+
+        return JsonResponse({
+            'status': 'success',
+            'credit_card': _serialize_credit_card(card)
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+@require_POST
+@db_transaction.atomic
+def update_credit_card_ajax(request):
+    """AJAX: Updates name, due_day and sharing of a credit card."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    if current_member.role not in ['ADMIN', 'PARENT']:
+        return HttpResponseForbidden(_("Only Parents and Admins can manage credit cards."))
+
+    try:
+        data = json.loads(request.body)
+        card_id = data.get('credit_card_id')
+        if not card_id:
+            return JsonResponse({'error': _('Missing credit_card_id.')}, status=400)
+
+        card = get_object_or_404(FlowGroup, id=card_id, family=family)
+        if not card.is_card:
+            return JsonResponse({'error': _('This Flow Group is not a credit card.')}, status=400)
+
+        name, due_day, is_shared, budget_decimal, assigned_ids, error = \
+            _validate_credit_card_payload(family, data, exclude_id=card.id)
+        if error is not None:
+            return error
+
+        duplicate = FlowGroup.objects.filter(
+            family=family, name=name,
+            period_start_date=card.period_start_date
+        ).exclude(id=card.id).exists()
+        if duplicate:
+            return JsonResponse(
+                {'error': _('A Flow Group with the name \'%(name)s\' already exists in this period.') % {'name': name}},
+                status=400)
+
+        card.name = name
+        card.due_day = due_day
+        card.is_shared = is_shared
+
+        if is_shared:
+            if assigned_ids:
+                card.assigned_members.set(
+                    FamilyMember.objects.filter(family=family, id__in=assigned_ids))
+            else:
+                parents_admins = FamilyMember.objects.filter(
+                    family=family, role__in=['ADMIN', 'PARENT'])
+                card.assigned_members.set(parents_admins)
+            if not card.assigned_members.filter(user=request.user).exists():
+                card.assigned_members.add(current_member)
+        else:
+            card.assigned_members.clear()
+
+        card.save()
+
+        # Real-time WebSocket broadcast
+        try:
+            db_transaction.on_commit(lambda: WebSocketBroadcaster.broadcast_credit_card_updated(
+                card=card,
+                actor_user=request.user
+            ))
+        except Exception as e:
+            print(f"[WebSocket] Broadcast error: {e}")
+
+        return JsonResponse({
+            'status': 'success',
+            'credit_card': _serialize_credit_card(card)
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+def list_credit_cards_ajax(request):
+    """AJAX: Lists the family's credit cards for a period (default: current)."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    try:
+        query_period = request.GET.get('period')
+        start_date, end_date, _unused_label = get_current_period_dates(family, query_period)
+
+        cards = FlowGroup.objects.filter(
+            family=family,
+            period_start_date=start_date,
+            is_credit_card=True,
+            linked_card__isnull=True
+        ).order_by('order', 'name')
+
+        from ..utils.credit_card_utils import get_card_bill_total
+
+        include_totals = request.GET.get('include_totals') == '1'
+        serialized = []
+        if include_totals:
+            from ..utils.credit_card_utils import is_card_bill_overdue
+        for card in cards:
+            card_data = _serialize_credit_card(card)
+            if include_totals:
+                bill_total = get_card_bill_total(card, start_date)
+                budgeted = money_to_decimal(card.budgeted_amount)
+                card_data['bill_total'] = str(bill_total)
+                card_data['bill_overdue'] = is_card_bill_overdue(card, start_date)
+                card_data['over_budget'] = bool(budgeted) and bill_total > budgeted
+                card_data['budgeted_amount'] = str(budgeted)
+            serialized.append(card_data)
+
+        return JsonResponse({
+            'status': 'success',
+            'period_start_date': start_date.isoformat(),
+            'credit_cards': serialized
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
 @login_required
 @require_POST
 @db_transaction.atomic
@@ -644,8 +917,22 @@ def copy_previous_period_ajax(request):
     try:
         if current_period_has_data(family):
             return JsonResponse({'error': _('Current period already has data. Cannot copy.')}, status=400)
-        
-        result = copy_previous_period_data(family, exclude_child_data=True)
+
+        from datetime import timedelta as _timedelta
+        from ..utils.period_utils import calculate_period_for_date
+
+        start_date, end_date, _unused = get_current_period_dates(family)
+        previous_day = start_date - _timedelta(days=1)
+        config = getattr(family, 'configuration', None)
+        period_type = config.period_type if config else 'M'
+        starting_day = config.starting_day if config else 1
+        base_date = config.base_date if config else start_date
+        previous_start, _prev_end = calculate_period_for_date(
+            family, previous_day, period_type,
+            starting_day=starting_day, base_date=base_date
+        )
+
+        result = copy_previous_period_data(family, previous_start, start_date, end_date)
         
         return JsonResponse({
             'status': 'success',

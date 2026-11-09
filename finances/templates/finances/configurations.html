@@ -266,7 +266,7 @@
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                             {% for item in members_with_permissions %}
                             <tr class="hover:bg-slate-50 dark:hover:bg-gray-700/50" data-member-id="{{ item.member.id }}">
-                                <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white">{{ item.member.user.username }}</td>
+                                <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white">{% if item.member.role == 'ADMIN' %}admin{% else %}{{ item.member.user.username }}{% endif %}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">{{ item.member.user.email|default:"-" }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">
                                     <span class="px-2 py-1 text-sm font-medium rounded-full bg-primary/20 text-primary">{{ item.member.get_role_display }}</span>
@@ -594,12 +594,6 @@
 
                             <div id="updates-available" class="hidden">
                                 <!-- ... (conteúdo de 'updates-available') ... -->
-                            </div>
-
-                            <div id="local-update-pending" class="hidden text-center text-orange-600 dark:text-orange-400">
-                                <span class="material-symbols-outlined text-4xl mb-2">construction</span>
-                                <p class="font-medium">{% trans "Local updates pending" %}</p>
-                                <p class="text-sm mt-1">{% trans "Please apply local updates first before checking for online updates." %}</p>
                             </div>
                         </div>
                     </div>

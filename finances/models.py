@@ -2,10 +2,11 @@
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core import checks
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone 
-from decimal import Decimal 
+from django.utils import timezone
+from decimal import Decimal
 from djmoney.models.fields import MoneyField
 from moneyed import Money
 
@@ -20,6 +21,16 @@ FLOW_TYPE_EXPENSE = [EXPENSE_MAIN, EXPENSE_SECONDARY]
 
 # --- Custom User Model ---
 class CustomUser(AbstractUser):
+    # Override username to remove unique=True, allowing multiple "admin" users (one per family)
+    username = models.CharField(
+        max_length=150,
+        unique=False,
+        help_text=_('Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.'),
+        validators=[AbstractUser.username_validator],
+        error_messages={
+            'max_length': _('Ensure this value has at most 150 characters (it has %(show_value)s).'),
+        },
+    )
     language = models.CharField(
         max_length=10,
         default='en',
@@ -314,6 +325,26 @@ class FlowGroup(models.Model):
         help_text=_("For credit card groups: marks if the bill has been closed and paid")
     )
 
+    # NEW: Credit card bill fields (v1.7.2 Credit Cards feature)
+    # due_day: day of the month the card bill closes (1-31; months without
+    # that day use the last day of the month). Cards created by the Credit
+    # Cards dashboard box always have due_day set; legacy credit-card groups
+    # migrated by the OTA script keep it NULL until the user defines it.
+    due_day = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(31)],
+        help_text=_("Day of the month the credit card bill closes (cards only)")
+    )
+    # linked_card: for a credit-card expense group created in the FlowGroups
+    # session, the card (container FlowGroup) its expenses feed. A card
+    # itself never has linked_card set.
+    linked_card = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='linked_groups',
+        limit_choices_to={'is_credit_card': True},
+        help_text=_("Card this credit-card FlowGroup is attached to")
+    )
+
     # NEW: Recurring flag - when checked, FlowGroup is copied to new periods
     is_recurring = models.BooleanField(
         default=False,
@@ -330,6 +361,12 @@ class FlowGroup(models.Model):
         
     def __str__(self):
         return f"{self.name} ({self.family.name}) - {self.period_start_date}"
+
+    @property
+    def is_card(self):
+        """A card (container) is a credit-card FlowGroup not linked to another card."""
+        return self.is_credit_card and self.linked_card_id is None
+    
     
 class Transaction(models.Model):
     """Individual financial entry."""

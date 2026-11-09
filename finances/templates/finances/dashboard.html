@@ -19,6 +19,13 @@
      data-url-save-item="{% url 'save_flow_item_ajax' %}"
      data-url-reorder-income="{% url 'reorder_income_items_ajax' %}"
      data-url-reorder-flowgroups="{% url 'reorder_flow_groups_ajax' %}"
+     data-url-credit-card-create="{% url 'create_credit_card_ajax' %}"
+     data-url-credit-card-update="{% url 'update_credit_card_ajax' %}"
+     data-url-credit-card-list="{% url 'list_credit_cards_ajax' %}"
+     data-url-credit-card-toggle-closed="{% url 'toggle_credit_card_closed_ajax' %}"
+     data-url-credit-card-delete="{% url 'delete_flow_group' 0 %}"
+     data-url-edit-flow-group-base="{% url 'edit_flow_group' 0 %}"
+     data-can-manage-credit-cards="{{ can_manage_credit_cards|yesno:'true,false' }}"
      data-url-balance-summary="{% url 'get_balance_summary_ajax' %}"
      data-url-ytd-metrics="{% url 'get_ytd_metrics_ajax' %}"
      data-i18n-delete-confirm="{% trans 'Are you sure you want to delete this item?' %}"
@@ -151,6 +158,12 @@
                                             <span class="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full mobile-hide-badge">{% trans "No Access" %}</span>
                                         {% endif %}
                                     </div>
+                                    {% if group.linked_card_name %}
+                                        <div class="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">credit_card</span>
+                                            <span data-linked-card-name>&rarr; {{ group.linked_card_name }}</span>
+                                        </div>
+                                    {% endif %}
                                     {% if group.budget_warning %}
                                         <div class="overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium">{% trans "⚠ Over budget" %}</div>
                                     {% endif %}
@@ -183,6 +196,100 @@
         </div>
 
         <div class="lg:col-span-2 space-y-6">
+
+            {% comment %} Credit Cards box (v1.7.2) {% endcomment %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-xl font-bold text-[#0d171b] dark:text-white">{% trans "Credit Cards" %}</h2>
+                    {% if can_manage_credit_cards %}
+                    <button type="button" data-action="add-credit-card" class="flex items-center rounded-lg bg-purple-600 text-white text-sm font-medium leading-normal p-2 hover:bg-purple-700 transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-lg mr-1">add_circle</span>
+                        {% trans "Add Credit Card" %}
+                    </button>
+                    {% endif %}
+                </div>
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                        <tr>
+                            <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" style="width: 40px;"></th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{% trans "Card" %}</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{% trans "Current Bill" %}</th>
+                            <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mobile-hide-column">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="credit-cards-body" class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for card in credit_cards %}
+                        <tr id="credit-card-{{ card.id }}"
+                            data-card-id="{{ card.id }}"
+                            data-card-name="{{ card.name }}"
+                            data-card-due-day="{{ card.due_day|default:'' }}"
+                            data-card-shared="{{ card.is_shared|yesno:'true,false' }}"
+                            data-card-closed="{{ card.closed|yesno:'true,false' }}"
+                            data-card-overdue="{{ card.bill_overdue|yesno:'true,false' }}"
+                            data-card-over-budget="{{ card.over_budget|yesno:'true,false' }}"
+                            data-card-order="{{ card.order }}"
+                            draggable="true"
+                            class="draggable-card-row cursor-pointer {% if card.closed %}opacity-60{% endif %} hover:bg-slate-50 dark:hover:bg-gray-700/50">
+
+                            <td class="px-2 py-4 text-center drag-handle-cell-card">
+                                <span class="material-symbols-outlined text-gray-400 dark:text-gray-500 drag-handle-card cursor-grab active:cursor-grabbing">drag_indicator</span>
+                            </td>
+
+                            <td class="card-info-cell py-3 px-3 text-sm text-[#0d171b] dark:text-white">
+                                <div class="font-medium">{{ card.name }}</div>
+                                <div class="card-due-info text-xs flex items-center gap-2 flex-wrap mt-0.5">
+                                    {% if card.due_day %}
+                                        <span class="text-gray-500 dark:text-gray-400">{% blocktrans with day=card.due_day %}Closes on day {{ day }}{% endblocktrans %}</span>
+                                        {% if card.bill_overdue %}
+                                        <span class="card-overdue-badge inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium" title="{% trans 'The bill closing date has passed. Review the bill and close it.' %}">
+                                            <span class="material-symbols-outlined text-sm">error</span>{% trans "Bill past due" %}
+                                        </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">warning</span>
+                                            {% trans "Set closing date" %}
+                                        </span>
+                                    {% endif %}
+                                    {% if card.closed %}
+                                        <span class="card-closed-badge inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-medium">
+                                            <span class="material-symbols-outlined text-sm">lock</span>{% trans "Bill closed" %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                {% if card.over_budget %}
+                                <div class="overbudget-warning text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-0.5">{% trans "⚠ Over budget" %}</div>
+                                {% endif %}
+                            </td>
+
+                            <td class="py-3 px-3 text-sm text-right text-red-600 dark:text-red-500 font-semibold" data-card-total="{{ card.bill_total|stringformat:'.2f' }}">
+                                {{ currency_symbol }} {{ card.bill_total|format_amount }}
+                            </td>
+
+                            <td class="py-3 px-2 text-center whitespace-nowrap mobile-hide-column">
+                                <div class="flex items-center justify-center gap-1">
+                                    {% if can_manage_credit_cards %}
+                                    <button type="button" data-action="edit-credit-card" data-card-id="{{ card.id }}" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-500" title="{% trans 'Edit card' %}">
+                                        <span class="material-symbols-outlined text-lg">edit</span>
+                                    </button>
+                                    <button type="button" data-action="toggle-card-closed" data-card-id="{{ card.id }}" data-card-closed="{{ card.closed|yesno:'true,false' }}" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-500 dark:text-orange-400" title="{% if card.closed %}{% trans 'Reopen bill' %}{% else %}{% trans 'Close bill' %}{% endif %}">
+                                        <span class="material-symbols-outlined text-lg">{% if card.closed %}lock_open{% else %}lock{% endif %}</span>
+                                    </button>
+                                    <button type="button" data-action="delete-credit-card" data-card-id="{{ card.id }}" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-500" title="{% trans 'Delete card' %}">
+                                        <span class="material-symbols-outlined text-lg">delete</span>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="py-4 px-4 text-center text-gray-500">{% trans "No credit cards yet." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
@@ -451,8 +558,36 @@
 <script src="{% static 'finances/js/chart.umd.min.js' %}" defer></script>
 <script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
 <script src="{% static 'finances/js/calculator.js' %}?v=20260219-3" defer></script>
-<script src="{% static 'finances/js/dashboard.js' %}?v=20260615-1" defer></script>
-<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20260219-6" defer></script>
+<script src="{% static 'finances/js/dashboard.js' %}?v=20261106-1" defer></script>
+<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20261104-001" defer></script>
+<script src="{% static 'finances/js/credit_cards.js' %}?v=20261105-002" defer></script>
+
+<script type="application/json" id="credit-cards-i18n">
+{
+    "addCard": "{% trans 'Add Credit Card' %}",
+    "editCard": "{% trans 'Edit Card' %}",
+    "cardName": "{% trans 'Card name' %}",
+    "shared": "{% trans 'Shared' %}",
+    "dueDate": "{% trans 'Due Date' %}",
+    "dueDayHint": "{% trans 'Day of the month the bill closes (1-31)' %}",
+    "budgetedAmount": "{% trans 'Budgeted amount (optional)' %}",
+    "save": "{% trans 'Save' %}",
+    "cancel": "{% trans 'Cancel' %}",
+    "closeBillConfirm": "{% trans 'Close the bill for this card?' %}",
+    "reopenBillConfirm": "{% trans 'Reopen the bill for this card?' %}",
+    "deleteCardConfirm": "{% trans 'Delete this credit card and all its transactions?' %}",
+    "errorNetwork": "{% trans 'Network error. Please try again.' %}",
+    "errorInvalidDueDay": "{% trans 'Due day must be a number between 1 and 31.' %}",
+    "errorNameRequired": "{% trans 'Card name is required.' %}",
+    "setClosingDate": "{% trans 'Set closing date' %}",
+    "billClosed": "{% trans 'Bill closed' %}",
+    "billPastDue": "{% trans 'Bill past due' %}",
+    "billPastDueTitle": "{% trans 'The bill closing date has passed. Review the bill and close it.' %}",
+    "overBudget": "{% trans '⚠ Over budget' %}",
+    "noCards": "{% trans 'No credit cards yet.' %}",
+    "closesOnDay": "{% blocktrans with day='%(day)s' %}Closes on day {{ day }}{% endblocktrans %}"
+}
+</script>
 
 <!-- REMOVED INLINE SCRIPTS - CSP Phase 3 Complete -->
 <!-- All JavaScript code moved to external files for CSP compliance -->

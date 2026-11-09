@@ -289,3 +289,67 @@ class SetupRequiredMiddleware:
         # Users exist - continue normal flow
         response = self.get_response(request)
         return response
+
+
+class PostUpdateRequiredMiddleware:
+    """
+    Locks the whole system while an update is waiting to be finalized.
+
+    The condition SystemVersion (DB) != VERSION (code) means "update files
+    applied, waiting for post-update finalization" — true on the first
+    startup after an OTA update (local or GitHub) or after restoring a
+    backup taken on an older version. Every request is redirected to
+    /post-update/, where migrations/scripts run and corrective steps are
+    executed; the version is written (system unlocked) only when the user
+    finalizes the post-update screen.
+
+    Runs AFTER SetupRequiredMiddleware (a fresh install finalizes its
+    version during setup and never sees this screen).
+    """
+
+    # Paths always accessible while the system is locked
+    ALWAYS_ALLOWED_PREFIXES = ('/static/', '/post-update/')
+    ALWAYS_ALLOWED_PATHS = (
+        '/api/health-check/',
+        '/manifest.json',
+        '/serviceworker.js',
+        '/offline/',
+        '/setup/',
+        '/restore-backup/',
+        '/auth/logout/',
+        '/auth/logged-out/',
+        '/logout/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        current_path = request.path
+
+        for prefix in self.ALWAYS_ALLOWED_PREFIXES:
+            if current_path.startswith(prefix):
+                return self.get_response(request)
+
+        if current_path in self.ALWAYS_ALLOWED_PATHS:
+            return self.get_response(request)
+
+        try:
+            from .models import SystemVersion
+            from .context_processors import VERSION
+
+            db_version = SystemVersion.get_current_version()
+        except Exception as e:
+            # DB not ready (missing tables, locked, etc.) — let the normal
+            # flow (setup view / error handling) deal with it.
+            logger.debug(f"[POST_UPDATE] Skipping check, DB not accessible: {e}")
+            return self.get_response(request)
+
+        if db_version == VERSION:
+            return self.get_response(request)
+
+        logger.info(
+            f"[POST_UPDATE] DB version {db_version} != code version {VERSION} "
+            f"for path {current_path} — redirecting to post-update screen"
+        )
+        return redirect('post_update')

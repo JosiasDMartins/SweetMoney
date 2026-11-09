@@ -68,8 +68,15 @@ class WebSocketBroadcaster:
             traceback.print_exc()
 
     @staticmethod
-    def broadcast_transaction_created(transaction, actor_user):
-        """Broadcast transaction creation"""
+    def transaction_payload(transaction):
+        """Build the canonical serialized form of a transaction.
+
+        Used by both the WebSocket broadcast (transaction_created /
+        transaction_updated) and the AJAX save responses, so the client can
+        render the same row shape no matter which channel delivered the
+        data (issue #41: the actor's own client must not depend on the
+        WebSocket broadcast to see its own save).
+        """
         from .views.views_utils import get_currency_symbol
 
         # Extract numeric amount and currency code
@@ -77,28 +84,37 @@ class WebSocketBroadcaster:
         currency_code = transaction.amount.currency.code
         currency_symbol = get_currency_symbol(currency_code)
 
+        return {
+            'id': transaction.id,
+            'description': transaction.description,
+            'amount': amount_value,
+            'currency': currency_code,
+            'currency_symbol': currency_symbol,
+            'date': transaction.date.isoformat(),
+            'realized': transaction.realized,
+            'is_income': transaction.flow_group.group_type == 'INCOME',
+            'is_investment': transaction.flow_group.is_investment,
+            'is_fixed': getattr(transaction, 'is_fixed', False),
+            'flow_group': {
+                'id': transaction.flow_group.id,
+                'name': transaction.flow_group.name,
+                'type': transaction.flow_group.group_type,
+                'is_credit_card': transaction.flow_group.is_credit_card,
+                'is_card': transaction.flow_group.is_card,
+                'linked_card_id': transaction.flow_group.linked_card_id,
+                'due_day': transaction.flow_group.due_day,
+            },
+            'member': transaction.member.user.username if transaction.member else None,
+            'member_id': transaction.member.id if transaction.member else None,
+        }
+
+    @staticmethod
+    def broadcast_transaction_created(transaction, actor_user):
+        """Broadcast transaction creation"""
         WebSocketBroadcaster.broadcast_to_family(
             family_id=transaction.flow_group.family.id,
             message_type='transaction_created',
-            data={
-                'id': transaction.id,
-                'description': transaction.description,
-                'amount': amount_value,
-                'currency': currency_code,
-                'currency_symbol': currency_symbol,
-                'date': transaction.date.isoformat(),
-                'realized': transaction.realized,
-                'is_income': transaction.flow_group.group_type == 'INCOME',
-                'is_investment': transaction.flow_group.is_investment,
-                'is_fixed': getattr(transaction, 'is_fixed', False),
-                'flow_group': {
-                    'id': transaction.flow_group.id,
-                    'name': transaction.flow_group.name,
-                    'type': transaction.flow_group.group_type,
-                },
-                'member': transaction.member.user.username if transaction.member else None,
-                'member_id': transaction.member.id if transaction.member else None,
-            },
+            data=WebSocketBroadcaster.transaction_payload(transaction),
             actor_user=actor_user
         )
 
@@ -130,6 +146,10 @@ class WebSocketBroadcaster:
                     'id': transaction.flow_group.id,
                     'name': transaction.flow_group.name,
                     'type': transaction.flow_group.group_type,
+                    'is_credit_card': transaction.flow_group.is_credit_card,
+                    'is_card': transaction.flow_group.is_card,
+                    'linked_card_id': transaction.flow_group.linked_card_id,
+                    'due_day': transaction.flow_group.due_day,
                 },
                 'member': transaction.member.user.username if transaction.member else None,
                 'member_id': transaction.member.id if transaction.member else None,
@@ -154,10 +174,53 @@ class WebSocketBroadcaster:
     @staticmethod
     def broadcast_flowgroup_updated(flowgroup, actor_user):
         """Broadcast FlowGroup update"""
-        from decimal import Decimal
-        from django.db.models import Sum, Q
+        data = WebSocketBroadcaster._flowgroup_payload(flowgroup)
+        WebSocketBroadcaster.broadcast_to_family(
+            family_id=flowgroup.family.id,
+            message_type='flowgroup_updated',
+            data=data,
+            actor_user=actor_user
+        )
 
-        # Calculate totals for this FlowGroup
+    @staticmethod
+    def broadcast_flowgroup_created(flowgroup, actor_user):
+        """Broadcast FlowGroup creation (full payload, created message type)"""
+        data = WebSocketBroadcaster._flowgroup_payload(flowgroup)
+        WebSocketBroadcaster.broadcast_to_family(
+            family_id=flowgroup.family.id,
+            message_type='flowgroup_created',
+            data=data,
+            actor_user=actor_user
+        )
+
+    @staticmethod
+    def broadcast_credit_card_updated(card, actor_user):
+        """Broadcast credit card (container FlowGroup) update"""
+        data = WebSocketBroadcaster._flowgroup_payload(card)
+        data['credit_card'] = WebSocketBroadcaster._credit_card_summary(card)
+        WebSocketBroadcaster.broadcast_to_family(
+            family_id=card.family.id,
+            message_type='credit_card_updated',
+            data=data,
+            actor_user=actor_user
+        )
+
+    @staticmethod
+    def broadcast_credit_card_deleted(card_id, family_id, actor_user=None):
+        """Broadcast credit card deletion"""
+        WebSocketBroadcaster.broadcast_to_family(
+            family_id=family_id,
+            message_type='credit_card_deleted',
+            data={'id': card_id},
+            actor_user=actor_user
+        )
+
+    @staticmethod
+    def _flowgroup_payload(flowgroup):
+        """Build the shared FlowGroup broadcast payload."""
+        from decimal import Decimal
+        from django.db.models import Sum
+
         estimated_total = Decimal('0.00')
         realized_total = Decimal('0.00')
 
@@ -168,42 +231,51 @@ class WebSocketBroadcaster:
             if transaction.realized:
                 realized_total += amount
 
-        # Prepare assigned members and children lists
         assigned_members = list(flowgroup.assigned_members.values_list('id', flat=True))
         assigned_children = list(flowgroup.assigned_children.values_list('id', flat=True))
 
-        # Calculate budget warning (only for expense groups)
-        # Compare ESTIMATED (all transactions) vs budgeted, not just realized
         budgeted = flowgroup.budgeted_amount.amount if flowgroup.budgeted_amount else Decimal('0.00')
         budget_warning = False
         if flowgroup.group_type in ['EXPENSE_MAIN', 'EXPENSE_SECONDARY']:
             budget_warning = estimated_total > budgeted
-            print(f"[BROADCAST] FlowGroup {flowgroup.id} ({flowgroup.name}): estimated={estimated_total}, budgeted={budgeted}, budget_warning={budget_warning}")
 
-        WebSocketBroadcaster.broadcast_to_family(
-            family_id=flowgroup.family.id,
-            message_type='flowgroup_updated',
-            data={
-                'id': flowgroup.id,
-                'name': flowgroup.name,
-                'owner_id': flowgroup.owner_id if hasattr(flowgroup, 'owner_id') else None,  # For accessibility check
-                'budgeted_amount': str(flowgroup.budgeted_amount.amount) if flowgroup.budgeted_amount else '0.00',
-                'currency': flowgroup.budgeted_amount.currency.code if flowgroup.budgeted_amount else '',
-                'total_estimated': str(estimated_total),
-                'total_realized': str(realized_total),
-                'budget_warning': budget_warning,
-                'is_shared': flowgroup.is_shared,
-                'is_kids_group': flowgroup.is_kids_group,
-                'is_investment': flowgroup.is_investment,
-                'is_credit_card': flowgroup.is_credit_card,
-                'is_recurring': flowgroup.is_recurring,
-                'realized': flowgroup.realized,  # For kids groups
-                'closed': flowgroup.closed if hasattr(flowgroup, 'closed') else False,  # For credit cards
-                'assigned_members': assigned_members,
-                'assigned_children': assigned_children,
-            },
-            actor_user=actor_user
-        )
+        return {
+            'id': flowgroup.id,
+            'name': flowgroup.name,
+            'owner_id': flowgroup.owner_id if hasattr(flowgroup, 'owner_id') else None,
+            'budgeted_amount': str(flowgroup.budgeted_amount.amount) if flowgroup.budgeted_amount else '0.00',
+            'currency': flowgroup.budgeted_amount.currency.code if flowgroup.budgeted_amount else '',
+            'total_estimated': str(estimated_total),
+            'total_realized': str(realized_total),
+            'budget_warning': budget_warning,
+            'is_shared': flowgroup.is_shared,
+            'is_kids_group': flowgroup.is_kids_group,
+            'is_investment': flowgroup.is_investment,
+            'is_credit_card': flowgroup.is_credit_card,
+            'is_recurring': flowgroup.is_recurring,
+            'realized': flowgroup.realized,
+            'closed': flowgroup.closed if hasattr(flowgroup, 'closed') else False,
+            'due_day': flowgroup.due_day,
+            'linked_card_id': flowgroup.linked_card_id,
+            'linked_card_name': (
+                flowgroup.linked_card.name if flowgroup.linked_card_id else None
+            ),
+            'assigned_members': assigned_members,
+            'assigned_children': assigned_children,
+        }
+
+    @staticmethod
+    def _credit_card_summary(card):
+        """Compact card summary for credit-card specific events."""
+        return {
+            'id': card.id,
+            'name': card.name,
+            'due_day': card.due_day,
+            'is_shared': card.is_shared,
+            'closed': card.closed,
+            'order': card.order,
+            'period_start_date': card.period_start_date.isoformat(),
+        }
 
     @staticmethod
     def broadcast_bank_balance_updated(bank_balance, actor_user):

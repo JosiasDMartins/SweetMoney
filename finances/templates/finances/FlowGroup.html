@@ -107,24 +107,34 @@
             <div class="flex flex-col gap-6">
 
                 <!-- Group Name and Budgeted Amount in same row - using flexbox -->
-                <div class="flex flex-row gap-4 items-start">
-                    <div>
+                <div class="flex flex-row flex-wrap gap-4 items-start">
+                    <div style="flex: 0 1 200px; max-width: 100%; min-width: 0;">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="{{ form.name.id_for_label }}">{% trans "Group Name" %}</label>
-                        <div style="width: 200px;">
+                        <div style="width: 100%;">
                             {{ form.name }}
                         </div>
                     </div>
-                    <div>
+                    <div style="flex: 0 1 150px; max-width: 100%; min-width: 0;">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="{{ form.budgeted_amount.id_for_label }}">
                             {% trans "Budgeted Amount" %} ($)
                             {% if current_member.role == 'CHILD' %}
                             <span class="text-xs text-gray-500">({% trans "Read-only for children" %})</span>
                             {% endif %}
                         </label>
-                        <div style="width: 150px;">
+                        <div style="width: 100%;">
                             {{ form.budgeted_amount }}
                         </div>
                     </div>
+                    {% if is_card_view %}
+                    <div style="flex: 0 1 110px; max-width: 100%; min-width: 0;">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="{{ form.due_day.id_for_label }}">
+                            {% trans "Bill closing day" %}
+                        </label>
+                        <div style="width: 100%;">
+                            {{ form.due_day }}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
 
                 <!-- Mobile: Buttons below name/budget fields -->
@@ -238,7 +248,7 @@
                                 {% endfor %}
                             </div>
 
-                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer">
+                            <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer {% if is_card_view %}hidden{% endif %}">
                                 <input class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                        id="id_is_kids_group"
                                        name="is_kids_group"
@@ -263,7 +273,7 @@
                                 {% endfor %}
                             </div>
 
-                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer">
+                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer {% if is_card_view %}hidden{% endif %}">
                             <input class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                    id="id_is_investment"
                                    name="is_investment"
@@ -272,7 +282,7 @@
                             <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">{% trans "Investment" %}</span>
                         </label>
 
-                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer">
+                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-700/50 cursor-pointer {% if is_card_view %}hidden{% endif %}">
                             <input class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                    id="id_is_credit_card"
                                    name="is_credit_card"
@@ -281,6 +291,11 @@
                                    {% if flow_group.is_credit_card %}checked{% endif %}>
                             <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">{% trans "Credit Card" %}</span>
                         </label>
+
+                        <div id="linked-card-container" class="w-full flex items-center gap-2 flex-wrap" style="display: {% if flow_group.is_credit_card and not is_card_view %}flex{% else %}none{% endif %};">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="id_linked_card">{% trans "Credit card" %}</label>
+                            {{ form.linked_card }}
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -442,11 +457,68 @@
                             </td>
                         </tr>
                         {% empty %}
+                        {% if not linked_transactions %}
                         <tr id="empty-state-row">
                             <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                                 {% trans "No transactions found for this Flow Group." %}
                             </td>
                         </tr>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% for item in linked_transactions %}
+                        {% with t=item.transaction %}
+                        <tr id="item-{{ t.id }}"
+                            data-item-id="{{ t.id }}"
+                            data-mode="display"
+                            data-readonly="true"
+                            data-realized="{{ t.realized|yesno:'true,false' }}"
+                            data-amount="{{ t.amount.amount|default:t.amount|default:'0.00' }}"
+                            draggable="false"
+                            class="{% if item.origin_group %}linked-expense-row{% else %}carryover-expense-row{% endif %} {% if t.realized %}row-realized{% else %}row-not-realized{% endif %}">
+                            <td class="px-2 py-4 text-center"></td>
+                            <td class="px-6 py-4 font-medium text-[#0d171b] dark:text-white cell-description-display">
+                                {{ t.description }}
+                                {% if item.origin_group %}
+                                <a href="{{ item.origin_url }}" class="linked-origin-badge block text-xs text-amber-600 dark:text-amber-400 font-medium mt-1" title="{% trans 'Open origin Flow Group' %}">
+                                    <span class="material-symbols-outlined text-sm align-middle">folder</span>
+                                    <span class="align-middle">&larr; {{ item.origin_group.name }}</span>
+                                </a>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500 cell-date-display">
+                                <span class="date-full">{{ t.date|date:"Y-m-d" }}</span>
+                                <span class="date-short">{{ t.date|date:"d/m" }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500 cell-member-display" data-member-id="{{ t.member.id }}">
+                                {{ t.member.user.username }}
+                            </td>
+                            <td class="px-6 py-4 mobile-hide-column">
+                                <div class="flex items-center justify-center w-full">
+                                    {% if t.realized %}
+                                    <span class="material-symbols-outlined text-green-500">check_circle</span>
+                                    {% else %}
+                                    <span class="material-symbols-outlined text-gray-400">cancel</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 mobile-hide-column"></td>
+                            <td class="px-6 py-4 text-right text-primary cell-budget-display amount-cell-with-actions">
+                                {{ t.amount|format_money:currency_symbol }}
+                            </td>
+                            <td class="px-6 py-4 text-right text-primary cell-budget-edit hidden">
+                                <input type="text" inputmode="decimal" value="{{ t.amount.amount|default:t.amount|default:'0.00'|floatformat:2 }}" data-field="amount" class="w-full border-b border-primary bg-transparent focus:outline-none focus:ring-0 text-sm text-right p-1" tabindex="-1" readonly>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap mobile-hide-column">
+                                <div class="actions-display">
+                                    <span class="material-symbols-outlined text-lg text-slate-400" title="{% trans 'Read-only transaction' %}">lock</span>
+                                    {% if item.origin_url %}
+                                    <a href="{{ item.origin_url }}" class="p-1 text-slate-500 hover:text-primary" title="{% trans 'Open origin Flow Group' %}"><span class="material-symbols-outlined text-lg">north_east</span></a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endwith %}
                         {% endfor %}
                         
                         <tr id="new-item-template" data-item-id="NEW" data-mode="edit" class="swipeable-row hover:bg-slate-50 dark:hover:bg-gray-700/50 hidden">
@@ -602,6 +674,7 @@
      data-flow-group-id="{{ flow_group.id|default:'NEW' }}"
      data-owner-id="{% if flow_group_owner %}{{ flow_group_owner.id }}{% endif %}"
      data-is-credit-card="{% if flow_group.is_credit_card %}true{% else %}false{% endif %}"
+     data-is-card-view="{% if is_card_view %}true{% else %}false{% endif %}"
      data-is-closed="{% if flow_group.is_credit_card and flow_group.closed %}true{% else %}false{% endif %}"
 
      data-url-toggle-kids-group-realized="{% url 'toggle_kids_group_realized_ajax' %}"
@@ -612,6 +685,7 @@
      data-url-delete-flow-item="{% url 'delete_flow_item_ajax' %}"
      data-url-reorder-flow-items="{% url 'reorder_flow_items_ajax' %}"
      data-url-delete-flow-group="{% url 'delete_flow_group' flow_group.id|default:0 %}"
+     data-url-credit-card-list="{% url 'list_credit_cards_ajax' %}"
      data-url-dashboard="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}"
 
      data-i18n-budget-warning="{% trans 'Budget Warning:' %}"
@@ -661,6 +735,19 @@
 
 <!-- Mobile-specific CSS -->
 <style>
+    /* Inherited read-only rows (linked groups + other-period card copies).
+       !important beats Tailwind divide-* border colors and row status backgrounds. */
+    .linked-expense-row,
+    .carryover-expense-row {
+        border-left: 4px solid #F59E0B !important;
+        background-color: rgba(245, 158, 11, 0.06) !important;
+    }
+
+    .dark .linked-expense-row,
+    .dark .carryover-expense-row {
+        background-color: rgba(245, 158, 11, 0.08) !important;
+    }
+
     /* Hide Realized and Actions columns on mobile */
     @media (max-width: 768px) {
         .mobile-hide-column {
@@ -1096,7 +1183,8 @@
 <!-- PHASE 3 CSP Compliance: All inline scripts moved to external files -->
 <script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
 <script src="{% static 'finances/js/calculator.js' %}?v=20260219-10" defer></script>
-<script src="{% static 'finances/js/FlowGroup.js' %}?v=20260615-001" defer"></script>
-<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20260615-001" defer></script>
+<script src="{% static 'finances/js/FlowGroup.js' %}?v=20261106-001" defer></script>
+<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20261105-001" defer></script>
+<script src="{% static 'finances/js/credit_cards.js' %}?v=20261105-002" defer></script>
 
 {% endblock content %}

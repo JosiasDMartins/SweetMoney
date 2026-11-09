@@ -1,4 +1,12 @@
 __pycache__
-.sqlite3
-.sqlite3-shm
-.sqlite3-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+db/backups/
+extras/Test Scripts/screenshots/
+.gitea-config.json
+.venv
+.config
+local_settings.py
+tailwindcss-linux-*
+tailwindcss-macos-*

@@ -793,11 +793,9 @@ document.addEventListener('DOMContentLoaded', function() {
         var tapTimeThreshold = 200;  // max ms for a tap (FlowGroup parity)
 
         row.addEventListener('touchstart', function(e) {
-            // Don't treat a touch as a row gesture when it starts on a control that should
-            // handle its own tap (action buttons, drag handle, save icon, or the item link).
-            // NOTE: inputs/selects are intentionally NOT skipped so swipe-right-to-cancel
-            // still works when the gesture starts on a field while editing (FlowGroup parity).
-            startedOnControl = !!(e.target.closest('.mobile-action-btn, .drag-handle, .edit-save-icon, a'));
+            // Don't start a swipe / tap-to-toggle when touching an interactive control
+            // (let buttons/inputs/links handle their own taps).
+            startedOnControl = !!(e.target.closest('button, a, input, select, .drag-handle, .edit-save-icon'));
             if (startedOnControl) return;
 
             startX = e.touches[0].clientX;
@@ -859,10 +857,8 @@ document.addEventListener('DOMContentLoaded', function() {
             row.style.transition = 'transform 0.3s ease-out';
 
             if (row.getAttribute('data-mode') === 'edit') {
-                // Swipe right past threshold cancels the edit (template -> cancel new row).
-                // Requires isDragging so a tap (or a gesture started on a skipped control
-                // with stale coordinates) does not accidentally cancel.
-                if (isDragging && deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Swipe right past threshold cancels the edit (template -> cancel new row)
+                if (deltaX > swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
                     if (row.id === 'new-item-template') {
                         cancelNewRow(row.id);
                     } else {

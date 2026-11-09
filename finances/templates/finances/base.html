@@ -167,10 +167,10 @@
                             class="flex items-center px-4 py-2 text-gray-600 rounded-md dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                             <div
                                 class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold mr-3">
-                                {{ request.user.username|first|upper }}
+                                {% if is_admin %}A{% else %}{{ request.user.username|first|upper }}{% endif %}
                             </div>
                             <div class="flex flex-col">
-                                <span class="font-semibold text-gray-800 dark:text-gray-200 text-sm">{{ request.user.username }}</span>
+                                <span class="font-semibold text-gray-800 dark:text-gray-200 text-sm">{% if is_admin %}admin{% else %}{{ request.user.username }}{% endif %}</span>
                                 <span class="text-xs text-gray-600 dark:text-gray-400">{% trans "View profile" %}</span>
                             </div>
                         </a>
@@ -607,7 +607,7 @@
 
     <!-- WebSocket Real-time Updates -->
     {% if user.is_authenticated %}
-    <script src="{% static 'finances/js/websocket_manager.js' %}?v=20260216-001"></script>
+    <script src="{% static 'finances/js/websocket_manager.js' %}?v=20261106-1"></script>
     <script src="{% static 'finances/js/realtime_ui.js' %}?v=20260219-6"></script>
     {% endif %}
 
@@ -618,7 +618,7 @@
     <script src="{% static 'finances/js/generic_modal.js' %}?v=20260125-001" defer></script>
 
     <!-- PHASE 3: Event Delegation Manager -->
-    <script src="{% static 'finances/js/event_delegation.js' %}?v=20251230-010" defer></script>
+    <script src="{% static 'finances/js/event_delegation.js' %}?v=20261104-001" defer></script>
 
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to external base.js -->
     <!-- This file handles: Dark mode, DPI scaling, Periods, Admin warning, PWA, WebSocket, UI Components -->

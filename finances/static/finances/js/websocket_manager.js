@@ -19,18 +19,12 @@ class WebSocketManager {
         // Determine protocol (ws:// or wss://)
         const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
 
-        // Extract hostname without port
-        const hostname = window.location.hostname;
-
-        // Build WebSocket URL
-        let wsUrl;
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            // Development: connect directly to Daphne port
-            wsUrl = wsProtocol + hostname + ':8000/ws/updates/';
-        } else {
-            // Production: use same host (requires reverse proxy configuration)
-            wsUrl = wsProtocol + window.location.host + '/ws/updates/';
-        }
+        // Always use the same origin (host + port) the page was served from.
+        // Django Channels (Daphne) serves HTTP and WebSocket on the same port,
+        // both in development and in production. A different origin would be
+        // blocked by the CSP directive connect-src 'self' anyway, and would
+        // silently break every real-time update (issue #41).
+        const wsUrl = wsProtocol + window.location.host + '/ws/updates/';
 
         console.log('[WebSocket] Connecting to:', wsUrl);
 

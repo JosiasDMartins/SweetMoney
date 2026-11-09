@@ -18,13 +18,23 @@ Including another URLconf
 # from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.i18n import i18n_patterns
+from django.contrib.auth import views as auth_views
+
+from finances.forms import EmailAuthenticationForm
 
 urlpatterns = [
     # Django admin disabled - not used by SweetMoney
     # path('admin/', admin.site.urls),
 
-    #Authentication routes (login, logout, password_reset and etc)
-    path('', include('django.contrib.auth.urls')),
+    # Authentication routes - explicit paths instead of the blanket
+    # django.contrib.auth.urls include so the login form authenticates
+    # strictly by email. Password reset uses the custom views in finances.urls.
+    path('login/', auth_views.LoginView.as_view(
+        authentication_form=EmailAuthenticationForm,
+        template_name='registration/login.html',
+        redirect_authenticated_user=True,
+    ), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 
     # i18n language switching
     path('i18n/', include('django.conf.urls.i18n')),

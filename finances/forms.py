@@ -2,6 +2,7 @@
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import AuthenticationForm
 from .models import (
     Family, FamilyMember, FamilyConfiguration, FlowGroup,
     Transaction, Investment, ShopList, EXPENSE_MAIN
@@ -39,22 +40,24 @@ CURRENCY_CHOICES = [
 # --- Initial Setup Form (First Time User) ---
 class InitialSetupForm(forms.Form):
     """
-    Form for creating the first admin user, family, and configuration
-    during initial setup.
+    Form for the first installation: creates one PARENT user (the account
+    the user will log in with, strictly by email) plus the family admin
+    account, which is generated automatically with username
+    admin_<family_slug>_01 and requires no email.
     """
-    # User fields
+    # The username of the PARENT user created at setup
     username = forms.CharField(
         max_length=150,
-        label='Admin Username',
+        label='Your Username',
         widget=forms.TextInput(attrs={
             'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent',
-            'placeholder': 'Choose a username'
+            'placeholder': 'e.g., john'
         })
     )
     
     email = forms.EmailField(
-        required=False,
-        label='Email (Optional)',
+        required=True,
+        label='Email',
         widget=forms.EmailInput(attrs={
             'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent',
             'placeholder': 'your@email.com'
@@ -127,10 +130,12 @@ class InitialSetupForm(forms.Form):
     )
     
     def clean_username(self):
-        username = self.cleaned_data['username']
-        UserModel = get_user_model()
-        if UserModel.objects.filter(username__iexact=username).exists():
-            raise forms.ValidationError("This username is already taken.")
+        # Setup only runs on an empty database, so the only uniqueness rule
+        # that matters is that the PARENT username does not collide with the
+        # generated admin username pattern.
+        username = self.cleaned_data.get('username', '')
+        if username.lower() == 'admin' or username.lower().startswith('admin_'):
+            raise forms.ValidationError("This username is reserved for admin accounts.")
         return username
     
     def clean_email(self):
@@ -243,9 +248,33 @@ class FlowGroupForm(forms.ModelForm):
         label='Assign Children'
     )
     
+    # Card link for credit-card expense groups (options set in __init__)
+    linked_card = forms.ModelChoiceField(
+        queryset=FlowGroup.objects.none(),
+        required=False,
+        empty_label='---------',
+        widget=forms.Select(attrs={
+            'class': 'w-full border rounded-lg bg-white dark:bg-gray-700 border-slate-300 dark:border-slate-600 focus:ring-primary focus:border-primary text-slate-800 dark:text-slate-200 p-2',
+            'id': 'id_linked_card'
+        }),
+        label='Credit Card'
+    )
+
+    # Day of the month the card bill closes (card containers only)
+    due_day = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=31,
+        label='Bill closing day',
+        widget=forms.NumberInput(attrs={
+            'class': 'w-full border rounded-lg bg-white dark:bg-gray-700 border-slate-300 dark:border-slate-600 focus:ring-primary focus:border-primary text-slate-800 dark:text-slate-200 p-2 text-right',
+            'placeholder': '1-31',
+        }),
+    )
+
     class Meta:
         model = FlowGroup
-        fields = ['name', 'budgeted_amount', 'is_shared', 'is_kids_group', 'is_investment', 'is_credit_card', 'assigned_members', 'assigned_children']
+        fields = ['name', 'budgeted_amount', 'is_shared', 'is_kids_group', 'is_investment', 'is_credit_card', 'assigned_members', 'assigned_children', 'linked_card', 'due_day']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full border rounded-lg bg-white dark:bg-gray-700 border-slate-300 dark:border-slate-600 focus:ring-primary focus:border-primary text-slate-800 dark:text-slate-200 p-2'}),
             'is_shared': forms.CheckboxInput(attrs={'class': 'shared-checkbox'}),
@@ -256,6 +285,7 @@ class FlowGroupForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         self.family = kwargs.pop('family', None)
+        self.period = kwargs.pop('period', None)
         super().__init__(*args, **kwargs)
         
         # If editing existing FlowGroup, populate with current amount value (extract from Money)
@@ -288,6 +318,40 @@ class FlowGroupForm(forms.ModelForm):
                 family=self.family,
                 role='CHILD'
             ).select_related('user').order_by('user__username')
+
+        # Cards available for linking: card containers of the same family/period
+        linked_qs = FlowGroup.objects.filter(
+            is_credit_card=True,
+            linked_card__isnull=True
+        )
+        if self.family:
+            linked_qs = linked_qs.filter(family=self.family)
+        if self.period:
+            linked_qs = linked_qs.filter(period_start_date=self.period)
+        if self.instance and self.instance.pk:
+            linked_qs = linked_qs.exclude(pk=self.instance.pk)
+        self.fields['linked_card'].queryset = linked_qs.order_by('name')
+
+    def clean(self):
+        """linked_card only applies to credit-card groups of the same period."""
+        cleaned_data = super().clean()
+        linked_card = cleaned_data.get('linked_card')
+        is_credit_card = cleaned_data.get('is_credit_card')
+
+        if not is_credit_card:
+            cleaned_data['linked_card'] = None
+        elif linked_card is not None:
+            if not linked_card.is_credit_card or linked_card.linked_card_id is not None:
+                self.add_error('linked_card', _('Invalid credit card selected.'))
+            elif self.family and linked_card.family_id != self.family.id:
+                self.add_error('linked_card', _('Credit card must belong to the same family.'))
+            elif self.period and linked_card.period_start_date != self.period:
+                self.add_error('linked_card', _('Credit card must belong to the same period.'))
+
+        # Only card containers carry a due day; linked groups inherit the card's
+        if not is_credit_card or cleaned_data.get('linked_card') is not None:
+            cleaned_data['due_day'] = None
+        return cleaned_data
 
     def clean_name(self):
         """Validate that FlowGroup name is unique within the same period."""
@@ -455,18 +519,43 @@ class NewUserAndMemberForm(forms.Form):
     
     def clean_username(self):
         username = self.cleaned_data['username']
-        # Get the User model dynamically
-        UserModel = get_user_model() 
-        if UserModel.objects.filter(username__iexact=username).exists(): 
-             raise forms.ValidationError("This username is already in use by another account.")
+        # Usernames may repeat across families; only the technical admin
+        # pattern (admin / admin_<family_slug>_<NN>) is reserved globally.
+        lowered = username.lower()
+        if lowered == 'admin' or lowered.startswith('admin_'):
+            raise forms.ValidationError("This username is reserved for admin accounts.")
         return username
 
     def clean_email(self):
+        from .utils_user import email_taken_by_non_admin
         email = self.cleaned_data.get('email')
         if not email:
             raise forms.ValidationError("Email is required.")
-        # Get the User model dynamically
-        UserModel = get_user_model()
-        if UserModel.objects.filter(email__iexact=email).exists():
+        if email_taken_by_non_admin(email):
             raise forms.ValidationError("An account with this email address already exists.")
         return email
+
+
+# --- Email Authentication Form (login is strictly by email) ---
+class EmailAuthenticationForm(AuthenticationForm):
+    """
+    Login form that identifies the account by email instead of username.
+    Usernames may repeat across families and therefore cannot uniquely
+    identify an account.
+    """
+    username = forms.EmailField(
+        label=_('Email'),
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent',
+            'placeholder': 'your@email.com',
+            'autofocus': True,
+        })
+    )
+
+    error_messages = {
+        'invalid_login': _(
+            "Please enter a correct email and password. Note that the admin "
+            "account cannot log in directly."
+        ),
+        'inactive': _("This account is inactive."),
+    }

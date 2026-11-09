@@ -523,13 +523,20 @@ class EventDelegationManager {
     handleCreditCardChange() {
         const creditCardCheckbox = document.getElementById('id_is_credit_card');
         const closedDateContainer = document.getElementById('credit-card-closed-date-container');
+        const linkedCardContainer = document.getElementById('linked-card-container');
 
-        if (!creditCardCheckbox || !closedDateContainer) return;
+        if (!creditCardCheckbox) return;
 
         if (creditCardCheckbox.checked) {
-            closedDateContainer.style.display = 'block';
+            if (closedDateContainer) closedDateContainer.style.display = 'block';
+            if (linkedCardContainer) linkedCardContainer.style.display = 'flex';
         } else {
-            closedDateContainer.style.display = 'none';
+            if (closedDateContainer) closedDateContainer.style.display = 'none';
+            if (linkedCardContainer) {
+                linkedCardContainer.style.display = 'none';
+                const linkedSelect = document.getElementById('id_linked_card');
+                if (linkedSelect) linkedSelect.value = '';
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 // finances/static/finances/js/update_manager.js
-// Version: 20260209-012 - Fixed JSON restore: preserve file extension and content-based detection
+// Version: 20261014-001 - Local updates handled by post-update screen; admin password for OTA
 
 class UpdateManager {
     constructor() {
@@ -36,28 +36,20 @@ class UpdateManager {
         document.getElementById('manualCheckUpdates')?.addEventListener('click', () => this.manualCheckUpdates());
 
         // Modal buttons
-        document.getElementById('btn-apply-local')?.addEventListener('click', () => this.applyLocalUpdates());
         document.getElementById('btn-install-github')?.addEventListener('click', () => this.installGithubUpdate());
-        document.getElementById('btn-skip-local')?.addEventListener('click', () => this.skipLocalUpdate());
         document.getElementById('btn-skip')?.addEventListener('click', () => this.skipUpdate());
         document.getElementById('btn-close')?.addEventListener('click', () => this.closeAndReload());
         document.getElementById('btn-view-logs')?.addEventListener('click', () => this.showLogs());
         document.getElementById('btn-view-release')?.addEventListener('click', () => this.viewRelease());
 
-        // Backup buttons - log if found
+        // Backup button - log if found
         const btnBackup = document.getElementById('btn-create-backup');
-        const btnBackupLocal = document.getElementById('btn-create-backup-local');
 
         console.log('[UpdateManager] btn-create-backup found:', !!btnBackup);
-        console.log('[UpdateManager] btn-create-backup-local found:', !!btnBackupLocal);
 
         if (btnBackup) {
             btnBackup.addEventListener('click', () => this.createBackup());
             console.log('[UpdateManager] Event listener added to btn-create-backup');
-        }
-        if (btnBackupLocal) {
-            btnBackupLocal.addEventListener('click', () => this.createBackup());
-            console.log('[UpdateManager] Event listener added to btn-create-backup-local');
         }
 
         document.getElementById('close-logs')?.addEventListener('click', () => this.closeLogs());
@@ -68,13 +60,6 @@ class UpdateManager {
             const installBtn = document.getElementById('btn-install-github');
             if (installBtn) {
                 installBtn.disabled = !e.target.checked;
-            }
-        });
-
-        document.getElementById('backup-confirmed-local')?.addEventListener('change', (e) => {
-            const applyBtn = document.getElementById('btn-apply-local');
-            if (applyBtn) {
-                applyBtn.disabled = !e.target.checked;
             }
         });
 
@@ -93,9 +78,17 @@ class UpdateManager {
             if (data.needs_update) {
                 this.showSidebarUpdateIndicator();
 
-                // For local updates, always show modal (blocks non-admin users)
+                // Local updates are applied by the post-update screen: the
+                // middleware locks the system and redirects there on the
+                // first startup with new files.
+                if (data.update_type === 'local') {
+                    console.log('[UpdateManager] Local update pending - redirecting to post-update screen');
+                    window.location.href = '/post-update/';
+                    return;
+                }
+
                 // For GitHub updates, only show modal if admin or if forceShow is true
-                if (data.update_type === 'local' || data.is_admin || forceShow) {
+                if (data.is_admin || forceShow) {
                     this.updateData = data;
                     this.showUpdateModal(data);
                 } else {
@@ -139,7 +132,6 @@ class UpdateManager {
         const infoDiv = document.getElementById('online-update-info');
         const noUpdates = document.getElementById('no-updates-found');
         const hasUpdates = document.getElementById('updates-available');
-        const localPending = document.getElementById('local-update-pending');
         const githubVersion = document.getElementById('github-latest-version');
         
         if (!btn) return;
@@ -161,16 +153,12 @@ class UpdateManager {
                 // Hide all messages first
                 if (noUpdates) noUpdates.classList.add('hidden');
                 if (hasUpdates) hasUpdates.classList.add('hidden');
-                if (localPending) localPending.classList.add('hidden');
                 
                 if (data.needs_update) {
                     if (data.update_type === 'local') {
-                        // Local updates pending
-                        if (localPending) localPending.classList.remove('hidden');
-                        
-                        // Open modal
-                        this.updateData = data;
-                        this.showUpdateModal(data);
+                        // Local updates are finalized by the post-update screen
+                        window.location.href = '/post-update/';
+                        return;
                     } else {
                         // GitHub update available
                         if (hasUpdates) hasUpdates.classList.remove('hidden');
@@ -210,11 +198,7 @@ class UpdateManager {
         document.getElementById('current-version').textContent = data.current_version;
         document.getElementById('target-version').textContent = data.target_version;
         
-        if (data.update_type === 'local') {
-            this.showLocalUpdate(data);
-        } else if (data.update_type === 'github') {
-            this.showGithubUpdate(data);
-        }
+        this.showGithubUpdate(data);
         
         modal.classList.remove('hidden');
     }
@@ -222,8 +206,8 @@ class UpdateManager {
     hideAllSections() {
         // Hide all possible sections
         const sections = [
-            'scripts-info', 'github-info', 'container-warning',
-            'backup-section', 'backup-section-local', 'update-progress', 'update-results'
+            'github-info', 'container-warning',
+            'backup-section', 'update-progress', 'update-results'
         ];
 
         sections.forEach(id => {
@@ -233,9 +217,9 @@ class UpdateManager {
 
         // Hide all buttons (including backup buttons)
         const buttons = [
-            'btn-apply-local', 'btn-install-github', 'btn-skip', 'btn-skip-local',
+            'btn-install-github', 'btn-skip',
             'btn-close', 'btn-view-logs', 'btn-view-release',
-            'btn-create-backup', 'btn-create-backup-local', 'btn-logout'
+            'btn-create-backup', 'btn-logout'
         ];
 
         buttons.forEach(id => {
@@ -249,85 +233,6 @@ class UpdateManager {
             const msg = document.getElementById(id);
             if (msg) msg.classList.add('hidden');
         });
-    }
-    
-    showLocalUpdate(data) {
-        console.log('[UpdateManager] Showing local update');
-
-        const modalIcon = document.getElementById('modal-icon');
-        const updateDesc = document.getElementById('update-description');
-        const scriptsInfo = document.getElementById('scripts-info');
-        const scriptsList = document.getElementById('scripts-list');
-        const backupSection = document.getElementById('backup-section-local');
-        const btnApply = document.getElementById('btn-apply-local');
-        const btnSkip = document.getElementById('btn-skip-local');
-        const btnBackup = document.getElementById('btn-create-backup-local');
-
-        if (modalIcon) {
-            modalIcon.className = 'material-symbols-outlined text-4xl text-orange-500';
-            modalIcon.textContent = 'construction';
-        }
-
-        // Check if user is admin
-        const isAdmin = data.is_admin;
-
-        if (!isAdmin) {
-            // Non-admin user - show info only, no actions allowed
-            if (updateDesc) {
-                updateDesc.textContent = this.t('localUpdatePendingNonAdmin') || 'A local update is pending and must be applied before the system can be used. Only administrators can apply updates. Please contact an administrator to complete this update.';
-            }
-
-            // Show scripts info but no buttons
-            if (data.has_scripts) {
-                if (scriptsInfo) scriptsInfo.classList.remove('hidden');
-                if (scriptsList) {
-                    scriptsList.innerHTML = '';
-                    data.update_scripts.forEach(script => {
-                        const li = document.createElement('li');
-                        li.textContent = `v${script.version}: ${script.description}`;
-                        scriptsList.appendChild(li);
-                    });
-                }
-            }
-
-            // Show logout button for non-admin users
-            const btnLogout = document.getElementById('btn-logout');
-            if (btnLogout) {
-                btnLogout.classList.remove('hidden');
-            }
-
-            // Hide all other action buttons for non-admin
-            return;
-        }
-
-        // Admin user - show full update interface
-        if (data.has_scripts) {
-            if (updateDesc) {
-                updateDesc.textContent = this.t('localUpdatesAvailable') || 'Local updates are available and must be applied before continuing.';
-            }
-            if (scriptsInfo) scriptsInfo.classList.remove('hidden');
-            if (scriptsList) {
-                scriptsList.innerHTML = '';
-                data.update_scripts.forEach(script => {
-                    const li = document.createElement('li');
-                    li.textContent = `v${script.version}: ${script.description}`;
-                    scriptsList.appendChild(li);
-                });
-            }
-        } else {
-            if (updateDesc) {
-                updateDesc.textContent = this.t('systemFilesUpdated') || 'System files have been updated. Database migrations will be applied.';
-            }
-        }
-
-        // Show backup section and buttons (admin only)
-        if (backupSection) backupSection.classList.remove('hidden');
-        if (btnBackup) btnBackup.classList.remove('hidden');
-        if (btnApply) {
-            btnApply.classList.remove('hidden');
-            btnApply.disabled = true; // Disabled until backup confirmed
-        }
-        // Note: btnSkip (Remind Me Later) removed for local updates
     }
     
     showGithubUpdate(data) {
@@ -451,73 +356,110 @@ class UpdateManager {
             .replace(/\n/g, '<br>');
     }
     
-    async applyLocalUpdates() {
-        console.log('[UpdateManager] Applying local updates...');
-        
-        const backupConfirmed = document.getElementById('backup-confirmed-local');
-        if (!backupConfirmed || !backupConfirmed.checked) {
-            alert(this.t('pleaseConfirmBackup') || 'Please confirm that you have created a backup before proceeding.');
-            return;
-        }
-        
-        const progressSection = document.getElementById('update-progress');
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        const progressTitle = document.getElementById('progress-title');
-        const btnApply = document.getElementById('btn-apply-local');
-        const btnSkip = document.getElementById('btn-skip-local');
-        const backupSection = document.getElementById('backup-section-local');
-        
-        if (btnApply) btnApply.classList.add('hidden');
-        if (btnSkip) btnSkip.classList.add('hidden');
-        if (backupSection) backupSection.classList.add('hidden');
-        if (progressSection) progressSection.classList.remove('hidden');
-        if (progressTitle) progressTitle.textContent = this.t('applyingUpdates') || 'Applying Updates...';
+    /**
+     * Prompt for admin password and verify it before allowing update operations.
+     * Returns a Promise that resolves to true if authorized, false otherwise.
+     */
+    async verifyAdminPassword() {
+        const password = await this.promptAdminPassword();
+        if (password === null) return false; // User cancelled
 
         try {
-            if (progressBar) progressBar.style.width = '10%';
-            if (progressText) progressText.textContent = this.t('preparingUpdate') || 'Preparing update...';
-
-            const requestBody = this.updateData.has_scripts ? {
-                scripts: this.updateData.update_scripts
-            } : {};
-            
-            console.log('[UpdateManager] Sending request with body:', requestBody);
-            
-            const response = await fetch('/apply-local-updates/', {
+            const response = await fetch('/verify-admin-password/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': this.getCookie('csrftoken')
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({ password: password })
             });
-
-            if (progressBar) progressBar.style.width = '50%';
-            if (progressText) progressText.textContent = this.t('applyingUpdatesProgress') || 'Applying updates...';
-
             const data = await response.json();
-            console.log('[UpdateManager] Update response:', data);
-
-            if (progressBar) progressBar.style.width = '100%';
-            if (progressText) progressText.textContent = this.t('updateComplete') || 'Update complete!';
-
-            this.logsContent = this.formatLogs(data);
-
-            if (data.success) {
-                this.showSuccessWithReload(this.t('updatesAppliedSuccess') || 'Updates applied successfully! Waiting for server to restart...');
-            } else {
-                this.showError(data.error || (this.t('updateFailed') || 'Update failed. Check logs for details.'));
-            }
+            if (data.success) return true;
+            alert(data.error || (this.t('incorrectAdminPassword') || 'Incorrect admin password.'));
+            return false;
         } catch (error) {
-            console.error('[UpdateManager] Error applying updates:', error);
-            this.showError((this.t('failedToApplyUpdates') || 'Failed to apply updates') + ': ' + error.message);
+            console.error('[UpdateManager] Admin password verification failed:', error);
+            alert(this.t('networkError') || 'Network error. Please try again.');
+            return false;
         }
     }
+
+    /**
+     * Show a prompt dialog for the admin password.
+     * Returns the password string, or null if cancelled.
+     */
+    async promptAdminPassword() {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('generic-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalMessage = document.getElementById('modal-message');
+            const modalButtons = document.getElementById('modal-buttons');
+            const iconContainer = document.getElementById('modal-icon-container');
+            const icon = document.getElementById('modal-icon');
+
+            if (!modal) {
+                // Fallback to native prompt if generic modal not available
+                const pw = prompt(this.t('enterAdminPassword') || 'Enter admin password to proceed with the update:');
+                resolve(pw);
+                return;
+            }
+
+            // Set up warning icon
+            iconContainer.className = 'mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10 bg-amber-100 dark:bg-amber-900/20';
+            icon.className = 'h-6 w-6 text-amber-600 dark:text-amber-500';
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />';
+
+            modalTitle.textContent = this.t('adminPasswordRequired') || 'Admin Password Required';
+            modalMessage.innerHTML =
+                '<p class="text-sm text-gray-600 dark:text-gray-300 mb-3">' +
+                (this.t('adminPasswordUpdateWarning') || 'Enter the admin password to proceed with the system update.') +
+                '</p>' +
+                '<input type="password" id="admin-update-password" ' +
+                'class="w-full border rounded-lg bg-background-light dark:bg-background-dark border-slate-300 dark:border-slate-700 focus:ring-amber-500 focus:border-amber-500 text-slate-800 dark:text-slate-200 p-3" ' +
+                'placeholder="' + (this.t('adminPassword') || 'Admin password') + '" autofocus>';
+
+            modalButtons.innerHTML = '';
+
+            var btnCancel = document.createElement('button');
+            btnCancel.type = 'button';
+            btnCancel.textContent = this.t('cancel') || 'Cancel';
+            btnCancel.className = 'inline-flex w-full justify-center rounded-lg px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white ring-gray-300 dark:ring-gray-600 sm:w-auto';
+            btnCancel.addEventListener('click', function() {
+                window.GenericModal.hide();
+                resolve(null);
+            });
+
+            var btnConfirm = document.createElement('button');
+            btnConfirm.type = 'button';
+            btnConfirm.textContent = this.t('confirm') || 'Confirm';
+            btnConfirm.className = 'inline-flex w-full justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm bg-amber-600 hover:bg-amber-700 sm:w-auto';
+            btnConfirm.addEventListener('click', function() {
+                var pwInput = document.getElementById('admin-update-password');
+                var pw = pwInput ? pwInput.value : '';
+                window.GenericModal.hide();
+                resolve(pw || null);
+            });
+
+            modalButtons.appendChild(btnCancel);
+            modalButtons.appendChild(btnConfirm);
+
+            modal.classList.remove('hidden');
+
+            setTimeout(function() {
+                var pwInput = document.getElementById('admin-update-password');
+                if (pwInput) pwInput.focus();
+            }, 100);
+        });
+    }
+
     
     async installGithubUpdate() {
         console.log('[UpdateManager] Installing GitHub update...');
         console.log('[UpdateManager] Full updateData:', JSON.stringify(this.updateData, null, 2));
+
+        // Verify admin password before proceeding
+        const authorized = await this.verifyAdminPassword();
+        if (!authorized) return;
 
         // Validate updateData
         if (!this.updateData) {
@@ -624,9 +566,9 @@ class UpdateManager {
     async createBackup() {
         console.log('[UpdateManager] createBackup() called');
 
-        const btn = document.getElementById('btn-create-backup') || document.getElementById('btn-create-backup-local');
+        const btn = document.getElementById('btn-create-backup');
         if (!btn) {
-            console.error('[UpdateManager] Backup button not found! Looking for: btn-create-backup or btn-create-backup-local');
+            console.error('[UpdateManager] Backup button not found!');
             alert('Error: Backup button not found');
             return;
         }
@@ -669,9 +611,6 @@ class UpdateManager {
         }
     }
 
-    async skipLocalUpdate() {
-        alert(this.t('localUpdatesCannotBeSkipped') || 'Local updates cannot be skipped. They are required for the system to function correctly.');
-    }
 
     async skipUpdate() {
         if (!confirm(this.t('confirmSkipUpdate') || 'Are you sure you want to skip this update? You won\'t be notified about this version again until a newer version is released.')) {

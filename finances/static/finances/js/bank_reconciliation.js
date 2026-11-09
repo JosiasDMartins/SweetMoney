@@ -273,7 +273,15 @@ window.saveBalance = function(rowId) {
     .then(data => {
         if (data.status === 'success') {
             if (isNew) {
-                // Hide template and let WebSocket broadcast add the row for all users
+                // Render the actor's own row immediately from the AJAX
+                // response (issue #41). updateBalance upserts by row id, so
+                // the later WebSocket broadcast of the same balance is
+                // harmless; when the WebSocket is unavailable the row still
+                // appears because it is added here.
+                if (window.BankReconciliationRealtime && window.BankReconciliationRealtime.updateBalance) {
+                    window.BankReconciliationRealtime.updateBalance(data);
+                }
+                // Hide template and reset the inputs
                 window.cancelNewBalance();
             } else {
                 updateRow(row, data);

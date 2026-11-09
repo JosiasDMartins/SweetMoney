@@ -1,6 +1,7 @@
 /**
  * Real-time Updates for Dashboard
  * Handles WebSocket broadcasts to update the income transactions list
+ * Version: 20261104-001 - card-parity in addFlowGroup + linked-card indicator sync
  */
 (function() {
     'use strict';
@@ -436,6 +437,14 @@
         addFlowGroup: function(flowgroupData) {
             console.log('[Dashboard RT] Adding new FlowGroup:', flowgroupData);
 
+            // Card containers render in the Credit Cards box (credit_cards.js),
+            // never in the expense table (server-side exclude_cards parity).
+            if (flowgroupData.is_credit_card &&
+                !flowgroupData.linked_card_id) {
+                console.log('[Dashboard RT] Card group handled by the Credit Cards box');
+                return;
+            }
+
             const tbody = document.getElementById('expense-groups-tbody');
             if (!tbody) {
                 console.warn('[Dashboard RT] Expense groups tbody not found');
@@ -711,6 +720,34 @@
                 const nameSpan = row.querySelector('td:nth-child(2) .flex.items-center.gap-2 > span:first-child');
                 if (nameSpan) {
                     nameSpan.textContent = flowgroupData.name;
+                }
+
+                // Sync the linked-card indicator next to the group name
+                const cardNameContainer = row.querySelector('td:nth-child(2) .flex.flex-col');
+                let cardIndicator = cardNameContainer
+                    ? cardNameContainer.querySelector('[data-linked-card-name]')?.closest('div')
+                    : null;
+                if (flowgroupData.linked_card_id && cardNameContainer) {
+                    if (!cardIndicator) {
+                        cardIndicator = document.createElement('div');
+                        cardIndicator.className = 'text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1';
+                        cardIndicator.innerHTML = '<span class="material-symbols-outlined text-sm">credit_card</span>';
+                        const arrowSpan = document.createElement('span');
+                        arrowSpan.setAttribute('data-linked-card-name', '');
+                        cardIndicator.appendChild(arrowSpan);
+                        const nameRow = cardNameContainer.querySelector('.flex.items-center.gap-2');
+                        if (nameRow) {
+                            nameRow.insertAdjacentElement('afterend', cardIndicator);
+                        } else {
+                            cardNameContainer.appendChild(cardIndicator);
+                        }
+                    }
+                    const indicatorSpan = cardIndicator.querySelector('[data-linked-card-name]');
+                    if (indicatorSpan) {
+                        indicatorSpan.textContent = '\u2192 ' + (flowgroupData.linked_card_name || '');
+                    }
+                } else if (cardIndicator) {
+                    cardIndicator.remove();
                 }
 
                 // Use budget_warning from backend - NO frontend calculation!

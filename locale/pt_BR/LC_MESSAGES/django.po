@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-08 18:53+0000\n"
+"POT-Creation-Date: 2026-11-06 22:56+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,549 +18,691 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: finances/forms.py:321 finances/views/views_pages.py:735
+#: finances/forms.py:345
+msgid "Invalid credit card selected."
+msgstr "Cartão de crédito inválido selecionado."
+
+#: finances/forms.py:347
+msgid "Credit card must belong to the same family."
+msgstr "O cartão de crédito deve pertencer à mesma família."
+
+#: finances/forms.py:349
+msgid "Credit card must belong to the same period."
+msgstr "O cartão de crédito deve pertencer ao mesmo período."
+
+#: finances/forms.py:385 finances/views/views_ajax.py:563
+#: finances/views/views_ajax.py:647 finances/views/views_pages.py:806
 #, python-format
 msgid "A Flow Group with the name '%(name)s' already exists in this period."
 msgstr "Um Grupo de Fluxo com o nome '%(name)s' já existe neste período."
 
-#: finances/forms.py:387
-#, fuzzy
-#| msgid "Username or Email"
-msgid "Username (User ID)"
-msgstr "Nome de usuário ou e-mail"
+#: finances/forms.py:427
+msgid "Share with"
+msgstr "Compartilhar com"
 
-#: finances/forms.py:392 finances/templates/finances/configurations.html:261
+#: finances/forms.py:465
+#, python-format
+msgid "A list with the name '%(name)s' already exists."
+msgstr "Uma lista com o nome '%(name)s' já existe."
+
+#: finances/forms.py:500
+msgid "Username (User ID)"
+msgstr "Nome de Usuário (ID do Usuário)"
+
+#: finances/forms.py:505 finances/forms.py:547
+#: finances/templates/finances/configurations.html:261
 #: finances/templates/finances/configurations.html:345
-#: finances/templates/finances/setup.html:258
+#: finances/templates/finances/post_update.html:204
+#: finances/templates/finances/profile.html:51
+#: finances/templates/finances/setup.html:257
+#: finances/templates/registration/login.html:64
 msgid "Email"
 msgstr "E-mail"
 
-#: finances/forms.py:397 finances/templates/finances/setup.html:271
-#: finances/templates/registration/login.html:71
+#: finances/forms.py:510 finances/templates/finances/setup.html:273
+#: finances/templates/registration/login.html:72
 msgid "Password"
 msgstr "Senha"
 
 # msgid "Username (User ID)"
 # msgstr "Nome de usuário (ID)"
-#: finances/forms.py:401 finances/templates/finances/configurations.html:262
+#: finances/forms.py:514 finances/templates/finances/configurations.html:262
 #: finances/templates/finances/configurations.html:351
+#: finances/templates/finances/post_update.html:203
 msgid "Role"
 msgstr "Função"
 
-#: finances/models.py:30
+#: finances/forms.py:557
+msgid ""
+"Please enter a correct email and password. Note that the admin account "
+"cannot log in directly."
+msgstr ""
+"Digite um e-mail e senha corretos. Observe que a conta admin não pode entrar "
+"diretamente."
+
+#: finances/forms.py:560
+msgid "This account is inactive."
+msgstr "Esta conta está inativa."
+
+#: finances/models.py:28
+msgid "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
+msgstr ""
+"Obrigatório. 150 caracteres ou menos. Apenas letras, dígitos e @/./+/-/_."
+
+#: finances/models.py:31
+#, python-format
+msgid "Ensure this value has at most 150 characters (it has %(show_value)s)."
+msgstr ""
+"Garanta que este valor tenha no máximo 150 caracteres (ele tem "
+"%(show_value)s)."
+
+#: finances/models.py:41
 msgid "User's preferred language"
 msgstr "Idioma preferido do usuário"
 
-#: finances/models.py:42
-msgid "Current system version (e.g., 1.0.0, 1.0.0-alpha1, 1.0.0-beta1, 2.0.0)"
-msgstr ""
-"Versão atual do sistema (por exemplo, 1.0.0, 1.0.0-alpha1, 1.0.0-beta1, "
-"2.0.0)"
+#: finances/models.py:46
+msgid "User's preferred timezone for displaying dates"
+msgstr "Fuso horário preferido do usuário para exibição de datas"
 
-#: finances/models.py:47
+#: finances/models.py:51 finances/templates/finances/profile.html:198
+msgid "Enable email notifications"
+msgstr "Ativar notificações por e-mail"
+
+#: finances/models.py:55
+msgid "Receive email for overdue transactions"
+msgstr "Receber e-mail para transações atrasadas"
+
+#: finances/models.py:59
+msgid "Receive email for over budget alerts"
+msgstr "Receber e-mail para alertas de orçamento excedido"
+
+#: finances/models.py:63
+msgid "Receive email for new transactions"
+msgstr "Receber e-mail para novas transações"
+
+#: finances/models.py:75
+msgid "Current system version (e.g., 1.0.0, 1.0.0-alpha1, 1.0.0-beta1, 2.0.0)"
+msgstr "Versão atual do sistema (ex.: 1.0.0, 1.0.0-alpha1, 1.0.0-beta1, 2.0.0)"
+
+#: finances/models.py:80
 msgid "System Version"
 msgstr "Versão do sistema"
 
-#: finances/models.py:48
+#: finances/models.py:81
 msgid "System Versions"
 msgstr "Versões do sistema"
 
-#: finances/models.py:76
+#: finances/models.py:109
 msgid "Version that was skipped (e.g., 1.0.0-alpha5)"
 msgstr "Versão que foi ignorada (por exemplo, 1.0.0-alpha5)"
 
-#: finances/models.py:81
+#: finances/models.py:114
 msgid "Skipped Update"
 msgstr "Atualização ignorada"
 
-#: finances/models.py:82
+#: finances/models.py:115
 msgid "Skipped Updates"
 msgstr "Atualizações ignoradas"
 
-#: finances/models.py:115 finances/templates/finances/configurations.html:353
+#: finances/models.py:148 finances/templates/finances/configurations.html:353
 msgid "Admin"
 msgstr "Administrador"
 
-#: finances/models.py:116 finances/templates/finances/configurations.html:354
+#: finances/models.py:149 finances/templates/finances/configurations.html:354
 msgid "Parent"
 msgstr "Pai"
 
-#: finances/models.py:117 finances/templates/finances/configurations.html:355
+#: finances/models.py:150 finances/templates/finances/configurations.html:355
 msgid "Child"
 msgstr "Criança"
 
-#: finances/models.py:132
+#: finances/models.py:161
+msgid ""
+"Send overdue warning X days before due date (0 = only when already overdue)"
+msgstr ""
+"Enviar aviso de atraso X dias antes do vencimento (0 = apenas quando já "
+"estiver atrasado)"
+
+#: finances/models.py:173
 msgid "Monthly"
 msgstr "Mensal"
 
-#: finances/models.py:133
+#: finances/models.py:174
 msgid "Bi-weekly"
 msgstr "Quinzenal"
 
-#: finances/models.py:134
+#: finances/models.py:175
 msgid "Weekly"
 msgstr "Semanalmente"
 
-#: finances/models.py:142 finances/templates/finances/configurations.html:145
+#: finances/models.py:183 finances/templates/finances/configurations.html:145
 msgid "Day of the month (1-31) that defines the cycle start."
 msgstr "Dia do mês (1-31) que define o início do ciclo."
 
-#: finances/models.py:152
+#: finances/models.py:193
 msgid "Base currency for the family (e.g., USD, BRL, EUR)"
 msgstr "Moeda base da família (por exemplo, USD, BRL, EUR)"
 
-#: finances/models.py:161
+#: finances/models.py:202
 msgid ""
 "Percentage tolerance for bank reconciliation discrepancy warnings (e.g., "
 "5.00 for 5%)"
 msgstr ""
+"Tolerância percentual para avisos de discrepância na reconciliação bancária "
+"(ex.: 5.00 para 5%)"
 
-#: finances/models.py:169
+#: finances/models.py:210
 msgid ""
 "Display mode for bank reconciliation: general (family total) or detailed "
 "(per user)"
 msgstr ""
+"Modo de exibição da reconciliação bancária: geral (total da família) ou "
+"detalhado (por usuário)"
 
-#: finances/models.py:181
+#: finances/models.py:222
 msgid "Start date of the period"
 msgstr "Data de início do período"
 
-#: finances/models.py:182
+#: finances/models.py:223
 msgid "End date of the period"
 msgstr "Data final do período"
 
-#: finances/models.py:183
+#: finances/models.py:224
 msgid "Type of period"
 msgstr "Tipo de período"
 
-#: finances/models.py:187
+#: finances/models.py:228
 msgid "Currency for this period"
 msgstr "Moeda para este período"
 
-#: finances/models.py:208
-#: finances/templates/finances/bank_reconciliation.html:268
-#: finances/templates/finances/dashboard.html:430
+#: finances/models.py:249
+#: finances/templates/finances/bank_reconciliation.html:266
+#: finances/templates/finances/dashboard.html:541
 msgid "Income"
 msgstr "Renda"
 
-#: finances/models.py:209
+#: finances/models.py:250
 msgid "Main Expense (Essential)"
 msgstr "Despesa Principal (Essencial)"
 
-#: finances/models.py:210
+#: finances/models.py:251
 msgid "Secondary Expense (Non-Essential)"
 msgstr "Despesa Secundária (Não Essencial)"
 
-#: finances/models.py:230
+#: finances/models.py:271
 msgid "Start date of the period this FlowGroup belongs to"
 msgstr "Data de início do período ao qual este FlowGroup pertence"
 
-#: finances/models.py:236
+#: finances/models.py:277
 msgid "If True, this group is visible and editable by all Parents and Admins"
-msgstr ""
-"Se for verdade, este grupo ficará visível e editável por todos os pais e "
-"administradores"
+msgstr "Se ativo, este grupo é visível e editável por todos os Pais e Admins"
 
-#: finances/models.py:245
+#: finances/models.py:286
 msgid "Parents and Admins who have access to this Shared group"
 msgstr "Pais e administradores que têm acesso a este grupo compartilhado"
 
-#: finances/models.py:251
+#: finances/models.py:292
 msgid ""
 "If True, this is a Kids group and budget becomes income for assigned children"
 msgstr ""
+"Se verdadeiro, este é um grupo Kids e o orçamento torna-se renda para os "
+"filhos atribuídos"
 
-#: finances/models.py:257
+#: finances/models.py:298
 msgid ""
 "For Kids groups: marks if the budget has been given to the child (parents "
 "only)"
 msgstr ""
+"Para grupos Kids: indica se o orçamento foi entregue à criança (somente pais)"
 
-#: finances/models.py:266
+#: finances/models.py:307
 msgid "Children who have access to this Kids group"
 msgstr "Crianças que têm acesso a este grupo Kids"
 
-#: finances/models.py:272
+#: finances/models.py:313
 msgid ""
 "If True, realized amounts are added to investment balance and deducted from "
 "expense calculations"
 msgstr ""
+"Se verdadeiro, os valores realizados são adicionados ao saldo de "
+"investimentos e deduzidos dos cálculos de despesas"
 
-#: finances/models.py:278
+#: finances/models.py:319
 msgid ""
 "If True, this is a credit card group with special billing cycle handling"
 msgstr ""
+"Se verdadeiro, este é um grupo de cartão de crédito com tratamento especial "
+"de ciclo de faturamento"
 
-#: finances/models.py:284
+#: finances/models.py:325
 msgid "For credit card groups: marks if the bill has been closed and paid"
 msgstr ""
-"Para grupos de cartões de crédito: marca se a fatura foi fechada e paga"
+"Para grupos de cartão de crédito: indica se a fatura foi fechada e paga"
 
-#: finances/models.py:290
+#: finances/models.py:336
+msgid "Day of the month the credit card bill closes (cards only)"
+msgstr "Dia do mês em que a fatura do cartão de crédito fecha (apenas cartões)"
+
+#: finances/models.py:345
+msgid "Card this credit-card FlowGroup is attached to"
+msgstr "Cartão ao qual este FlowGroup de cartão de crédito está vinculado"
+
+#: finances/models.py:351
 msgid ""
 "If True, this group and its fixed transactions will be copied to new periods"
 msgstr ""
+"Se verdadeiro, este grupo e suas transações fixas serão copiados para novos "
+"períodos"
 
-#: finances/models.py:318
+#: finances/models.py:385
 msgid "Whether this transaction has been consolidated/completed"
 msgstr "Se esta transação foi consolidada/concluída"
 
-#: finances/models.py:323
+#: finances/models.py:390
 msgid ""
 "True if this is a manual income entry by a CHILD user (not from Kids group "
 "budget)"
 msgstr ""
+"Verdadeiro se esta for uma entrada de renda manual de um usuário CHILD (não "
+"proveniente de orçamento de grupo Kids)"
 
-#: finances/models.py:328
+#: finances/models.py:395
 msgid "True if this is an expense added to a FlowGroup by a CHILD user)"
 msgstr ""
-"Verdadeiro se esta for uma despesa adicionada a um FlowGroup por um usuário "
-"CHILD)"
+"Verdadeiro se esta é uma despesa adicionada a um Grupo de Fluxo por um "
+"usuário FILHO)"
 
-#: finances/models.py:334
+#: finances/models.py:401
 msgid "If True, this transaction will be auto-copied to new periods"
 msgstr ""
-"Se for verdade, esta transação será copiada automaticamente para novos "
-"períodos"
+"Se ativo, esta transação será copiada automaticamente para novos períodos"
 
-#: finances/models.py:355
+#: finances/models.py:422
 msgid "Start date of the period this role applies to"
 msgstr "Data de início do período ao qual esta função se aplica"
 
-#: finances/models.py:402
+#: finances/models.py:480 finances/templates/finances/ShopLists.html:8
+msgid "Shopping List"
+msgstr "Lista de Compras"
+
+# --- Shopping Lists (v1.7.0) ---
+#: finances/models.py:481 finances/templates/finances/ShopListDashboard.html:8
+#: finances/templates/finances/ShopListDashboard.html:25
+msgid "Shopping Lists"
+msgstr "Listas de Compras"
+
+#: finances/models.py:504
+msgid "Shopping List Item"
+msgstr "Item da Lista"
+
+#: finances/models.py:505
+msgid "Shopping List Items"
+msgstr "Itens da Lista de Compras"
+
+#: finances/models.py:518
 msgid "Description of the bank account"
 msgstr "Descrição da conta bancária"
 
-#: finances/models.py:409
+#: finances/models.py:525
 msgid "Current bank balance"
 msgstr "Saldo bancário atual"
 
-#: finances/models.py:412
+#: finances/models.py:528
 msgid "Date of balance check"
 msgstr "Data da verificação do saldo"
 
-#: finances/models.py:413
+#: finances/models.py:529
 msgid "Period this balance belongs to"
 msgstr "Período ao qual este saldo pertence"
 
-#: finances/models.py:430
+#: finances/models.py:546 finances/templates/finances/profile.html:212
 msgid "Overdue Transaction"
 msgstr "Transação vencida"
 
-#: finances/models.py:431
+#: finances/models.py:547
+msgid "Upcoming Due Date"
+msgstr "Data de vencimento próxima"
+
+#: finances/models.py:548 finances/templates/finances/profile.html:242
 msgid "Over Budget"
 msgstr "Acima do orçamento"
 
-#: finances/models.py:432
+#: finances/models.py:549 finances/templates/finances/profile.html:252
 msgid "New Transaction"
 msgstr "Nova transação"
 
-#: finances/models.py:495
+#: finances/models.py:588
+msgid "User clicked 'stop receiving emails' for this notification"
+msgstr "O usuário clicou em 'parar de receber e-mails' para esta notificação"
+
+#: finances/models.py:593
+msgid "When user opted out of emails for this notification"
+msgstr "Quando o usuário optou por não receber e-mails desta notificação"
+
+#: finances/models.py:600
+msgid "Token for email unsubscribe link"
+msgstr "Token para o link de cancelamento de inscrição por e-mail"
+
+#: finances/models.py:659
 msgid "5-digit verification code sent to user's email"
 msgstr "Código de verificação de 5 dígitos enviado para o e-mail do usuário"
 
-#: finances/notification_utils.py:44
-#, python-format
-msgid "Transaction '%(description)s' is %(days)d day overdue"
-msgstr "A transação '%(description)s' está com %(days)d dias de atraso"
-
-#: finances/notification_utils.py:49
-#, python-format
-msgid "Transaction '%(description)s' is %(days)d days overdue"
-msgstr "A transação '%(description)s' está com %(days)d dias de atraso"
-
-#: finances/notification_utils.py:122
-#, python-format
-msgid "'%(name)s' is over budget by %(amount)s"
-msgstr "'%(name)s' ultrapassou o orçamento em %(amount)s"
-
-#: finances/notification_utils.py:232
-msgid "Someone"
-msgstr "Alguém"
-
-#: finances/notification_utils.py:235
-#, python-format
-msgid "%(creator)s added '%(description)s' in '%(group)s'"
-msgstr "%(creator)s adicionou '%(description)s' em '%(group)s'"
-
-#: finances/templates/finances/FlowGroup.html:7
+#: finances/templates/finances/FlowGroup.html:8
 msgid "Flow Group"
 msgstr "Grupo de Fluxo"
 
-#: finances/templates/finances/FlowGroup.html:15
-#: finances/templates/finances/bank_reconciliation.html:38
+#: finances/templates/finances/FlowGroup.html:16
+#: finances/templates/finances/ShopListDashboard.html:17
+#: finances/templates/finances/ShopLists.html:16
+#: finances/templates/finances/bank_reconciliation.html:39
 msgid "Back"
 msgstr "Voltar"
 
-#: finances/templates/finances/FlowGroup.html:22
-#: finances/templates/finances/dashboard.html:123
+#: finances/templates/finances/FlowGroup.html:23
+#: finances/templates/finances/dashboard.html:133
 msgid "Group"
 msgstr "Grupo"
 
-#: finances/templates/finances/FlowGroup.html:26
+#: finances/templates/finances/FlowGroup.html:27
 msgid "Discard"
 msgstr "Descartar"
 
-#: finances/templates/finances/FlowGroup.html:30
+#: finances/templates/finances/FlowGroup.html:31
+#: finances/templates/finances/ShopLists.html:32
+#: finances/templates/finances/dashboard.html:579
 msgid "Save"
 msgstr "Salvar"
 
-#: finances/templates/finances/FlowGroup.html:55
-#: finances/templates/finances/FlowGroup.html:137
+#: finances/templates/finances/FlowGroup.html:56
+#: finances/templates/finances/FlowGroup.html:148
 msgid "Mark this group as recurring to automatically copy it to new periods"
 msgstr ""
 "Marque este grupo como recorrente para copiá-lo automaticamente para novos "
 "períodos"
 
-#: finances/templates/finances/FlowGroup.html:56
-#: finances/templates/finances/FlowGroup.html:138
+#: finances/templates/finances/FlowGroup.html:57
+#: finances/templates/finances/FlowGroup.html:149
 msgid "Recurrent"
 msgstr "Recorrente"
 
-#: finances/templates/finances/FlowGroup.html:68
+#: finances/templates/finances/FlowGroup.html:69
 msgid "Budget Given:"
 msgstr "Orçamento fornecido:"
 
-#: finances/templates/finances/FlowGroup.html:95
-#: finances/templates/finances/FlowGroup.html:157
-#, fuzzy
-#| msgid "Close"
+#: finances/templates/finances/FlowGroup.html:96
+#: finances/templates/finances/FlowGroup.html:168
 msgid "Closed"
-msgstr "Fechar"
+msgstr "Fechada"
 
-#: finances/templates/finances/FlowGroup.html:111
+#: finances/templates/finances/FlowGroup.html:112
 msgid "Group Name"
 msgstr "Nome do grupo"
 
-#: finances/templates/finances/FlowGroup.html:118
+#: finances/templates/finances/FlowGroup.html:119
 msgid "Budgeted Amount"
 msgstr "Valor orçado"
 
-#: finances/templates/finances/FlowGroup.html:120
+#: finances/templates/finances/FlowGroup.html:121
 msgid "Read-only for children"
 msgstr "Somente leitura para crianças"
 
-#: finances/templates/finances/FlowGroup.html:182
+#: finances/templates/finances/FlowGroup.html:131
+msgid "Bill closing day"
+msgstr "Dia de fechamento da fatura"
+
+#: finances/templates/finances/FlowGroup.html:193
 msgid "Shared Group"
 msgstr "Grupo Compartilhado"
 
-#: finances/templates/finances/FlowGroup.html:196
+#: finances/templates/finances/FlowGroup.html:226
+msgid "You cannot remove yourself from a group shared by another user"
+msgstr "Você não pode remover-se de um grupo compartilhado por outro usuário"
+
+#: finances/templates/finances/FlowGroup.html:253
 msgid "No Parents/Admins"
 msgstr "Sem pais/administradores"
 
-#: finances/templates/finances/FlowGroup.html:207
+#: finances/templates/finances/FlowGroup.html:264
 msgid "Kids"
 msgstr "Crianças"
 
-#: finances/templates/finances/FlowGroup.html:221
+#: finances/templates/finances/FlowGroup.html:278
 msgid "No children in family"
 msgstr "Sem filhos na família"
 
-#: finances/templates/finances/FlowGroup.html:231
+#: finances/templates/finances/FlowGroup.html:288
 msgid "Investment"
 msgstr "Investimento"
 
-#: finances/templates/finances/FlowGroup.html:241
+#: finances/templates/finances/FlowGroup.html:298
 msgid "Credit Card"
 msgstr "Cartão de crédito"
 
-#: finances/templates/finances/FlowGroup.html:251
+#: finances/templates/finances/FlowGroup.html:302
+msgid "Credit card"
+msgstr "Cartão de crédito"
+
+#: finances/templates/finances/FlowGroup.html:313
+#: finances/templates/finances/ShopLists.html:135
 msgid "Please correct the errors below:"
 msgstr "Corrija os erros abaixo:"
 
-#: finances/templates/finances/FlowGroup.html:273
+#: finances/templates/finances/FlowGroup.html:335
+#: finances/templates/finances/FlowGroup.html:697
 msgid "Budget Warning:"
 msgstr "Aviso de Orçamento:"
 
-#: finances/templates/finances/FlowGroup.html:273
+#: finances/templates/finances/FlowGroup.html:335
 #, python-format
 msgid "Estimated expenses ($ %(estimated)s) exceed the budgeted amount"
 msgstr "Despesas estimadas ($ %(estimated)s) excedem o valor orçado"
 
-#: finances/templates/finances/FlowGroup.html:285
-#: finances/templates/finances/bank_reconciliation.html:62
-#: finances/templates/finances/dashboard.html:196
-#: finances/templates/finances/dashboard.html:366
+#: finances/templates/finances/FlowGroup.html:347
+#: finances/templates/finances/ShopLists.html:155
+#: finances/templates/finances/bank_reconciliation.html:63
+#: finances/templates/finances/dashboard.html:307
+#: finances/templates/finances/dashboard.html:477
 msgid "Description"
 msgstr "Descrição"
 
-#: finances/templates/finances/FlowGroup.html:286
-#: finances/templates/finances/bank_reconciliation.html:63
-#: finances/templates/finances/dashboard.html:197
+#: finances/templates/finances/FlowGroup.html:348
+#: finances/templates/finances/bank_reconciliation.html:64
+#: finances/templates/finances/dashboard.html:308
 msgid "Date"
 msgstr "Data"
 
-#: finances/templates/finances/FlowGroup.html:287
+#: finances/templates/finances/FlowGroup.html:349
 #: finances/templates/finances/configurations.html:260
 msgid "Member"
 msgstr "Membro"
 
-#: finances/templates/finances/FlowGroup.html:288
-#: finances/templates/finances/FlowGroup.html:593
-#: finances/templates/finances/dashboard.html:127
-#: finances/templates/finances/dashboard.html:427
+#: finances/templates/finances/FlowGroup.html:350
+#: finances/templates/finances/FlowGroup.html:719
+#: finances/templates/finances/ShopLists.html:157
+#: finances/templates/finances/dashboard.html:137
+#: finances/templates/finances/dashboard.html:538
 msgid "Realized"
 msgstr "Realizado"
 
-#: finances/templates/finances/FlowGroup.html:289
+#: finances/templates/finances/FlowGroup.html:351
 msgid "Fixed"
 msgstr "Fixo"
 
-#: finances/templates/finances/FlowGroup.html:290
-#: finances/templates/finances/bank_reconciliation.html:64
-#: finances/templates/finances/dashboard.html:198
+#: finances/templates/finances/FlowGroup.html:352
+#: finances/templates/finances/ShopLists.html:158
+#: finances/templates/finances/bank_reconciliation.html:68
+#: finances/templates/finances/dashboard.html:309
 msgid "Amount"
 msgstr "Quantia"
 
-#: finances/templates/finances/FlowGroup.html:291
-#: finances/templates/finances/bank_reconciliation.html:68
+#: finances/templates/finances/FlowGroup.html:353
+#: finances/templates/finances/ShopLists.html:159
+#: finances/templates/finances/bank_reconciliation.html:69
 #: finances/templates/finances/configurations.html:263
-#: finances/templates/finances/dashboard.html:200
+#: finances/templates/finances/dashboard.html:218
+#: finances/templates/finances/dashboard.html:311
 msgid "Actions"
 msgstr "Ações"
 
-#: finances/templates/finances/FlowGroup.html:313
-#: finances/templates/finances/FlowGroup.html:366
-#: finances/templates/finances/FlowGroup.html:452
+#: finances/templates/finances/FlowGroup.html:375
+#: finances/templates/finances/FlowGroup.html:428
+#: finances/templates/finances/FlowGroup.html:571
 msgid "Mark as recurring expense"
 msgstr "Marcar como despesa recorrente"
 
-#: finances/templates/finances/FlowGroup.html:406
+#: finances/templates/finances/FlowGroup.html:469
 msgid "No transactions found for this Flow Group."
 msgstr "Nenhuma transação encontrada para este Grupo Flow."
 
-#: finances/templates/finances/FlowGroup.html:419
+#: finances/templates/finances/FlowGroup.html:489
+#: finances/templates/finances/FlowGroup.html:522
+msgid "Open origin Flow Group"
+msgstr "Abrir grupo de origem"
+
+#: finances/templates/finances/FlowGroup.html:520
+msgid "Read-only transaction"
+msgstr "Transação somente leitura"
+
+#: finances/templates/finances/FlowGroup.html:538
+#: finances/templates/finances/ShopLists.html:256
 msgid "New Item Description"
 msgstr "Descrição do novo item"
 
-#: finances/templates/finances/FlowGroup.html:489
+#: finances/templates/finances/FlowGroup.html:608
+#: finances/templates/finances/ShopLists.html:296
 msgid "Add New Item"
 msgstr "Adicionar novo item"
 
-#: finances/templates/finances/FlowGroup.html:498
-#: finances/templates/finances/FlowGroup.html:511
-#: finances/templates/finances/dashboard.html:344
+#: finances/templates/finances/FlowGroup.html:617
+#: finances/templates/finances/FlowGroup.html:630
+#: finances/templates/finances/FlowGroup.html:651
+#: finances/templates/finances/ShopLists.html:308
+#: finances/templates/finances/ShopLists.html:319
+#: finances/templates/finances/dashboard.html:455
 msgid "Total:"
 msgstr "Total:"
 
-#: finances/templates/finances/FlowGroup.html:501
-#: finances/templates/finances/FlowGroup.html:514
-#: finances/templates/finances/dashboard.html:348
+#: finances/templates/finances/FlowGroup.html:620
+#: finances/templates/finances/FlowGroup.html:633
+#: finances/templates/finances/FlowGroup.html:655
+#: finances/templates/finances/ShopLists.html:312
+#: finances/templates/finances/ShopLists.html:323
+#: finances/templates/finances/dashboard.html:459
 msgid "Realized:"
 msgstr "Realizado:"
 
-#: finances/templates/finances/FlowGroup.html:574
+#: finances/templates/finances/FlowGroup.html:698
 msgid "Estimated expenses"
 msgstr "Despesas estimadas"
 
-#: finances/templates/finances/FlowGroup.html:575
+#: finances/templates/finances/FlowGroup.html:699
 msgid "exceed the budgeted amount"
 msgstr "excedem o valor orçado"
 
-#: finances/templates/finances/FlowGroup.html:575
+#: finances/templates/finances/FlowGroup.html:700
+#: finances/templates/finances/dashboard.html:45
+#: finances/templates/finances/dashboard.html:168
+#: finances/templates/finances/dashboard.html:262
+#: finances/templates/finances/dashboard.html:591
+msgid "⚠ Over budget"
+msgstr "⚠ Acima do orçamento"
+
+#: finances/templates/finances/FlowGroup.html:701
 msgid "✓ Marked as given"
 msgstr "✓ Marcado como dado"
 
-#: finances/templates/finances/FlowGroup.html:576
+#: finances/templates/finances/FlowGroup.html:702
 msgid "Not given yet"
 msgstr "Ainda não foi dado"
 
-#: finances/templates/finances/FlowGroup.html:577
+#: finances/templates/finances/FlowGroup.html:703
 msgid "Budget marked as given to child"
 msgstr "Orçamento marcado como dado à criança"
 
-#: finances/templates/finances/FlowGroup.html:578
+#: finances/templates/finances/FlowGroup.html:704
 msgid "Budget marked as not given"
 msgstr "Orçamento marcado como não fornecido"
 
-#: finances/templates/finances/FlowGroup.html:579
-#, fuzzy
-#| msgid "Error deleting item:"
+#: finances/templates/finances/FlowGroup.html:705
 msgid "Error updating status:"
-msgstr "Erro ao excluir o item:"
+msgstr "Erro ao atualizar o status:"
 
-#: finances/templates/finances/FlowGroup.html:580
-#: finances/templates/finances/dashboard.html:26
+#: finances/templates/finances/FlowGroup.html:706
+#: finances/templates/finances/ShopListDashboard.html:105
+#: finances/templates/finances/ShopLists.html:358
+#: finances/templates/finances/dashboard.html:35
 msgid "A network error occurred."
 msgstr "Ocorreu um erro de rede."
 
-#: finances/templates/finances/FlowGroup.html:581
+#: finances/templates/finances/FlowGroup.html:707
 msgid "Group marked as recurring - will be copied to new periods"
 msgstr "Grupo marcado como recorrente – será copiado para novos períodos"
 
-#: finances/templates/finances/FlowGroup.html:582
+#: finances/templates/finances/FlowGroup.html:708
 msgid "Group is no longer recurring"
 msgstr "O grupo não é mais recorrente"
 
-#: finances/templates/finances/FlowGroup.html:583
+#: finances/templates/finances/FlowGroup.html:709
 msgid "Error updating recurring status:"
 msgstr "Erro ao atualizar o status recorrente:"
 
-#: finances/templates/finances/FlowGroup.html:584
-#, fuzzy
-#| msgid "Close"
+#: finances/templates/finances/FlowGroup.html:710
 msgid "Bill Closed"
-msgstr "Fechar"
+msgstr "Fatura Fechada"
 
-#: finances/templates/finances/FlowGroup.html:585
+#: finances/templates/finances/FlowGroup.html:711
 msgid "Bill marked as closed and paid"
 msgstr "Fatura marcada como fechada e paga"
 
-#: finances/templates/finances/FlowGroup.html:586
+#: finances/templates/finances/FlowGroup.html:712
 msgid "Bill marked as not closed"
 msgstr "Projeto de lei marcado como não fechado"
 
-#: finances/templates/finances/FlowGroup.html:587
+#: finances/templates/finances/FlowGroup.html:713
 msgid "Bill Open"
-msgstr ""
+msgstr "Fatura Aberta"
 
-#: finances/templates/finances/FlowGroup.html:588
+#: finances/templates/finances/FlowGroup.html:714
 msgid "items marked as realized"
 msgstr "itens marcados como realizados"
 
-#: finances/templates/finances/FlowGroup.html:589
+#: finances/templates/finances/FlowGroup.html:715
 msgid "Please save the Flow Group first before marking it as closed."
 msgstr "Salve o grupo de fluxo antes de marcá-lo como fechado."
 
-#: finances/templates/finances/FlowGroup.html:590
+#: finances/templates/finances/FlowGroup.html:716
 msgid "Please save the Flow Group first before marking it as realized."
 msgstr "Salve o grupo de fluxo antes de marcá-lo como realizado."
 
-#: finances/templates/finances/FlowGroup.html:591
+#: finances/templates/finances/FlowGroup.html:717
 msgid "Please save the Flow Group first before marking it as recurring."
 msgstr "Salve o grupo de fluxo antes de marcá-lo como recorrente."
 
-#: finances/templates/finances/FlowGroup.html:592
+#: finances/templates/finances/FlowGroup.html:718
 msgid "Please save the transaction first before marking it as fixed."
 msgstr "Salve a transação antes de marcá-la como fixa."
 
-#: finances/templates/finances/FlowGroup.html:594
-#, fuzzy
-#| msgid "Realized"
+#: finances/templates/finances/FlowGroup.html:720
 msgid "Not Realized"
-msgstr "Realizado"
+msgstr "Não Realizado"
 
-#: finances/templates/finances/FlowGroup.html:595
-#, fuzzy
-#| msgid "Recurrent"
+#: finances/templates/finances/FlowGroup.html:721
 msgid "Recurring"
 msgstr "Recorrente"
 
-#: finances/templates/finances/FlowGroup.html:596
-#, fuzzy
-#| msgid "Recurrent"
+#: finances/templates/finances/FlowGroup.html:722
 msgid "Not Recurring"
-msgstr "Recorrente"
+msgstr "Não Recorrente"
 
-#: finances/templates/finances/FlowGroup.html:597
+#: finances/templates/finances/FlowGroup.html:723
 msgid "Transaction marked as fixed - will be copied to new periods"
 msgstr "Transação marcada como fixa – será copiada para novos períodos"
 
-#: finances/templates/finances/FlowGroup.html:598
+#: finances/templates/finances/FlowGroup.html:724
 msgid "Transaction is no longer fixed"
 msgstr "A transação não é mais fixa"
 
-#: finances/templates/finances/FlowGroup.html:599
+#: finances/templates/finances/FlowGroup.html:725
 msgid ""
 "WARNING: All transactions in this group for the current period will be "
 "permanently deleted. This action cannot be undone."
@@ -568,105 +710,184 @@ msgstr ""
 "AVISO: Todas as transações neste grupo para o período atual serão excluídas "
 "permanentemente. Esta ação não pode ser desfeita."
 
-#: finances/templates/finances/FlowGroup.html:600
+#: finances/templates/finances/FlowGroup.html:726
 msgid "Are you sure you want to delete this Flow Group?"
 msgstr "Tem certeza de que deseja excluir este Grupo de Fluxo?"
 
-#: finances/templates/finances/FlowGroup.html:601
+#: finances/templates/finances/FlowGroup.html:727
 msgid "Flow Group deleted successfully"
 msgstr "Grupo de fluxo excluído com sucesso"
 
-#: finances/templates/finances/FlowGroup.html:602
+#: finances/templates/finances/FlowGroup.html:728
 msgid "Error deleting Flow Group:"
 msgstr "Erro ao excluir o Grupo de Fluxo:"
 
-#: finances/templates/finances/FlowGroup.html:603
-#: finances/templates/finances/dashboard.html:22
+#: finances/templates/finances/FlowGroup.html:729
+#: finances/templates/finances/ShopLists.html:355
+#: finances/templates/finances/dashboard.html:31
 msgid "Are you sure you want to delete this item?"
 msgstr "Tem certeza de que deseja excluir este item?"
 
-#: finances/templates/finances/FlowGroup.html:604
-#: finances/templates/finances/dashboard.html:23
+#: finances/templates/finances/FlowGroup.html:730
+#: finances/templates/finances/dashboard.html:32
 msgid "Description, Amount, and Date are required."
 msgstr "Descrição, valor e data são obrigatórios."
 
-#: finances/templates/finances/FlowGroup.html:605
+#: finances/templates/finances/FlowGroup.html:731
+#: finances/templates/finances/ShopLists.html:357
+msgid "Description is required."
+msgstr "A descrição é obrigatória."
+
+#: finances/templates/finances/FlowGroup.html:732
 msgid "Duplicate Name"
 msgstr "Nome Duplicado"
 
-#: finances/templates/finances/FlowGroup.html:606
+#: finances/templates/finances/FlowGroup.html:733
 msgid "another user"
-msgstr ""
+msgstr "outro usuário"
 
-#: finances/templates/finances/FlowGroup.html:607
-#, fuzzy
-#| msgid "Flow Group deleted successfully"
+#: finances/templates/finances/FlowGroup.html:734
 msgid "This FlowGroup was deleted by"
-msgstr "Grupo de fluxo excluído com sucesso"
+msgstr "Este FlowGroup foi excluído por"
 
-#: finances/templates/finances/FlowGroup.html:608
-#, fuzzy
-#| msgid "FlowGroup ID is required"
+#: finances/templates/finances/FlowGroup.html:735
 msgid "FlowGroup Deleted"
-msgstr "O ID do FlowGroup é obrigatório"
+msgstr "FlowGroup Excluído"
 
-#: finances/templates/finances/FlowGroup.html:609
-#, fuzzy
-#| msgid "Flow Group deleted successfully"
+#: finances/templates/finances/FlowGroup.html:736
 msgid "FlowGroup Deleted Successfully"
-msgstr "Grupo de fluxo excluído com sucesso"
+msgstr "FlowGroup Excluído"
 
-#: finances/templates/finances/FlowGroup.html:610
+#: finances/templates/finances/FlowGroup.html:737
+#: finances/templates/finances/ShopLists.html:363
 #: finances/templates/finances/base.html:101
-#: finances/templates/finances/base_simple.html:67
-#: finances/templates/finances/update_modal.html:11
+#: finances/templates/finances/base_simple.html:74
+#: finances/templates/finances/post_update.html:91
+#: finances/templates/finances/post_update.html:186
+#: finances/templates/finances/update_modal.html:9
 msgid "OK"
 msgstr "OK"
 
-#: finances/templates/finances/ShopLists.html
-msgid "You have unsaved changes. Are you sure you want to leave?"
-msgstr "Você tem alterações não salvas. Tem certeza que deseja sair?"
-
-#: finances/templates/finances/ShopLists.html
-msgid "Unsaved Changes"
-msgstr "Alterações Não Salvas"
-
-#: finances/templates/finances/FlowGroup.html:611
-#: finances/templates/finances/dashboard.html:28
+#: finances/templates/finances/FlowGroup.html:738
+#: finances/templates/finances/dashboard.html:37
 msgid "A network error occurred while saving order."
 msgstr "Ocorreu um erro de rede ao salvar o pedido."
 
-#: finances/templates/finances/bank_reconciliation.html:18
+#: finances/templates/finances/ShopListDashboard.html:21
+msgid "Add List"
+msgstr "Adicionar Lista"
+
+#: finances/templates/finances/ShopListDashboard.html:31
+msgid "No lists yet. Create your first shopping list!"
+msgstr "Nenhuma lista ainda. Crie sua primeira lista de compras!"
+
+#: finances/templates/finances/ShopListDashboard.html:44
+#: finances/templates/finances/ShopListDashboard.html:84
+msgid "items"
+msgstr "itens"
+
+#: finances/templates/finances/ShopListDashboard.html:52
+#: finances/templates/finances/ShopListDashboard.html:73
+#: finances/templates/finances/ShopLists.html:23
+msgid "Clone"
+msgstr "Clonar"
+
+#: finances/templates/finances/ShopListDashboard.html:55
+#: finances/templates/finances/ShopListDashboard.html:76
+msgid "Delete"
+msgstr "Excluir"
+
+#: finances/templates/finances/ShopListDashboard.html:70
+#: finances/templates/finances/configurations.html:284
+msgid "Edit"
+msgstr "Editar"
+
+#: finances/templates/finances/ShopListDashboard.html:101
+#: finances/templates/finances/ShopLists.html:356
+msgid "Are you sure you want to delete this list and all its items?"
+msgstr "Tem certeza de que deseja excluir esta lista e todos os seus itens?"
+
+#: finances/templates/finances/ShopListDashboard.html:102
+msgid "Delete List"
+msgstr "Excluir lista"
+
+#: finances/templates/finances/ShopListDashboard.html:103
+#: finances/templates/finances/ShopLists.html:359
+msgid "List cloned successfully"
+msgstr "Lista clonada com sucesso"
+
+#: finances/templates/finances/ShopListDashboard.html:104
+msgid "An error occurred."
+msgstr "Ocorreu um erro."
+
+#: finances/templates/finances/ShopLists.html:27
+msgid "List"
+msgstr "Lista"
+
+#: finances/templates/finances/ShopLists.html:47
+#: finances/templates/finances/ShopLists.html:63
+msgid "Total"
+msgstr "Total"
+
+#: finances/templates/finances/ShopLists.html:56
+msgid "List Name"
+msgstr "Nome da Lista"
+
+#: finances/templates/finances/ShopLists.html:79
+msgid "Shared List"
+msgstr "Lista Compartilhada"
+
+#: finances/templates/finances/ShopLists.html:125
+msgid "No other members"
+msgstr "Nenhum outro membro"
+
+#: finances/templates/finances/ShopLists.html:156
+msgid "Link"
+msgstr "Link"
+
+#: finances/templates/finances/ShopLists.html:242
+msgid "No items in this list yet."
+msgstr "Nenhum item nesta lista ainda."
+
+#: finances/templates/finances/ShopLists.html:360
+msgid "List deleted successfully"
+msgstr "Lista excluída com sucesso"
+
+#: finances/templates/finances/ShopLists.html:361
+msgid "You have unsaved changes. Are you sure you want to leave?"
+msgstr "Você tem alterações não salvas. Tem certeza que deseja sair?"
+
+#: finances/templates/finances/ShopLists.html:362
+msgid "Unsaved Changes"
+msgstr "Alterações Não Salvas"
+
+#: finances/templates/finances/bank_reconciliation.html:19
 msgid "Please enter a description"
 msgstr "Por favor insira uma descrição"
 
-#: finances/templates/finances/bank_reconciliation.html:19
+#: finances/templates/finances/bank_reconciliation.html:20
 msgid "Error saving balance:"
 msgstr "Erro ao salvar saldo:"
 
-#: finances/templates/finances/bank_reconciliation.html:20
+#: finances/templates/finances/bank_reconciliation.html:21
 msgid "Network error occurred"
 msgstr "Ocorreu um erro de rede"
 
-#: finances/templates/finances/bank_reconciliation.html:21
-#, fuzzy
-#| msgid "Are you sure you want to delete this item?"
-msgid "Are you sure you want to delete this bank balance entry?"
-msgstr "Tem certeza de que deseja excluir este item?"
-
 #: finances/templates/finances/bank_reconciliation.html:22
-#, fuzzy
-#| msgid "Error deleting item:"
-msgid "Error deleting balance:"
-msgstr "Erro ao excluir o item:"
+msgid "Are you sure you want to delete this bank balance entry?"
+msgstr "Tem certeza de que deseja excluir este lançamento de saldo bancário?"
 
 #: finances/templates/finances/bank_reconciliation.html:23
-#: finances/templates/finances/bank_reconciliation.html:231
+msgid "Error deleting balance:"
+msgstr "Erro ao excluir o saldo:"
+
+#: finances/templates/finances/bank_reconciliation.html:24
+#: finances/templates/finances/bank_reconciliation.html:229
 msgid "Warning: Discrepancy Detected"
 msgstr "Aviso: discrepância detectada"
 
-#: finances/templates/finances/bank_reconciliation.html:24
-#: finances/templates/finances/bank_reconciliation.html:233
+#: finances/templates/finances/bank_reconciliation.html:25
+#: finances/templates/finances/bank_reconciliation.html:231
 #, python-format
 msgid ""
 "The difference between your bank balance and calculated balance is greater "
@@ -676,45 +897,46 @@ msgstr ""
 "do que  %(discrepancy_percentage_tolerance)s%%. Por favor reveja suas "
 "transações"
 
-#: finances/templates/finances/bank_reconciliation.html:25
-#: finances/templates/finances/bank_reconciliation.html:243
+#: finances/templates/finances/bank_reconciliation.html:26
+#: finances/templates/finances/bank_reconciliation.html:241
 msgid "Reconciliation OK"
 msgstr "Reconciliação OK"
 
-#: finances/templates/finances/bank_reconciliation.html:26
-#: finances/templates/finances/bank_reconciliation.html:245
+#: finances/templates/finances/bank_reconciliation.html:27
+#: finances/templates/finances/bank_reconciliation.html:243
 msgid ""
 "Your bank balance matches your calculated balance within acceptable limits."
 msgstr ""
 "O balanço de sua conta bancária está detro dos limites aceitáveis em relação "
 "ao o balanço calculado."
 
-#: finances/templates/finances/bank_reconciliation.html:27
-#: finances/templates/finances/bank_reconciliation.html:311
-#, fuzzy, python-format
-#| msgid "Discrepancy exceeds 5%% for this user"
+#: finances/templates/finances/bank_reconciliation.html:28
+#: finances/templates/finances/bank_reconciliation.html:309
+#, python-format
 msgid ""
 "Discrepancy exceeds %(discrepancy_percentage_tolerance)s%% for this user"
-msgstr "A discrepância excede 5%% para este usuário"
+msgstr ""
+"A discrepância excede %(discrepancy_percentage_tolerance)s%% para este "
+"usuário"
 
-#: finances/templates/finances/bank_reconciliation.html:36
+#: finances/templates/finances/bank_reconciliation.html:37
 msgid "Back to Dashboard"
 msgstr "Voltar ao painel"
 
-#: finances/templates/finances/bank_reconciliation.html:40
-#: finances/templates/finances/dashboard.html:418
+#: finances/templates/finances/bank_reconciliation.html:41
+#: finances/templates/finances/dashboard.html:529
 msgid "Bank Reconciliation"
 msgstr "Reconciliação Bancária"
 
-#: finances/templates/finances/bank_reconciliation.html:45
+#: finances/templates/finances/bank_reconciliation.html:46
 msgid "General"
 msgstr "Em geral"
 
-#: finances/templates/finances/bank_reconciliation.html:52
+#: finances/templates/finances/bank_reconciliation.html:53
 msgid "Detailed (by User)"
 msgstr "Detalhado (por usuário)"
 
-#: finances/templates/finances/bank_reconciliation.html:58
+#: finances/templates/finances/bank_reconciliation.html:59
 msgid "Current Bank Balances"
 msgstr "Saldos bancários atuais"
 
@@ -722,102 +944,78 @@ msgstr "Saldos bancários atuais"
 msgid "User"
 msgstr "Usuário"
 
-#: finances/templates/finances/bank_reconciliation.html:91
-msgid "Family"
-msgstr "Família"
-
-#: finances/templates/finances/bank_reconciliation.html:121
+#: finances/templates/finances/bank_reconciliation.html:119
 msgid "No bank balances entered yet. Click \"Add Bank Balance\" to start."
 msgstr ""
-"Nenhum saldo bancário inserido ainda. Clique em \"Adicionar Saldo Bancário\" "
+"Nenhum saldo bancário cadastrado. Clique em \"Adicionar Saldo Bancário\" "
 "para começar."
 
-#: finances/templates/finances/bank_reconciliation.html:129
+#: finances/templates/finances/bank_reconciliation.html:127
 msgid "Bank account name"
 msgstr "Nome da conta bancária"
 
-#: finances/templates/finances/bank_reconciliation.html:163
+#: finances/templates/finances/bank_reconciliation.html:161
 msgid "Add Bank Balance"
 msgstr "Adicionar saldo bancário"
 
-#: finances/templates/finances/bank_reconciliation.html:167
+#: finances/templates/finances/bank_reconciliation.html:165
 msgid "Total Bank Balance:"
 msgstr "Saldo Bancário Total:"
 
-#: finances/templates/finances/bank_reconciliation.html:182
+#: finances/templates/finances/bank_reconciliation.html:180
 msgid "General Reconciliation (Family)"
 msgstr "Reconciliação Geral (Família)"
 
-#: finances/templates/finances/bank_reconciliation.html:187
+#: finances/templates/finances/bank_reconciliation.html:185
 msgid "Total Income"
 msgstr "Renda total"
 
-#: finances/templates/finances/bank_reconciliation.html:191
-#: finances/templates/finances/dashboard.html:33
+#: finances/templates/finances/bank_reconciliation.html:189
+#: finances/templates/finances/dashboard.html:42
 msgid "Total Expenses"
 msgstr "Despesas totais"
 
-#: finances/templates/finances/bank_reconciliation.html:195
-#: finances/templates/finances/bank_reconciliation.html:210
+#: finances/templates/finances/bank_reconciliation.html:193
+#: finances/templates/finances/bank_reconciliation.html:208
 msgid "Calculated Balance"
 msgstr "Saldo calculado"
 
-#: finances/templates/finances/bank_reconciliation.html:205
-#: finances/templates/finances/bank_reconciliation.html:285
+#: finances/templates/finances/bank_reconciliation.html:203
+#: finances/templates/finances/bank_reconciliation.html:283
 msgid "Bank Balance"
 msgstr "Saldo Bancário"
 
-#: finances/templates/finances/bank_reconciliation.html:215
-#: finances/templates/finances/bank_reconciliation.html:295
+#: finances/templates/finances/bank_reconciliation.html:213
+#: finances/templates/finances/bank_reconciliation.html:293
 msgid "Discrepancy"
 msgstr "Discrepância"
 
-#: finances/templates/finances/bank_reconciliation.html:259
+#: finances/templates/finances/bank_reconciliation.html:257
 msgid "Detailed Reconciliation (by User)"
 msgstr "Reconciliação detalhada (por usuário)"
 
-#: finances/templates/finances/bank_reconciliation.html:272
-#: finances/templates/finances/dashboard.html:435
+#: finances/templates/finances/bank_reconciliation.html:270
+#: finances/templates/finances/dashboard.html:546
 msgid "Expenses"
 msgstr "Despesas"
 
-#: finances/templates/finances/bank_reconciliation.html:276
-#: finances/templates/finances/bank_reconciliation.html:290
+#: finances/templates/finances/bank_reconciliation.html:274
+#: finances/templates/finances/bank_reconciliation.html:288
 msgid "Calculated"
 msgstr "Calculado"
 
-#: finances/templates/finances/base.html:10
+#: finances/templates/finances/base.html:13
 #: finances/templates/finances/base_simple.html:11
 msgid "SweetMoney | Family Financial Flow"
 msgstr "SweetMoney | Fluxo Financeiro Familiar"
 
-#: finances/templates/finances/base.html:89
+#: finances/templates/finances/base.html:93
 msgid "Error loading period details:"
 msgstr "Erro ao carregar detalhes do período:"
 
-#: finances/templates/finances/base.html:90
+#: finances/templates/finances/base.html:94
 msgid "An error occurred while loading period details"
 msgstr "Ocorreu um erro ao carregar os detalhes do período"
-
-#: finances/templates/finances/base.html:91
-msgid "New SweetMoney version available!"
-msgstr "Nova versão do SweetMoney disponível!"
-
-#: finances/templates/finances/base.html:92
-msgid "Installed:"
-msgstr "Instalado:"
-
-#: finances/templates/finances/base.html:92
-msgid "Available:"
-msgstr "Disponível:"
-
-#: finances/templates/finances/base.html:93
-msgid "To update, please reinstall the app."
-msgstr "Para atualizar, reinstale o aplicativo."
-
-#: finances/templates/finances/base.html:94
-msgid "Click OK to dismiss this message."
-msgstr "Clique em OK para dispensar esta mensagem."
 
 #: finances/templates/finances/base.html:95
 msgid "To install this app on your iPhone/iPad:"
@@ -828,74 +1026,73 @@ msgid "Tap the Share button (square with arrow)"
 msgstr "Toque no botão Compartilhar (quadrado com seta)"
 
 #: finances/templates/finances/base.html:97
-#, fuzzy
-#| msgid "Scroll down and tap \"Add to Home Screen\""
 msgid "Scroll down and tap \\\" Add to Home Screen\\\""
 msgstr "Role para baixo e toque em \"Adicionar à Tela de Início\""
 
 #: finances/templates/finances/base.html:98
-#, fuzzy
-#| msgid "Tap \"Add\" to install"
 msgid "Tap \\\" Add\\\" to install"
-msgstr "Toque em \"Adicionar\" para instalar"
+msgstr "Toque em \\\"Adicionar\\\" para instalar"
 
 #: finances/templates/finances/base.html:99
-#: finances/templates/finances/base.html:577
-#: finances/templates/finances/base_simple.html:42
-#: finances/templates/finances/base_simple.html:62
+#: finances/templates/finances/base.html:584
+#: finances/templates/finances/base_simple.html:49
+#: finances/templates/finances/base_simple.html:69
 msgid "Notification"
 msgstr "Notificação"
 
 #: finances/templates/finances/base.html:99
-#: finances/templates/finances/base_simple.html:63
+#: finances/templates/finances/base_simple.html:70
 #: finances/templates/finances/configurations.html:491
 msgid "Warning"
 msgstr "Aviso"
 
 #: finances/templates/finances/base.html:100
-#: finances/templates/finances/base_simple.html:64
+#: finances/templates/finances/base_simple.html:71
 msgid "Error"
 msgstr "Erro"
 
 #: finances/templates/finances/base.html:100
-#: finances/templates/finances/base_simple.html:65
+#: finances/templates/finances/base_simple.html:72
 msgid "Success"
 msgstr "Sucesso"
 
 #: finances/templates/finances/base.html:101
-#: finances/templates/finances/base_simple.html:66
+#: finances/templates/finances/base_simple.html:73
 msgid "Confirm Action"
 msgstr "Confirmar Ação"
 
 #: finances/templates/finances/base.html:102
-#: finances/templates/finances/base.html:410
-#: finances/templates/finances/base.html:529
-#: finances/templates/finances/base_simple.html:68
+#: finances/templates/finances/base.html:417
+#: finances/templates/finances/base.html:536
+#: finances/templates/finances/base_simple.html:75
 #: finances/templates/finances/configurations.html:365
 #: finances/templates/finances/configurations.html:403
 #: finances/templates/finances/configurations.html:438
+#: finances/templates/finances/dashboard.html:580
 #: finances/templates/finances/period_change_confirmation_modal.html:155
+#: finances/templates/finances/profile.html:317
 #: finances/templates/finances/setup.html:208
+#: finances/templates/finances/update_modal.html:41
 msgid "Cancel"
 msgstr "Cancelar"
 
 #: finances/templates/finances/base.html:102
-#: finances/templates/finances/base_simple.html:69
+#: finances/templates/finances/base_simple.html:76
 msgid "Continue"
 msgstr "Continuar"
 
 #: finances/templates/finances/base.html:103
-#: finances/templates/finances/base_simple.html:70
+#: finances/templates/finances/base_simple.html:77
 msgid "Yes"
 msgstr "Sim"
 
 #: finances/templates/finances/base.html:103
-#: finances/templates/finances/base_simple.html:71
+#: finances/templates/finances/base_simple.html:78
 msgid "No"
 msgstr "Não"
 
 #: finances/templates/finances/base.html:104
-#: finances/templates/finances/base_simple.html:72
+#: finances/templates/finances/base_simple.html:79
 msgid "Close"
 msgstr "Fechar"
 
@@ -908,188 +1105,189 @@ msgid "An error occurred while creating the period"
 msgstr "Ocorreu um erro ao criar o período"
 
 #: finances/templates/finances/base.html:106
-#, fuzzy
-#| msgid "Are you sure you want to delete this item?"
 msgid "Are you sure you want to delete this period?"
-msgstr "Tem certeza de que deseja excluir este item?"
+msgstr "Tem certeza de que deseja excluir este lançamento de saldo bancário?"
 
 #: finances/templates/finances/base.html:107
-#, fuzzy
-#| msgid "Creating..."
 msgid "Deleting..."
-msgstr "Criando..."
+msgstr "Excluindo..."
 
 #: finances/templates/finances/base.html:108
 msgid "An error occurred while deleting the period"
 msgstr "Ocorreu um erro ao excluir o período"
 
-#: finances/templates/finances/base.html:135
+#: finances/templates/finances/base.html:109
+msgid "Acknowledge"
+msgstr "Reconhecer"
+
+#: finances/templates/finances/base.html:110
+msgid "View Item"
+msgstr "Ver item"
+
+#: finances/templates/finances/base.html:137
 msgid "Dashboard"
 msgstr "Painel"
 
-#: finances/templates/finances/base.html:142
+#: finances/templates/finances/base.html:143
+msgid "Lists"
+msgstr "Listas"
+
+#: finances/templates/finances/base.html:150
+#: finances/templates/finances/dashboard.html:43
 msgid "Investments"
 msgstr "Investimentos"
 
-#: finances/templates/finances/base.html:143
-msgid "Soon"
-msgstr ""
-
 #: finances/templates/finances/base.html:151
+msgid "Soon"
+msgstr "Em breve"
+
+#: finances/templates/finances/base.html:159
 msgid "Settings"
 msgstr "Configurações"
 
-#: finances/templates/finances/base.html:167
+#: finances/templates/finances/base.html:174
 msgid "View profile"
 msgstr "Ver perfil"
 
-#: finances/templates/finances/base.html:179
-#: finances/templates/finances/base.html:315
-#: finances/templates/finances/update_modal.html:252
+#: finances/templates/finances/base.html:186
+#: finances/templates/finances/base.html:322
+#: finances/templates/finances/update_modal.html:212
 msgid "Logout"
 msgstr "Sair"
 
-#: finances/templates/finances/base.html:191
-#, fuzzy
-#| msgid "Install Update"
+#: finances/templates/finances/base.html:198
 msgid "Install App"
-msgstr "Instalar atualização"
+msgstr "Instalar Aplicativo"
 
-#: finances/templates/finances/base.html:197
-#, fuzzy
-#| msgid "New Version:"
+#: finances/templates/finances/base.html:204
 msgid "Version"
-msgstr "Nova versão:"
+msgstr "Versão"
 
-#: finances/templates/finances/base.html:200
+#: finances/templates/finances/base.html:207
 msgid "Update Available"
 msgstr "Atualização disponível"
 
-#: finances/templates/finances/base.html:221
-#: finances/templates/finances/base.html:369
+#: finances/templates/finances/base.html:228
+#: finances/templates/finances/base.html:376
 msgid "Create New Period"
 msgstr "Criar novo período"
 
-#: finances/templates/finances/base.html:223
+#: finances/templates/finances/base.html:230
 msgid "New Period"
 msgstr "Novo período"
 
-#: finances/templates/finances/base.html:228
+#: finances/templates/finances/base.html:235
 msgid "Delete Current Period"
 msgstr "Excluir período atual"
 
-#: finances/templates/finances/base.html:236
-#: finances/templates/finances/base.html:429
-#: finances/templates/finances/base.html:534
+#: finances/templates/finances/base.html:243
+#: finances/templates/finances/base.html:436
+#: finances/templates/finances/base.html:541
 msgid "Delete Period"
 msgstr "Excluir período"
 
-#: finances/templates/finances/base.html:265
+#: finances/templates/finances/base.html:272
 msgid "No periods available"
 msgstr "Não há períodos disponíveis"
 
-#: finances/templates/finances/base.html:294
-#, fuzzy
-#| msgid "Notification"
+#: finances/templates/finances/base.html:301
 msgid "Notifications"
-msgstr "Notificação"
+msgstr "Notificações"
 
-#: finances/templates/finances/base.html:297
+#: finances/templates/finances/base.html:304
 msgid "Mark all as read"
 msgstr "Marcar tudo como lido"
 
-#: finances/templates/finances/base.html:307
+#: finances/templates/finances/base.html:314
 msgid "Toggle Dark Mode"
 msgstr "Alternar modo escuro"
 
-#: finances/templates/finances/base.html:347
-#: finances/templates/finances/setup.html:235
+#: finances/templates/finances/base.html:354
 msgid "Administrator Account"
 msgstr "Conta de administrador"
 
-#: finances/templates/finances/base.html:351
+#: finances/templates/finances/base.html:358
 msgid ""
 "This is an Administrator account and should be used only for family group "
 "administration. Daily operations should be performed using Parent or Child "
 "accounts."
 msgstr ""
+"Esta é uma conta de Administrador e deve ser usada apenas para administração "
+"do grupo familiar. Operações diárias devem ser realizadas com contas de Pai "
+"ou Filho."
 
-#: finances/templates/finances/base.html:355
+#: finances/templates/finances/base.html:362
 msgid "I Agree"
 msgstr "Concordo"
 
-#: finances/templates/finances/base.html:380
+#: finances/templates/finances/base.html:387
 msgid "Start Date"
 msgstr "Data de início"
 
-#: finances/templates/finances/base.html:389
+#: finances/templates/finances/base.html:396
 msgid "End Date"
 msgstr "Data de término"
 
-#: finances/templates/finances/base.html:401
-#, fuzzy
-#| msgid "Warning: Discrepancy Detected"
+#: finances/templates/finances/base.html:408
 msgid "Warning: Period Overlap Detected"
-msgstr "Aviso: discrepância detectada"
+msgstr "Aviso: Sobreposição de Períodos Detectada"
 
-#: finances/templates/finances/base.html:414
+#: finances/templates/finances/base.html:421
 msgid "Create"
 msgstr "Criar"
 
-#: finances/templates/finances/base.html:440
+#: finances/templates/finances/base.html:447
 msgid "Loading period details..."
 msgstr "Carregando detalhes do período..."
 
-#: finances/templates/finances/base.html:449
+#: finances/templates/finances/base.html:456
 msgid "This action cannot be undone!"
 msgstr "Esta ação não pode ser desfeita!"
 
-#: finances/templates/finances/base.html:455
-#, fuzzy
-#| msgid "Family Information"
+#: finances/templates/finances/base.html:462
 msgid "Period Information"
-msgstr "Informações familiares"
+msgstr "Informações do Período"
 
-#: finances/templates/finances/base.html:457
+#: finances/templates/finances/base.html:464
 #: finances/templates/finances/period_change_confirmation_modal.html:42
 #: finances/templates/finances/period_change_confirmation_modal.html:66
 #: finances/templates/finances/period_change_confirmation_modal.html:86
 msgid "Period:"
 msgstr "Período:"
 
-#: finances/templates/finances/base.html:463
+#: finances/templates/finances/base.html:470
 msgid "Period Summary"
 msgstr "Resumo do Período"
 
-#: finances/templates/finances/base.html:467
+#: finances/templates/finances/base.html:474
 msgid "Flow Groups:"
 msgstr "Grupos de fluxo:"
 
-#: finances/templates/finances/base.html:472
+#: finances/templates/finances/base.html:479
 msgid "Transactions:"
 msgstr "Transações:"
 
-#: finances/templates/finances/base.html:480
+#: finances/templates/finances/base.html:487
 msgid "Key Metrics"
 msgstr "Métricas-chave"
 
-#: finances/templates/finances/base.html:483
+#: finances/templates/finances/base.html:490
 msgid "Income (Estimated)"
 msgstr "Renda (estimada)"
 
-#: finances/templates/finances/base.html:491
+#: finances/templates/finances/base.html:498
 msgid "Income (Realized)"
 msgstr "Renda (Realizada)"
 
-#: finances/templates/finances/base.html:498
+#: finances/templates/finances/base.html:505
 msgid "Expenses (Estimated)"
 msgstr "Despesas (estimadas)"
 
-#: finances/templates/finances/base.html:506
+#: finances/templates/finances/base.html:513
 msgid "Expenses (Realized)"
 msgstr "Despesas (Realizadas)"
 
-#: finances/templates/finances/base.html:522
+#: finances/templates/finances/base.html:529
 msgid "I understand the consequences and want to proceed."
 msgstr "Entendo as consequências e quero prosseguir."
 
@@ -1102,14 +1300,14 @@ msgid "Creating backup..."
 msgstr "Criando backup..."
 
 #: finances/templates/finances/configurations.html:11
-#: finances/templates/finances/update_modal.html:33
+#: finances/templates/finances/update_modal.html:31
 msgid "Failed to create backup:"
 msgstr "Falha ao criar backup:"
 
 #: finances/templates/finances/configurations.html:12
 #: finances/templates/finances/configurations.html:511
 #: finances/templates/finances/setup.html:188
-#: finances/templates/finances/setup.html:480
+#: finances/templates/finances/setup.html:483
 msgid "No file selected"
 msgstr "Nenhum arquivo selecionado"
 
@@ -1146,7 +1344,7 @@ msgid "Do you want to continue with the restore operation?"
 msgstr "Deseja continuar com a operação de restauração?"
 
 #: finances/templates/finances/configurations.html:19
-#: finances/templates/finances/setup.html:483
+#: finances/templates/finances/setup.html:486
 msgid "Restoring..."
 msgstr "Restaurando..."
 
@@ -1175,10 +1373,8 @@ msgid "Do you want to proceed with the migration?"
 msgstr "Deseja prosseguir com a migração?"
 
 #: finances/templates/finances/configurations.html:26
-#, fuzzy
-#| msgid "Creating..."
 msgid "Migrating..."
-msgstr "Criando..."
+msgstr "Migrando..."
 
 #: finances/templates/finances/configurations.html:27
 msgid "Migration Successful"
@@ -1205,7 +1401,7 @@ msgid "Details:"
 msgstr "Detalhes:"
 
 #: finances/templates/finances/configurations.html:32
-#: finances/templates/finances/setup.html:492
+#: finances/templates/finances/setup.html:497
 msgid "Restore Successful"
 msgstr "Restauração Bem-Sucedida"
 
@@ -1224,7 +1420,7 @@ msgid "Failed to restore backup:"
 msgstr "Falha ao restaurar o backup:"
 
 #: finances/templates/finances/configurations.html:36
-#: finances/templates/finances/setup.html:493
+#: finances/templates/finances/setup.html:498
 msgid "Restore Error"
 msgstr "Erro na Restauração"
 
@@ -1239,10 +1435,8 @@ msgid "No members found in the family."
 msgstr "Nenhum membro encontrado na família."
 
 #: finances/templates/finances/configurations.html:39
-#, fuzzy
-#| msgid "Creating..."
 msgid "Adding..."
-msgstr "Criando..."
+msgstr "Adicionando..."
 
 #: finances/templates/finances/configurations.html:40
 #: finances/templates/finances/configurations.html:248
@@ -1250,12 +1444,8 @@ msgid "Add"
 msgstr "Adicionar"
 
 #: finances/templates/finances/configurations.html:41
-#, fuzzy
-#| msgid "An error occurred during setup: %(error)s. Please try again."
 msgid "Error adding member. Please try again."
-msgstr ""
-"Ocorreu um erro durante a configuração: %(error)s. Por favor, tente "
-"novamente."
+msgstr "Erro ao adicionar membro. Tente novamente."
 
 #: finances/templates/finances/configurations.html:46
 msgid "Application Settings"
@@ -1286,9 +1476,11 @@ msgid ""
 "Child users cannot access system configuration settings. Please contact an "
 "Admin or Parent user to modify these settings."
 msgstr ""
+"Usuários Filho não podem acessar as configurações do sistema. Contate um "
+"usuário Admin ou Pai para modificar estas configurações."
 
 #: finances/templates/finances/configurations.html:111
-#: finances/templates/finances/setup.html:335
+#: finances/templates/finances/setup.html:337
 msgid "Base Currency"
 msgstr "Moeda base"
 
@@ -1301,7 +1493,7 @@ msgstr ""
 "Alterar isso não converterá valores existentes."
 
 #: finances/templates/finances/configurations.html:119
-#: finances/templates/finances/setup.html:378
+#: finances/templates/finances/setup.html:380
 msgid "Period Frequency"
 msgstr "Frequência do período"
 
@@ -1312,19 +1504,19 @@ msgid "Admin only"
 msgstr "Somente administrador"
 
 #: finances/templates/finances/configurations.html:139
-#: finances/templates/finances/setup.html:408
+#: finances/templates/finances/setup.html:410
 msgid "Starting Day of Month"
 msgstr "Dia de início do mês"
 
 #: finances/templates/finances/configurations.html:151
-#: finances/templates/finances/setup.html:424
+#: finances/templates/finances/setup.html:426
 msgid "Base Date for Cycle"
 msgstr "Data Base do Ciclo"
 
 #: finances/templates/finances/configurations.html:157
 msgid "Reference date used to calculate bi-weekly or weekly periods."
 msgstr ""
-"Data de referência utilizada para cálculo de períodos quinzenais ou semanais."
+"Data de referência usada para calcular períodos quinzenais ou semanais."
 
 #: finances/templates/finances/configurations.html:162
 #, python-format
@@ -1341,10 +1533,8 @@ msgstr ""
 "(ex: 5.00 para 5%%)."
 
 #: finances/templates/finances/configurations.html:170
-#, fuzzy
-#| msgid "Confirm Action"
 msgid "Save Configuration"
-msgstr "Confirmar Ação"
+msgstr "Salvar Configuração"
 
 #: finances/templates/finances/configurations.html:181
 msgid "Add New Member"
@@ -1359,20 +1549,14 @@ msgid "As a Parent, you can only add Child users."
 msgstr "Como Pai, você só pode adicionar usuários Filhos."
 
 #: finances/templates/finances/configurations.html:191
-#, fuzzy
-#| msgid "Error"
 msgid "Error:"
-msgstr "Erro"
-
-#: finances/templates/finances/configurations.html:284
-msgid "Edit"
-msgstr "Editar"
+msgstr "Erro:"
 
 #: finances/templates/finances/configurations.html:294
 #: finances/templates/finances/configurations.html:382
 #: finances/templates/finances/configurations.html:406
-#: finances/templates/finances/profile.html:82
-#: finances/templates/finances/profile.html:115
+#: finances/templates/finances/profile.html:269
+#: finances/templates/finances/profile.html:302
 msgid "Change Password"
 msgstr "Alterar a senha"
 
@@ -1385,9 +1569,9 @@ msgid "Edit Member"
 msgstr "Editar membro"
 
 #: finances/templates/finances/configurations.html:340
-#: finances/templates/finances/profile.html:30
+#: finances/templates/finances/post_update.html:202
+#: finances/templates/finances/profile.html:44
 #: finances/templates/finances/setup.html:242
-#: finances/templates/registration/login.html:64
 msgid "Username"
 msgstr "Nome de usuário"
 
@@ -1397,29 +1581,23 @@ msgstr "Salvar alterações"
 
 #: finances/templates/finances/configurations.html:391
 #: finances/templates/finances/password_reset_confirm.html:37
-#: finances/templates/finances/profile.html:97
+#: finances/templates/finances/profile.html:284
 msgid "New Password"
 msgstr "Nova Senha"
 
 #: finances/templates/finances/configurations.html:396
 #: finances/templates/finances/password_reset_confirm.html:65
-#: finances/templates/finances/setup.html:288
-#, fuzzy
-#| msgid "Confirm Action"
+#: finances/templates/finances/setup.html:290
 msgid "Confirm Password"
-msgstr "Confirmar Ação"
+msgstr "Confirmar Senha"
 
 #: finances/templates/finances/configurations.html:422
-#, fuzzy
-#| msgid "Confirm Action"
 msgid "Confirm Removal"
-msgstr "Confirmar Ação"
+msgstr "Confirmar Remoção"
 
 #: finances/templates/finances/configurations.html:426
-#, fuzzy
-#| msgid "Are you sure you want to delete this item?"
 msgid "Are you sure you want to remove"
-msgstr "Tem certeza de que deseja excluir este item?"
+msgstr "Tem certeza de que deseja remover"
 
 #: finances/templates/finances/configurations.html:426
 msgid "from the family?"
@@ -1430,12 +1608,12 @@ msgid ""
 "This action cannot be undone. The user account and all associated data will "
 "be permanently deleted."
 msgstr ""
+"Esta ação não pode ser desfeita. A conta do usuário e todos os dados "
+"associados serão permanentemente excluídos."
 
 #: finances/templates/finances/configurations.html:441
-#, fuzzy
-#| msgid "Member"
 msgid "Remove Member"
-msgstr "Membro"
+msgstr "Remover Membro"
 
 #: finances/templates/finances/configurations.html:459
 msgid "Backup Database"
@@ -1446,10 +1624,11 @@ msgid ""
 "Download a complete backup of your database. Keep this file safe for "
 "recovery purposes."
 msgstr ""
+"Baixe um backup completo do seu banco de dados. Mantenha este arquivo em "
+"segurança para fins de recuperação."
 
 #: finances/templates/finances/configurations.html:469
-#: finances/templates/finances/update_modal.html:96
-#: finances/templates/finances/update_modal.html:156
+#: finances/templates/finances/update_modal.html:126
 msgid "Download Database Backup"
 msgstr "Baixar backup do banco de dados"
 
@@ -1477,8 +1656,8 @@ msgid "Click to select a backup file"
 msgstr "Clique para selecionar um arquivo de backup"
 
 #: finances/templates/finances/configurations.html:506
-msgid "SQLite (.sqlite3) or PostgreSQL (.dump) files"
-msgstr ""
+msgid "SQLite (.sqlite3) or PostgreSQL (.json or .sql) files"
+msgstr "Arquivos SQLite (.sqlite3) ou PostgreSQL (.json ou .sql)"
 
 #: finances/templates/finances/configurations.html:522
 msgid "Restore Complete"
@@ -1518,172 +1697,264 @@ msgstr "O sistema está atualizado!"
 msgid "Latest version:"
 msgstr "Versão mais recente:"
 
-#: finances/templates/finances/configurations.html:601
-msgid "Local updates pending"
-msgstr "Atualizações locais pendentes"
-
-#: finances/templates/finances/configurations.html:602
-msgid "Please apply local updates first before checking for online updates."
-msgstr ""
-"Aplique as atualizações locais primeiro, antes de verificar se há "
-"atualizações on-line."
-
-#: finances/templates/finances/dashboard.html:24
-#, fuzzy
-#| msgid "Error deleting item:"
+#: finances/templates/finances/dashboard.html:33
 msgid "Error saving item:"
-msgstr "Erro ao excluir o item:"
+msgstr "Erro ao salvar o item:"
 
-#: finances/templates/finances/dashboard.html:25
+#: finances/templates/finances/dashboard.html:34
 msgid "Error deleting item:"
 msgstr "Erro ao excluir o item:"
 
-#: finances/templates/finances/dashboard.html:27
-#, fuzzy
-#| msgid "Error deleting item:"
+#: finances/templates/finances/dashboard.html:36
 msgid "Error saving order:"
-msgstr "Erro ao excluir o item:"
+msgstr "Erro ao salvar a ordem:"
 
-#: finances/templates/finances/dashboard.html:29
-#, fuzzy
-#| msgid "Error deleting item:"
+#: finances/templates/finances/dashboard.html:38
 msgid "Error saving income:"
-msgstr "Erro ao excluir o item:"
+msgstr "Erro ao salvar a renda:"
 
-#: finances/templates/finances/dashboard.html:30
-#, fuzzy
-#| msgid "Error deleting item:"
+#: finances/templates/finances/dashboard.html:39
 msgid "Error updating income status:"
-msgstr "Erro ao excluir o item:"
+msgstr "Erro ao atualizar o status da renda:"
 
-#: finances/templates/finances/dashboard.html:31
-#: finances/templates/finances/dashboard.html:219
+#: finances/templates/finances/dashboard.html:40
+#: finances/templates/finances/dashboard.html:330
 msgid "Only Parents/Admins can change this status"
 msgstr "Somente pais/administradores podem alterar esse status"
 
-#: finances/templates/finances/dashboard.html:32
+#: finances/templates/finances/dashboard.html:41
 msgid "Others"
 msgstr "Outros"
 
-#: finances/templates/finances/dashboard.html:34
+#: finances/templates/finances/dashboard.html:44
 msgid "Trend"
 msgstr "Tendência"
 
-#: finances/templates/finances/dashboard.html:35
-#: finances/templates/finances/dashboard.html:152
-msgid "⚠ Over budget"
-msgstr "⚠ Acima do orçamento"
-
-#: finances/templates/finances/dashboard.html:36
-#, fuzzy
-#| msgid "No expense groups defined. Click \\"
+#: finances/templates/finances/dashboard.html:46
 msgid "No expense groups defined. Click \\\"Add Group\\\" to start."
-msgstr "Nenhum grupo de despesas definido. Clique em \\"
+msgstr ""
+"Nenhum grupo de despesas definido. Clique em \"Adicionar Grupo\" para "
+"começar."
 
-#: finances/templates/finances/dashboard.html:45
+#: finances/templates/finances/dashboard.html:55
 msgid "Top Expenses"
 msgstr "Principais despesas"
 
-#: finances/templates/finances/dashboard.html:55
+#: finances/templates/finances/dashboard.html:65
 msgid "Expense History (Last 12 Periods)"
 msgstr "Histórico de despesas (últimos 12 períodos)"
 
-#: finances/templates/finances/dashboard.html:67
+#: finances/templates/finances/dashboard.html:77
 msgid "Key Metrics (YTD)"
 msgstr "Principais métricas (acumulado no ano)"
 
-#: finances/templates/finances/dashboard.html:70
+#: finances/templates/finances/dashboard.html:80
 msgid "YTD Income"
 msgstr "Renda acumulada no ano"
 
-#: finances/templates/finances/dashboard.html:75
+#: finances/templates/finances/dashboard.html:85
 msgid "YTD Savings"
 msgstr "Economia acumulada no ano"
 
-#: finances/templates/finances/dashboard.html:80
+#: finances/templates/finances/dashboard.html:90
 msgid "YTD Investments"
 msgstr "Investimentos acumulados no ano"
 
-#: finances/templates/finances/dashboard.html:85
+#: finances/templates/finances/dashboard.html:95
 msgid "Highest Expense"
 msgstr "Grupo de despesas mais alto"
 
-#: finances/templates/finances/dashboard.html:90
+#: finances/templates/finances/dashboard.html:100
 msgid "Income Commitment"
 msgstr "Compromisso de Renda"
 
-#: finances/templates/finances/dashboard.html:104
+#: finances/templates/finances/dashboard.html:114
 msgid "Expense Flow Groups"
 msgstr "Grupos de Despesas"
 
-#: finances/templates/finances/dashboard.html:109
-#: finances/templates/finances/dashboard.html:115
+#: finances/templates/finances/dashboard.html:119
+#: finances/templates/finances/dashboard.html:125
 msgid "Add Group"
 msgstr "Adicionar grupo"
 
-#: finances/templates/finances/dashboard.html:124
-#: finances/templates/finances/dashboard.html:426
+#: finances/templates/finances/dashboard.html:134
+#: finances/templates/finances/dashboard.html:537
 msgid "Estimated"
 msgstr "Estimado"
 
-#: finances/templates/finances/dashboard.html:129
+#: finances/templates/finances/dashboard.html:139
 msgid "Spent Total"
 msgstr "Total gasto"
 
-#: finances/templates/finances/dashboard.html:145
+#: finances/templates/finances/dashboard.html:155
 msgid "Child Group"
 msgstr "Grupo infantil"
 
-#: finances/templates/finances/dashboard.html:148
-#, fuzzy
-#| msgid "Success"
+#: finances/templates/finances/dashboard.html:158
 msgid "No Access"
-msgstr "Sucesso"
+msgstr "Sem Acesso"
 
-#: finances/templates/finances/dashboard.html:173
+#: finances/templates/finances/dashboard.html:189
 msgid "No expense groups defined. Click \\"
 msgstr "Nenhum grupo de despesas definido. Clique em \\"
 
-#: finances/templates/finances/dashboard.html:186
+#: finances/templates/finances/dashboard.html:204
+msgid "Credit Cards"
+msgstr "Cartões de Crédito"
+
+#: finances/templates/finances/dashboard.html:208
+#: finances/templates/finances/dashboard.html:572
+msgid "Add Credit Card"
+msgstr "Adicionar Cartão de Crédito"
+
+#: finances/templates/finances/dashboard.html:216
+msgid "Card"
+msgstr "Cartão"
+
+#: finances/templates/finances/dashboard.html:217
+msgid "Current Bill"
+msgstr "Fatura Atual"
+
+#: finances/templates/finances/dashboard.html:243
+#: finances/templates/finances/dashboard.html:593
+#, python-format
+msgid "Closes on day %(day)s"
+msgstr "Fecha dia %(day)s"
+
+#: finances/templates/finances/dashboard.html:245
+#: finances/templates/finances/dashboard.html:590
+msgid "The bill closing date has passed. Review the bill and close it."
+msgstr "A data de fechamento da fatura passou. Revise a fatura e feche-a."
+
+#: finances/templates/finances/dashboard.html:246
+#: finances/templates/finances/dashboard.html:589
+msgid "Bill past due"
+msgstr "Fatura vencida"
+
+#: finances/templates/finances/dashboard.html:252
+#: finances/templates/finances/dashboard.html:587
+msgid "Set closing date"
+msgstr "Definir data de fechamento"
+
+#: finances/templates/finances/dashboard.html:257
+#: finances/templates/finances/dashboard.html:588
+msgid "Bill closed"
+msgstr "Fatura fechada"
+
+#: finances/templates/finances/dashboard.html:273
+msgid "Edit card"
+msgstr "Editar cartão"
+
+#: finances/templates/finances/dashboard.html:276
+msgid "Reopen bill"
+msgstr "Reabrir fatura"
+
+#: finances/templates/finances/dashboard.html:276
+msgid "Close bill"
+msgstr "Fechar fatura"
+
+#: finances/templates/finances/dashboard.html:279
+msgid "Delete card"
+msgstr "Excluir cartão"
+
+#: finances/templates/finances/dashboard.html:288
+#: finances/templates/finances/dashboard.html:592
+msgid "No credit cards yet."
+msgstr "Nenhum cartão de crédito ainda."
+
+#: finances/templates/finances/dashboard.html:297
 msgid "Recent Income"
 msgstr "Renda recente"
 
-#: finances/templates/finances/dashboard.html:189
+#: finances/templates/finances/dashboard.html:300
 msgid "Add Income"
 msgstr "Adicionar renda"
 
-#: finances/templates/finances/dashboard.html:219
+#: finances/templates/finances/dashboard.html:330
 msgid "Only Parents/Admins can change this"
 msgstr "Somente pais/administradores podem alterar isso"
 
-#: finances/templates/finances/dashboard.html:230
+#: finances/templates/finances/dashboard.html:341
 msgid "Kids Budget"
 msgstr "Orçamento infantil"
 
-#: finances/templates/finances/dashboard.html:307
+#: finances/templates/finances/dashboard.html:418
 msgid "No income transactions recorded yet."
 msgstr "Nenhuma transação de renda registrada ainda."
 
-#: finances/templates/finances/dashboard.html:321
+#: finances/templates/finances/dashboard.html:432
 msgid "Manual"
 msgstr "Manual"
 
-#: finances/templates/finances/dashboard.html:330
+#: finances/templates/finances/dashboard.html:441
 msgid "Child Income"
 msgstr "Renda Infantil"
 
-#: finances/templates/finances/dashboard.html:336
+#: finances/templates/finances/dashboard.html:447
 #, python-format
 msgid "%(name)s's Manual Income:"
 msgstr "Renda manual de %(name)s:"
 
-#: finances/templates/finances/dashboard.html:414
+#: finances/templates/finances/dashboard.html:525
 msgid "Balance Sheet"
 msgstr "Balanço"
 
-#: finances/templates/finances/dashboard.html:440
+#: finances/templates/finances/dashboard.html:551
 msgid "Result"
 msgstr "Resultado"
+
+#: finances/templates/finances/dashboard.html:573
+msgid "Edit Card"
+msgstr "Editar Cartão"
+
+#: finances/templates/finances/dashboard.html:574
+msgid "Card name"
+msgstr "Nome do cartão"
+
+#: finances/templates/finances/dashboard.html:575
+msgid "Shared"
+msgstr "Compartilhado"
+
+#: finances/templates/finances/dashboard.html:576
+msgid "Due Date"
+msgstr "Data de fechamento"
+
+#: finances/templates/finances/dashboard.html:577
+msgid "Day of the month the bill closes (1-31)"
+msgstr "Dia do mês em que a fatura fecha (1-31)"
+
+#: finances/templates/finances/dashboard.html:578
+msgid "Budgeted amount (optional)"
+msgstr "Valor orçado (opcional)"
+
+#: finances/templates/finances/dashboard.html:581
+msgid "Close the bill for this card?"
+msgstr "Fechar a fatura deste cartão?"
+
+#: finances/templates/finances/dashboard.html:582
+msgid "Reopen the bill for this card?"
+msgstr "Reabrir a fatura deste cartão?"
+
+#: finances/templates/finances/dashboard.html:583
+msgid "Delete this credit card and all its transactions?"
+msgstr "Excluir este cartão de crédito e todas as suas transações?"
+
+#: finances/templates/finances/dashboard.html:584
+#: finances/templates/finances/post_update.html:200
+#: finances/templates/finances/profile.html:321
+#: finances/templates/finances/update_modal.html:44
+msgid "Network error. Please try again."
+msgstr "Erro de rede. Tente novamente."
+
+#: finances/templates/finances/dashboard.html:585
+#: finances/views/views_ajax.py:508 finances/views/views_ajax.py:511
+msgid "Due day must be a number between 1 and 31."
+msgstr "O dia de fechamento deve ser um número entre 1 e 31."
+
+#: finances/templates/finances/dashboard.html:586
+#: finances/views/views_ajax.py:501
+msgid "Card name is required."
+msgstr "O nome do cartão é obrigatório."
 
 #: finances/templates/finances/invest.html:9
 msgid "Family Investments"
@@ -1703,8 +1974,7 @@ msgstr "Em breve"
 
 #: finances/templates/finances/invest.html:30
 msgid "The investments management interface is currently under development."
-msgstr ""
-"A interface de gestão de investimentos está atualmente em desenvolvimento."
+msgstr "A interface de gestão de investimentos está em desenvolvimento."
 
 #: finances/templates/finances/invest.html:31
 msgid ""
@@ -1716,27 +1986,27 @@ msgstr ""
 
 #: finances/templates/finances/invest.html:34
 msgid "For now, mark Flow Groups as \\"
-msgstr ""
+msgstr "Por enquanto, marque os Grupos de Fluxo como investimentos."
 
 #: finances/templates/finances/logged_out.html:8
 msgid "Logged Out | SweetMoney"
 msgstr "Desconectado | SweetMoney"
 
-#: finances/templates/finances/logged_out.html:27
+#: finances/templates/finances/logged_out.html:34
 msgid "Logged Out Successfully"
 msgstr "Desconectado com sucesso"
 
-#: finances/templates/finances/logged_out.html:30
+#: finances/templates/finances/logged_out.html:37
 msgid "You have been logged out of your SweetMoney account."
 msgstr "Você foi desconectado da sua conta SweetMoney."
 
-#: finances/templates/finances/logged_out.html:34
+#: finances/templates/finances/logged_out.html:41
 msgid "Redirecting to login page in <span id=\"countdown\">3</span> seconds..."
 msgstr ""
 "Redirecionando para a página de login em <span id=\"countdown\">3</span> "
 "segundos..."
 
-#: finances/templates/finances/logged_out.html:39
+#: finances/templates/finances/logged_out.html:46
 msgid "Return to Login Now"
 msgstr "Voltar para fazer login agora"
 
@@ -1768,12 +2038,11 @@ msgstr "Tentar Novamente"
 #: finances/templates/finances/offline.html:52
 msgid "Tip: Check if your internet is working or if the server is running."
 msgstr ""
-"Dica: Verifique se sua internet está funcionando ou se o servidor está "
-"rodando."
+"Dica: verifique se sua internet está funcionando ou se o servidor está ativo."
 
 #: finances/templates/finances/offline.html:60
 msgid "Still can't connect. Try the button!"
-msgstr ""
+msgstr "Ainda não é possível conectar. Tente o botão!"
 
 #: finances/templates/finances/password_reset_confirm.html:5
 msgid "Set New Password - SweetMoney"
@@ -1789,6 +2058,8 @@ msgid ""
 "for account: <span class=\"font-semibold text-gray-900 dark:text-"
 "white\">%(user)s</span>"
 msgstr ""
+"para a conta: <span class=\"font-semibold text-gray-900 dark:text-"
+"white\">%(user)s</span>"
 
 #: finances/templates/finances/password_reset_confirm.html:48
 msgid "Enter new password"
@@ -1843,8 +2114,7 @@ msgstr "Redefinir senha - SweetMoney"
 
 #: finances/templates/finances/password_reset_request.html:15
 msgid "Enter your username or email to receive a verification code"
-msgstr ""
-"Digite seu nome de usuário ou e-mail para receber um código de verificação"
+msgstr "Informe seu usuário ou email para receber um código de verificação"
 
 #: finances/templates/finances/password_reset_request.html:34
 msgid "Username or Email"
@@ -1864,9 +2134,7 @@ msgstr "← Voltar para Login"
 
 #: finances/templates/finances/password_reset_request.html:65
 msgid "A verification code will be sent to your registered email address."
-msgstr ""
-"Um código de verificação será enviado para o seu endereço de e-mail "
-"cadastrado."
+msgstr "Um código de verificação será enviado para o seu email cadastrado."
 
 #: finances/templates/finances/password_reset_verify.html:5
 msgid "Verify Code - SweetMoney"
@@ -1886,18 +2154,16 @@ msgstr "Digite o código de 5 dígitos enviado para %(email)s"
 #, python-format
 msgid "Code expires in approximately %(minutes)s minute"
 msgid_plural "Code expires in approximately %(minutes)s minutes"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "O código expira em aproximadamente %(minutes)s minuto"
+msgstr[1] "O código expira em aproximadamente %(minutes)s minutos"
 
 #: finances/templates/finances/password_reset_verify.html:37
 msgid "Your code has expired. Please request a new one."
 msgstr "Seu código expirou. Solicite um novo."
 
 #: finances/templates/finances/password_reset_verify.html:47
-#, fuzzy
-#| msgid "Notification"
 msgid "Verification Code"
-msgstr "Notificação"
+msgstr "Código de Verificação"
 
 #: finances/templates/finances/password_reset_verify.html:61
 msgid "Enter the 5-digit code from your email"
@@ -1967,95 +2233,316 @@ msgid "I understand and confirm these changes"
 msgstr "Entendo e confirmo essas alterações"
 
 #: finances/templates/finances/period_change_confirmation_modal.html:161
-#, fuzzy
-#| msgid "Confirm Action"
 msgid "Confirm Changes"
-msgstr "Confirmar Ação"
+msgstr "Confirmar Alterações"
+
+#: finances/templates/finances/post_update.html:5
+msgid "Post-Update | SweetMoney"
+msgstr "Pós-Atualização | SweetMoney"
+
+#: finances/templates/finances/post_update.html:17
+msgid "System Update"
+msgstr "Atualização do Sistema"
+
+#: finances/templates/finances/post_update.html:19
+#, python-format
+msgid ""
+"The system was updated from version %(db_version)s to %(target_version)s."
+msgstr ""
+"O sistema foi atualizado da versão %(db_version)s para %(target_version)s."
+
+#: finances/templates/finances/post_update.html:22
+msgid "The system stays locked until this screen is completed."
+msgstr "O sistema permanece bloqueado até que esta tela seja concluída."
+
+#: finances/templates/finances/post_update.html:29
+msgid "Update step failed"
+msgstr "Falha na etapa de atualização"
+
+#: finances/templates/finances/post_update.html:31
+msgid ""
+"The automatic update steps could not be applied. The system version was not "
+"changed; you can safely try again."
+msgstr ""
+"As etapas automáticas de atualização não puderam ser aplicadas. A versão do "
+"sistema não foi alterada; você pode tentar novamente com segurança."
+
+#: finances/templates/finances/post_update.html:42
+msgid "Try Again"
+msgstr "Tentar Novamente"
+
+#: finances/templates/finances/post_update.html:51
+msgid "Update steps applied (details)"
+msgstr "Etapas de atualização aplicadas (detalhes)"
+
+#: finances/templates/finances/post_update.html:59
+msgid "Database migrations"
+msgstr "Migrações de banco de dados"
+
+#: finances/templates/finances/post_update.html:73
+msgid "Assign Emails"
+msgstr "Atribuir E-mails"
+
+#: finances/templates/finances/post_update.html:76
+#, python-format
+msgid ""
+"Login now uses email only. %(count)s user(s) still have no email registered "
+"and cannot log in until it is assigned."
+msgstr ""
+"O login agora usa somente e-mail. %(count)s usuário(s) ainda não têm e-mail "
+"cadastrado e não podem entrar até que seja atribuído."
+
+#: finances/templates/finances/post_update.html:82
+msgid ""
+"Every user must have a unique email (it is used for login and cannot be "
+"shared, not even across families). Review the list below before confirming."
+msgstr ""
+"Cada usuário precisa ter um e-mail único (ele é usado para login e não pode "
+"ser compartilhado, nem entre famílias). Verifique a lista abaixo antes de "
+"confirmar."
+
+#: finances/templates/finances/post_update.html:100
+msgid "General Admin of the Account"
+msgstr "Admin Geral da Conta"
+
+#: finances/templates/finances/post_update.html:103
+msgid "Select the general admin"
+msgstr "Selecione o admin geral"
+
+#: finances/templates/finances/post_update.html:107
+msgid "Create a new admin for my family"
+msgstr "Criar um novo admin para a minha família"
+
+#: finances/templates/finances/post_update.html:110
+msgid ""
+"Warning: the user selected as general admin will be BLOCKED for login. Admin "
+"accounts can only be used through permission elevation."
+msgstr ""
+"Atenção: o usuário selecionado como admin geral será BLOQUEADO para login. "
+"Contas admin só podem ser usadas através de elevação de permissões."
+
+#: finances/templates/finances/post_update.html:115
+#: finances/templates/finances/post_update.html:151
+msgid "Admin Password"
+msgstr "Senha do Admin"
+
+#: finances/templates/finances/post_update.html:120
+msgid "Confirm Admin Password"
+msgstr "Confirmar Senha do Admin"
+
+#: finances/templates/finances/post_update.html:124
+msgid ""
+"This password will be set for the selected admin. Every other admin user "
+"will be demoted to Parent."
+msgstr ""
+"Esta senha será definida para o admin selecionado. Todos os demais usuários "
+"admin serão rebaixados para Parent."
+
+#: finances/templates/finances/post_update.html:132
+#: finances/templates/finances/update_modal.html:42
+msgid "Confirm"
+msgstr "Confirmar"
+
+#: finances/templates/finances/post_update.html:141
+msgid "Admin User"
+msgstr "Usuário Admin"
+
+#: finances/templates/finances/post_update.html:144
+msgid "Select an admin"
+msgstr "Selecione um admin"
+
+#: finances/templates/finances/post_update.html:155
+msgid ""
+"Authenticate with the password of the selected admin to authorize the post-"
+"update changes."
+msgstr ""
+"Autentique-se com a senha do admin selecionado para autorizar as alterações "
+"desta tela de atualização."
+
+#: finances/templates/finances/post_update.html:162
+msgid "Next"
+msgstr "Avançar"
+
+#: finances/templates/finances/post_update.html:177
+#, python-format
+msgid "Update to %(target_version)s completed successfully!"
+msgstr "Atualização para %(target_version)s concluída com sucesso!"
+
+#: finances/templates/finances/post_update.html:180
+msgid "Click OK to finish the update and start using the system."
+msgstr "Clique em OK para concluir a atualização e começar a usar o sistema."
+
+#: finances/templates/finances/post_update.html:199
+msgid "Unexpected response from the server. Try again."
+msgstr "Resposta inesperada do servidor. Tente novamente."
+
+#: finances/templates/finances/post_update.html:201
+msgid "Some emails could not be saved:"
+msgstr "Alguns e-mails não puderam ser salvos:"
+
+#: finances/templates/finances/post_update.html:205
+#: finances/views/views_pages.py:1317
+#: finances/views/views_password_reset.py:256
+msgid "Passwords do not match."
+msgstr "As senhas não coincidem."
+
+#: finances/templates/finances/post_update.html:206
+msgid "All emails assigned. Reloading..."
+msgstr "Todos os e-mails atribuídos. Recarregando..."
 
 #: finances/templates/finances/profile.html:5
 #: finances/templates/finances/profile.html:10
 msgid "My Profile"
 msgstr "Meu perfil"
 
-#: finances/templates/finances/profile.html:37
-msgid "Email (Optional)"
-msgstr "E-mail (opcional)"
+#: finances/templates/finances/profile.html:18
+#: finances/templates/finances/profile.html:314
+msgid "Admin Mode"
+msgstr "Modo Admin"
 
-#: finances/templates/finances/profile.html:46
+#: finances/templates/finances/profile.html:40
+msgid ""
+"Admin sessions use a technical account: username and email are not editable. "
+"Use 'Exit Admin Mode' to return to your user."
+msgstr ""
+"Sessões admin usam uma conta técnica: nome de usuário e e-mail não são "
+"editáveis. Use 'Sair do Modo Admin' para voltar ao seu usuário."
+
+#: finances/templates/finances/profile.html:55
+msgid "You use this email to log in."
+msgstr "Você usa este e-mail para entrar."
+
+#: finances/templates/finances/profile.html:63
 msgid "Save Profile"
 msgstr "Salvar perfil"
 
-#: finances/templates/finances/profile.html:54
+#: finances/templates/finances/profile.html:71
 msgid "Language Preference"
 msgstr "Preferência de idioma"
 
-#: finances/templates/finances/profile.html:82
-msgid "Timezone Preference"
-msgstr "Fuso Horário"
-
-#: finances/templates/finances/profile.html:90
-msgid "Your Timezone"
-msgstr "Seu Fuso Horário"
-
-#: finances/templates/finances/profile.html:140
-msgid "Select the timezone where you live. Dates will be displayed in your local timezone."
-msgstr "Selecione o fuso horário onde você vive. As datas serão exibidas no seu fuso horário local."
-
-#: finances/templates/finances/profile.html:146
-msgid "Update Timezone"
-msgstr "Atualizar Fuso Horário"
-
-#: finances/views/views_auth.py
-msgid "Timezone preference updated successfully."
-msgstr "Fuso horário atualizado com sucesso."
-
-msgid "Invalid timezone selection."
-msgstr "Seleção de fuso horário inválida."
-
-msgid "UTC / Universal"
-msgstr "UTC / Universal"
-
-msgid "Canada"
-msgstr "Canadá"
-
-msgid "United States"
-msgstr "Estados Unidos"
-
-msgid "Brazil"
-msgstr "Brasil"
-
-msgid "Other Americas"
-msgstr "Outras Américas"
-
-msgid "Europe"
-msgstr "Europa"
-
-msgid "Asia"
-msgstr "Ásia"
-
-msgid "Oceania"
-msgstr "Oceania"
-
-#: finances/templates/finances/profile.html:62
+#: finances/templates/finances/profile.html:79
 msgid "Preferred Language"
 msgstr "Idioma preferido"
 
-#: finances/templates/finances/profile.html:74
+#: finances/templates/finances/profile.html:91
 msgid "Update Language"
 msgstr "Atualizar idioma"
 
-#: finances/templates/finances/profile.html:90
+#: finances/templates/finances/profile.html:99
+msgid "Timezone Preference"
+msgstr "Fuso Horário"
+
+#: finances/templates/finances/profile.html:107
+msgid "Your Timezone"
+msgstr "Seu Fuso Horário"
+
+#: finances/templates/finances/profile.html:110
+msgid "UTC / Universal"
+msgstr "UTC / Universal"
+
+#: finances/templates/finances/profile.html:113
+msgid "Canada"
+msgstr "Canadá"
+
+#: finances/templates/finances/profile.html:122
+msgid "United States"
+msgstr "Estados Unidos"
+
+#: finances/templates/finances/profile.html:132
+msgid "Brazil"
+msgstr "Brasil"
+
+#: finances/templates/finances/profile.html:139
+msgid "Other Americas"
+msgstr "Outras Américas"
+
+#: finances/templates/finances/profile.html:145
+msgid "Europe"
+msgstr "Europa"
+
+#: finances/templates/finances/profile.html:154
+msgid "Asia"
+msgstr "Ásia"
+
+#: finances/templates/finances/profile.html:165
+msgid "Oceania"
+msgstr "Oceania"
+
+#: finances/templates/finances/profile.html:171
+msgid ""
+"Select the timezone where you live. Dates will be displayed in your local "
+"timezone."
+msgstr ""
+"Selecione o fuso horário onde você vive. As datas serão exibidas no seu fuso "
+"horário local."
+
+#: finances/templates/finances/profile.html:178
+msgid "Update Timezone"
+msgstr "Atualizar Fuso Horário"
+
+#: finances/templates/finances/profile.html:186
+msgid "Email Notifications"
+msgstr "Notificações por e-mail"
+
+#: finances/templates/finances/profile.html:204
+msgid "Select which notifications you want to receive by email:"
+msgstr "Selecione quais notificações você deseja receber por e-mail:"
+
+#: finances/templates/finances/profile.html:219
+msgid "Send warning X days before due date"
+msgstr "Enviar aviso X dias antes do vencimento"
+
+#: finances/templates/finances/profile.html:228
+msgid "days before (0 = only when already overdue)"
+msgstr "dias antes (0 = apenas quando já estiver atrasado)"
+
+#: finances/templates/finances/profile.html:232
+msgid "Example: Set to 3 to receive warning 3 days before transaction due date"
+msgstr ""
+"Exemplo: defina 3 para receber um aviso 3 dias antes do vencimento da "
+"transação"
+
+#: finances/templates/finances/profile.html:261
+msgid "Save Notification Preferences"
+msgstr "Salvar preferências de notificação"
+
+#: finances/templates/finances/profile.html:277
 msgid "Current Password"
 msgstr "Senha atual"
 
-#: finances/templates/finances/profile.html:101
-#: finances/templates/finances/setup.html:276
+#: finances/templates/finances/profile.html:288
+#: finances/templates/finances/setup.html:278
 msgid "Minimum 6 characters"
 msgstr "Mínimo 6 caracteres"
 
-#: finances/templates/finances/profile.html:105
+#: finances/templates/finances/profile.html:292
 msgid "Confirm New Password"
 msgstr "Confirme a nova senha"
+
+#: finances/templates/finances/profile.html:315
+msgid ""
+"You are about to enter Admin Mode. Please enter the admin password for your "
+"family to continue."
+msgstr ""
+"Você está prestes a entrar no Modo Admin. Por favor, insira a senha do admin "
+"da sua família para continuar."
+
+#: finances/templates/finances/profile.html:316
+#: finances/templates/finances/update_modal.html:40
+msgid "Admin password"
+msgstr "Senha do admin"
+
+#: finances/templates/finances/profile.html:318
+msgid "Elevate"
+msgstr "Elevar"
+
+#: finances/templates/finances/profile.html:319
+msgid "Elevating..."
+msgstr "Elevando..."
+
+#: finances/templates/finances/profile.html:320
+msgid "Failed to elevate."
+msgstr "Falha ao elevar."
 
 #: finances/templates/finances/setup.html:9
 msgid "SweetMoney - Initial Setup"
@@ -2108,8 +2595,10 @@ msgstr "Configuração pela primeira vez"
 #: finances/templates/finances/setup.html:116
 msgid ""
 "This is your first time accessing SweetMoney. Let's set up your family's "
-"financial management system by creating an administrator account."
+"financial management system by creating your user account."
 msgstr ""
+"Este é seu primeiro acesso ao SweetMoney. Vamos configurar o sistema de "
+"finanças da sua família criando sua conta de usuário."
 
 #: finances/templates/finances/setup.html:129
 msgid "Database Error"
@@ -2128,15 +2617,15 @@ msgid "New Installation"
 msgstr "Nova instalação"
 
 #: finances/templates/finances/setup.html:169
-#, fuzzy
-#| msgid "Restore from Backup"
 msgid "Restore Database from Backup"
-msgstr "Restaurar do backup"
+msgstr "Restaurar Banco de Dados do Backup"
 
 #: finances/templates/finances/setup.html:171
 msgid ""
 "Upload a previous database backup to restore your family's financial data."
 msgstr ""
+"Envie um backup anterior do banco de dados para restaurar os dados "
+"financeiros da sua família."
 
 #: finances/templates/finances/setup.html:186
 msgid "Choose Backup File"
@@ -2147,286 +2636,282 @@ msgid "Backup Information:"
 msgstr "Informações de backup:"
 
 #: finances/templates/finances/setup.html:213
-#: finances/templates/finances/setup.html:491
+#: finances/templates/finances/setup.html:496
 msgid "Restore Backup"
 msgstr "Restaurar backup"
 
-#: finances/templates/finances/setup.html:247
-msgid "Choose a username"
-msgstr "Escolha um nome de usuário"
+#: finances/templates/finances/setup.html:235
+msgid "Your Account"
+msgstr "Sua Conta"
+
+#: finances/templates/finances/setup.html:246
+msgid "e.g., john"
+msgstr "ex.: joao"
 
 #: finances/templates/finances/setup.html:261
+#: finances/templates/registration/login.html:67
 msgid "your@email.com"
 msgstr "seu@email.com"
 
-#: finances/templates/finances/setup.html:282
-#, fuzzy
-#| msgid "Must be at least 8 characters long"
-msgid "Must be at least 6 characters long"
-msgstr "Deve ter pelo menos 8 caracteres"
+#: finances/templates/finances/setup.html:267
+msgid "You will use this email to log in."
+msgstr "Você usará este e-mail para entrar."
 
-#: finances/templates/finances/setup.html:293
+#: finances/templates/finances/setup.html:284
+msgid "Must be at least 6 characters long"
+msgstr "Deve ter pelo menos 6 caracteres"
+
+#: finances/templates/finances/setup.html:295
 msgid "Re-enter your password"
 msgstr "Digite novamente sua senha"
 
-#: finances/templates/finances/setup.html:306
+#: finances/templates/finances/setup.html:308
 msgid "Family Information"
 msgstr "Informações familiares"
 
-#: finances/templates/finances/setup.html:312
+#: finances/templates/finances/setup.html:314
 msgid "Family Name"
 msgstr "Nome de família"
 
-#: finances/templates/finances/setup.html:317
+#: finances/templates/finances/setup.html:319
 msgid "e.g., Smith Family"
 msgstr "por exemplo, Família Smith"
 
-#: finances/templates/finances/setup.html:329
+#: finances/templates/finances/setup.html:331
 msgid "Currency Settings"
 msgstr "Configurações de moeda"
 
-#: finances/templates/finances/setup.html:365
-#, fuzzy
-#| msgid ""
-#| "All financial values will be stored and displayed in this currency. "
-#| "Changing this will not convert existing values."
+#: finances/templates/finances/setup.html:367
 msgid "All financial values will be stored and displayed in this currency"
-msgstr ""
-"Todos os valores financeiros serão armazenados e exibidos nesta moeda. "
-"Alterar isso não converterá valores existentes."
+msgstr "Todos os valores financeiros serão armazenados e exibidos nesta moeda"
 
-#: finances/templates/finances/setup.html:372
+#: finances/templates/finances/setup.html:374
 msgid "Financial Cycle Settings"
 msgstr "Configurações do Ciclo Financeiro"
 
-#: finances/templates/finances/setup.html:390
-msgid "Budget resets monthly on a specific day"
-msgstr ""
-
 #: finances/templates/finances/setup.html:392
-#, fuzzy
-#| msgid "Budget resets weekly"
-msgid "Budget resets every 2 weeks"
-msgstr "O orçamento é redefinido semanalmente"
+msgid "Budget resets monthly on a specific day"
+msgstr "O orçamento é redefinido mensalmente em um dia específico"
 
 #: finances/templates/finances/setup.html:394
+msgid "Budget resets every 2 weeks"
+msgstr "O orçamento é redefinido a cada 2 semanas"
+
+#: finances/templates/finances/setup.html:396
 msgid "Budget resets weekly"
 msgstr "O orçamento é redefinido semanalmente"
 
-#: finances/templates/finances/setup.html:418
-#, fuzzy
-#| msgid "Day of the month (1-31) that defines the cycle start."
+#: finances/templates/finances/setup.html:420
 msgid "Day of the month (1-31) when your budget cycle starts"
-msgstr "Dia do mês (1-31) que define o início do ciclo."
+msgstr "Dia do mês (1-31) em que seu ciclo orçamentário começa"
 
-#: finances/templates/finances/setup.html:434
-#, fuzzy
-#| msgid "Reference date used to calculate bi-weekly or weekly periods."
+#: finances/templates/finances/setup.html:436
 msgid "Reference date for calculating bi-weekly/weekly periods"
-msgstr ""
-"Data de referência utilizada para cálculo de períodos quinzenais ou semanais."
+msgstr "Data de referência para cálculo de períodos quinzenais/semanais"
 
-#: finances/templates/finances/setup.html:445
+#: finances/templates/finances/setup.html:447
 msgid "What happens next?"
 msgstr "O que acontece a seguir?"
 
-#: finances/templates/finances/setup.html:448
+#: finances/templates/finances/setup.html:450
 msgid "Your family account will be created"
 msgstr "Sua conta familiar será criada"
 
-#: finances/templates/finances/setup.html:449
-msgid "You'll be logged in as the administrator"
-msgstr "Você estará logado como administrador"
-
-#: finances/templates/finances/setup.html:450
-msgid "You can start managing your family's finances immediately"
-msgstr ""
-"Você pode começar a administrar as finanças da sua família imediatamente"
+#: finances/templates/finances/setup.html:451
+msgid "You'll be logged in with the account you just created"
+msgstr "Você entrará com a conta que acabou de criar"
 
 #: finances/templates/finances/setup.html:452
+msgid ""
+"A technical admin account (for permission elevation) is generated "
+"automatically"
+msgstr ""
+"Uma conta admin técnica (para elevação de permissões) é gerada "
+"automaticamente"
+
+#: finances/templates/finances/setup.html:453
+msgid "You can start managing your family's finances immediately"
+msgstr "Você pode começar a gerenciar as finanças da sua família imediatamente"
+
+#: finances/templates/finances/setup.html:455
 msgid "You can add other family members from the Settings page"
 msgstr "Você pode adicionar outros membros da família na página Configurações"
 
-#: finances/templates/finances/setup.html:464
+#: finances/templates/finances/setup.html:467
 msgid "Complete Setup & Get Started"
 msgstr "Conclua a configuração e comece"
 
-#: finances/templates/finances/setup.html:475
+#: finances/templates/finances/setup.html:478
 msgid "© 2025 SweetMoney - Family Financial Flow Management"
 msgstr "© 2025 SweetMoney - Gestão do Fluxo Financeiro Familiar"
 
-#: finances/templates/finances/setup.html:481
+#: finances/templates/finances/setup.html:484
 msgid "Checking service workers..."
-msgstr ""
+msgstr "Verificando service workers..."
 
-#: finances/templates/finances/setup.html:482
+#: finances/templates/finances/setup.html:485
 msgid ""
 "Service workers could not be unregistered. Please refresh the page and try "
 "again."
 msgstr ""
+"Não foi possível cancelar o registro dos service workers. Atualize a página "
+"e tente novamente."
 
-#: finances/templates/finances/setup.html:483
+#: finances/templates/finances/setup.html:486
 msgid "Upload Backup"
-msgstr ""
+msgstr "Enviar Backup"
 
-#: finances/templates/finances/setup.html:484
+#: finances/templates/finances/setup.html:487
 msgid "Server returned non-JSON response. Please check server logs."
 msgstr ""
-"O servidor retornou uma resposta não JSON. Verifique os logs do servidor."
+"O servidor retornou uma resposta não-JSON. Verifique os logs do servidor."
 
-#: finances/templates/finances/setup.html:485
+#: finances/templates/finances/setup.html:488
 msgid "Database restored successfully!"
 msgstr "Banco de dados restaurado com sucesso!"
 
-#: finances/templates/finances/setup.html:486
+#: finances/templates/finances/setup.html:489
 msgid "Note: Some migrations encountered warnings. Check console for details."
 msgstr ""
-"Observação: algumas migrações encontraram avisos. Verifique o console para "
-"obter detalhes."
+"Observação: algumas migrations geraram avisos. Veja o console para detalhes."
 
-#: finances/templates/finances/setup.html:487
+#: finances/templates/finances/setup.html:490
 msgid "Database structure updated to latest version."
 msgstr "Estrutura do banco de dados atualizada para a versão mais recente."
 
-#: finances/templates/finances/setup.html:488
+#: finances/templates/finances/setup.html:491
 msgid "Click OK to go to login page."
 msgstr "Clique em OK para ir para a página de login."
 
-#: finances/templates/finances/setup.html:489
+#: finances/templates/finances/setup.html:492
+msgid "Waiting for server..."
+msgstr "Aguardando o servidor..."
+
+#: finances/templates/finances/setup.html:493
+msgid "Server ready! Redirecting..."
+msgstr "Servidor pronto! Redirecionando..."
+
+#: finances/templates/finances/setup.html:494
 msgid "Restore failed:"
 msgstr "Falha na restauração:"
 
-#: finances/templates/finances/setup.html:489
-#: finances/templates/finances/update_modal.html:37
+#: finances/templates/finances/setup.html:494
+#: finances/templates/finances/update_modal.html:35
 msgid "Unknown error"
 msgstr "Erro desconhecido"
 
-#: finances/templates/finances/setup.html:490
-#, fuzzy
-#| msgid "Error deleting item:"
+#: finances/templates/finances/setup.html:495
 msgid "Error restoring database:"
-msgstr "Erro ao excluir o item:"
+msgstr "Erro ao restaurar o banco de dados:"
 
 #: finances/templates/finances/update_modal.html:6
-msgid ""
-"A local update is pending and must be applied before the system can be used. "
-"Only administrators can apply updates. Please contact an administrator to "
-"complete this update."
-msgstr ""
-
-#: finances/templates/finances/update_modal.html:7
-msgid "Local updates are available and must be applied before continuing."
-msgstr ""
-"Atualizações locais estão disponíveis e devem ser aplicadas antes de "
-"continuar."
-
-#: finances/templates/finances/update_modal.html:8
 msgid "System files have been updated. Database migrations will be applied."
 msgstr ""
-"Os arquivos do sistema foram atualizados. As migrações de banco de dados "
-"serão aplicadas."
+"Arquivos do sistema foram atualizados. As migrations do banco serão "
+"aplicadas."
 
-#: finances/templates/finances/update_modal.html:9
+#: finances/templates/finances/update_modal.html:7
 msgid "A new version is available on GitHub!"
 msgstr "Uma nova versão está disponível no GitHub!"
 
-#: finances/templates/finances/update_modal.html:10
+#: finances/templates/finances/update_modal.html:8
 msgid ""
 "A new version is available on GitHub. Only administrators can install "
 "updates. Please contact an administrator to apply this update."
 msgstr ""
+"Uma nova versão está disponível no GitHub. Somente administradores podem "
+"instalar atualizações. Contate um administrador para aplicar esta "
+"atualização."
 
-#: finances/templates/finances/update_modal.html:12
-#: finances/templates/finances/update_modal.html:221
+#: finances/templates/finances/update_modal.html:10
+#: finances/templates/finances/update_modal.html:186
 msgid "Skip Update"
 msgstr "Pular atualização"
 
-#: finances/templates/finances/update_modal.html:13
-#: finances/templates/finances/update_modal.html:169
+#: finances/templates/finances/update_modal.html:11
+#: finances/templates/finances/update_modal.html:139
 msgid "Applying Updates..."
 msgstr "Aplicando atualizações..."
 
-#: finances/templates/finances/update_modal.html:14
+#: finances/templates/finances/update_modal.html:12
 msgid "Preparing update..."
 msgstr "Preparando atualização..."
 
-#: finances/templates/finances/update_modal.html:15
+#: finances/templates/finances/update_modal.html:13
 msgid "Applying updates..."
 msgstr "Aplicando atualizações..."
 
-#: finances/templates/finances/update_modal.html:16
+#: finances/templates/finances/update_modal.html:14
 msgid "Update complete!"
 msgstr "Atualização concluída!"
 
-#: finances/templates/finances/update_modal.html:17
+#: finances/templates/finances/update_modal.html:15
 msgid "Installing GitHub Update..."
 msgstr "Instalando a atualização do GitHub..."
 
-#: finances/templates/finances/update_modal.html:18
+#: finances/templates/finances/update_modal.html:16
 msgid "Downloading release..."
 msgstr "Baixando lançamento..."
 
-#: finances/templates/finances/update_modal.html:19
+#: finances/templates/finances/update_modal.html:17
 msgid "Extracting files..."
 msgstr "Extraindo arquivos..."
 
-#: finances/templates/finances/update_modal.html:20
+#: finances/templates/finances/update_modal.html:18
 msgid "Updates applied successfully! Waiting for server to restart..."
-msgstr ""
-"Atualizações aplicadas com sucesso! Aguardando a reinicialização do "
-"servidor..."
+msgstr "Atualizações aplicadas com sucesso! Aguardando o servidor reiniciar..."
 
-#: finances/templates/finances/update_modal.html:21
+#: finances/templates/finances/update_modal.html:19
 msgid "GitHub update installed successfully! Waiting for server to restart..."
 msgstr ""
-"Atualização do GitHub instalada com sucesso! Aguardando a reinicialização do "
-"servidor..."
+"Atualização do GitHub instalada com sucesso! Aguardando o servidor "
+"reiniciar..."
 
-#: finances/templates/finances/update_modal.html:22
+#: finances/templates/finances/update_modal.html:20
 msgid "Update failed. Check logs for details."
 msgstr "Falha na atualização. Verifique os registros para obter detalhes."
 
-#: finances/templates/finances/update_modal.html:23
+#: finances/templates/finances/update_modal.html:21
 msgid "Failed to apply updates"
 msgstr "Falha ao aplicar atualizações"
 
-#: finances/templates/finances/update_modal.html:24
+#: finances/templates/finances/update_modal.html:22
 msgid "Failed to install update"
 msgstr "Falha ao instalar a atualização"
 
-#: finances/templates/finances/update_modal.html:25
+#: finances/templates/finances/update_modal.html:23
 msgid "Failed to check for updates. Please try again."
 msgstr "Falha ao verificar atualizações. Por favor, tente novamente."
 
-#: finances/templates/finances/update_modal.html:26
+#: finances/templates/finances/update_modal.html:24
 msgid "Failed to skip update. Please try again."
 msgstr "Falha ao pular a atualização. Por favor, tente novamente."
 
-#: finances/templates/finances/update_modal.html:27
+#: finances/templates/finances/update_modal.html:25
 msgid "Please confirm that you have created a backup before proceeding."
 msgstr "Confirme se você criou um backup antes de continuar."
 
-#: finances/templates/finances/update_modal.html:28
+#: finances/templates/finances/update_modal.html:26
 msgid "Server is taking longer than expected to restart."
 msgstr "O servidor está demorando mais do que o esperado para reiniciar."
 
-#: finances/templates/finances/update_modal.html:29
+#: finances/templates/finances/update_modal.html:27
 msgid "Please wait a moment and then"
 msgstr "Por favor, espere um momento e então"
 
-#: finances/templates/finances/update_modal.html:30
+#: finances/templates/finances/update_modal.html:28
 msgid "click here to reload"
 msgstr "clique aqui para recarregar"
 
-#: finances/templates/finances/update_modal.html:31
+#: finances/templates/finances/update_modal.html:29
 msgid "No logs available yet. Please apply an update first."
 msgstr "Nenhum registro disponível ainda. Aplique uma atualização primeiro."
 
-#: finances/templates/finances/update_modal.html:32
+#: finances/templates/finances/update_modal.html:30
 msgid "Backup created successfully! File will be downloaded."
 msgstr "Backup criado com sucesso! O arquivo será baixado."
 
-#: finances/templates/finances/update_modal.html:34
+#: finances/templates/finances/update_modal.html:32
 msgid ""
 "Local updates cannot be skipped. They are required for the system to "
 "function correctly."
@@ -2434,7 +2919,7 @@ msgstr ""
 "As atualizações locais não podem ser ignoradas. Elas são necessárias para o "
 "sistema funcionar corretamente."
 
-#: finances/templates/finances/update_modal.html:35
+#: finances/templates/finances/update_modal.html:33
 msgid ""
 "Are you sure you want to skip this update? You won't be notified about this "
 "version again until a newer version is released."
@@ -2442,137 +2927,129 @@ msgstr ""
 "Tem certeza de que deseja ignorar esta atualização? Você não será notificado "
 "sobre esta versão novamente até que uma versão mais recente seja lançada."
 
-#: finances/templates/finances/update_modal.html:36
+#: finances/templates/finances/update_modal.html:34
 msgid "Failed to skip update:"
 msgstr "Falha ao ignorar atualização:"
 
-#: finances/templates/finances/update_modal.html:38
+#: finances/templates/finances/update_modal.html:36
 msgid "Logs modal element not found in the page."
 msgstr "Elemento modal de logs não encontrado na página."
 
-#: finances/templates/finances/update_modal.html:39
+#: finances/templates/finances/update_modal.html:37
 msgid "Logs content element not found in the page."
 msgstr "Elemento de conteúdo de logs não encontrado na página."
 
-#: finances/templates/finances/update_modal.html:50
+#: finances/templates/finances/update_modal.html:38
+msgid "Admin Password Required"
+msgstr "Senha de Admin Necessária"
+
+#: finances/templates/finances/update_modal.html:39
+msgid "Enter the admin password to proceed with the system update."
+msgstr "Insira a senha de admin para prosseguir com a atualização do sistema."
+
+#: finances/templates/finances/update_modal.html:43
+#: finances/views/views_auth.py:199 finances/views/views_updater.py:611
+msgid "Incorrect admin password."
+msgstr "Senha de admin incorreta."
+
+#: finances/templates/finances/update_modal.html:55
 msgid "System Update Available"
 msgstr "Atualização do sistema disponível"
 
-#: finances/templates/finances/update_modal.html:54
+#: finances/templates/finances/update_modal.html:59
 msgid "A new version is available!"
 msgstr "Uma nova versão está disponível!"
 
-#: finances/templates/finances/update_modal.html:59
+#: finances/templates/finances/update_modal.html:64
 msgid "Current Version:"
 msgstr "Versão atual:"
 
-#: finances/templates/finances/update_modal.html:66
+#: finances/templates/finances/update_modal.html:71
 msgid "New Version:"
 msgstr "Nova versão:"
 
-#: finances/templates/finances/update_modal.html:74
-msgid "Update Scripts to Apply:"
-msgstr "Atualizar scripts para aplicar:"
-
-#: finances/templates/finances/update_modal.html:85
-msgid "Backup Recommended"
-msgstr "Backup recomendado"
-
-#: finances/templates/finances/update_modal.html:87
-msgid "Before applying updates, create a database backup to protect your data."
-msgstr ""
-"Antes de aplicar atualizações, crie um backup do banco de dados para "
-"proteger seus dados."
-
-#: finances/templates/finances/update_modal.html:102
-#: finances/templates/finances/update_modal.html:162
-msgid "I have created a backup and want to proceed with the update"
-msgstr "Criei um backup e quero prosseguir com a atualização"
-
-#: finances/templates/finances/update_modal.html:110
+#: finances/templates/finances/update_modal.html:80
 msgid "New Release"
 msgstr "Novo lançamento"
 
-#: finances/templates/finances/update_modal.html:112
+#: finances/templates/finances/update_modal.html:82
 msgid "Loading release notes..."
 msgstr "Carregando notas de versão..."
 
-#: finances/templates/finances/update_modal.html:116
+#: finances/templates/finances/update_modal.html:86
 msgid "Released:"
 msgstr "Lançado:"
 
-#: finances/templates/finances/update_modal.html:119
+#: finances/templates/finances/update_modal.html:89
 msgid "Read full release notes"
 msgstr "Leia as notas de lançamento completas"
 
-#: finances/templates/finances/update_modal.html:131
+#: finances/templates/finances/update_modal.html:101
 msgid "Container Update Required"
 msgstr "Atualização do contêiner necessária"
 
-#: finances/templates/finances/update_modal.html:133
+#: finances/templates/finances/update_modal.html:103
 msgid ""
 "This update requires a full container update. Please update your Docker "
 "image manually."
 msgstr ""
+"Esta atualização requer uma atualização completa do contêiner. Atualize sua "
+"imagem Docker manualmente."
 
-#: finances/templates/finances/update_modal.html:145
+#: finances/templates/finances/update_modal.html:115
 msgid "Backup Required"
 msgstr "Backup necessário"
 
-#: finances/templates/finances/update_modal.html:147
+#: finances/templates/finances/update_modal.html:117
 msgid "Before installing, create a database backup to protect your data."
 msgstr ""
 "Antes de instalar, crie um backup do banco de dados para proteger seus dados."
 
-#: finances/templates/finances/update_modal.html:173
+#: finances/templates/finances/update_modal.html:132
+msgid "I have created a backup and want to proceed with the update"
+msgstr "Criei um backup e quero prosseguir com a atualização"
+
+#: finances/templates/finances/update_modal.html:143
 msgid "Preparing..."
 msgstr "Preparando..."
 
-#: finances/templates/finances/update_modal.html:182
+#: finances/templates/finances/update_modal.html:152
 msgid "Update Successful!"
 msgstr "Atualização bem-sucedida!"
 
-#: finances/templates/finances/update_modal.html:184
+#: finances/templates/finances/update_modal.html:154
 msgid "Your system has been successfully updated."
 msgstr "Seu sistema foi atualizado com sucesso."
 
-#: finances/templates/finances/update_modal.html:194
+#: finances/templates/finances/update_modal.html:164
 msgid "Update Failed"
 msgstr "Falha na atualização"
 
-#: finances/templates/finances/update_modal.html:196
+#: finances/templates/finances/update_modal.html:166
 msgid "An error occurred during the update process."
 msgstr "Ocorreu um erro durante o processo de atualização."
 
-#: finances/templates/finances/update_modal.html:211
+#: finances/templates/finances/update_modal.html:181
 msgid "View Release on GitHub"
 msgstr "Veja a versão no GitHub"
 
-#: finances/templates/finances/update_modal.html:216
-msgid "Remind Me Later"
-msgstr "Lembre-me mais tarde"
-
-#: finances/templates/finances/update_modal.html:226
-msgid "Apply Updates"
-msgstr "Aplicar atualizações"
-
-#: finances/templates/finances/update_modal.html:231
+#: finances/templates/finances/update_modal.html:191
 msgid "Install Update"
 msgstr "Instalar atualização"
 
-#: finances/templates/finances/update_modal.html:236
+#: finances/templates/finances/update_modal.html:196
 msgid "Close & Reload"
 msgstr "Fechar e recarregar"
 
-#: finances/templates/finances/update_modal.html:241
+#: finances/templates/finances/update_modal.html:201
 msgid "View Logs"
 msgstr "Ver registros"
 
-#: finances/templates/finances/update_modal.html:262
+#: finances/templates/finances/update_modal.html:222
 msgid "Update Logs"
 msgstr "Atualizar registros"
 
-#: finances/templates/finances/update_modal.html:268
+#: finances/templates/finances/update_modal.html:228
 msgid "Loading logs..."
 msgstr "Carregando registros..."
 
@@ -2597,161 +3074,273 @@ msgid ""
 "This is a demonstration server. The database is reset every night at "
 "midnight."
 msgstr ""
+"Este é um servidor de demonstração. O banco de dados é redefinido todas as "
+"noites à meia-noite."
 
 #: finances/templates/registration/login.html:31
 msgid "Visit the GitHub repository for more information →"
 msgstr "Visite o repositório GitHub para mais informações →"
 
 #: finances/templates/registration/login.html:50
-msgid "Your username and password didn't match. Please try again."
-msgstr ""
-"Seu nome de usuário e senha não correspondem. Por favor, tente novamente."
+msgid "Your email and password didn't match. Please try again."
+msgstr "Seu e-mail e senha não correspondem. Tente novamente."
 
 #: finances/templates/registration/login.html:54
-#: finances/templates/registration/login.html:87
+#: finances/templates/registration/login.html:88
 msgid "Forgot your password?"
 msgstr "Esqueceu sua senha?"
 
-#: finances/templates/registration/login.html:80
+#: finances/templates/registration/login.html:81
 msgid "Log In"
 msgstr "Conecte-se"
 
-#: finances/utils/db_backup.py:57 finances/views/views_backup.py:174
+#: finances/utils/db_backup.py:64 finances/views/views_backup.py:174
 #, python-format
 msgid "Unsupported database engine: %(engine)s"
+msgstr "Mecanismo de banco de dados não suportado: %(engine)s"
+
+#: finances/utils/db_backup.py:155
+msgid ""
+"Restoring SQLite backups to SQLite database is not yet supported. Please use "
+"the .db file directly."
 msgstr ""
+"A restauração de backups SQLite em um banco SQLite ainda não é suportada. "
+"Use o arquivo .db diretamente."
+
+#: finances/utils/db_backup.py:170
+msgid "Unsupported PostgreSQL backup format. Please use .json or .sql"
+msgstr "Formato de backup PostgreSQL não suportado. Use .json ou .sql"
+
+#: finances/utils/db_backup.py:176
+#, python-format
+msgid "Unsupported backup type: %(type)s"
+msgstr "Tipo de backup não suportado: %(type)s"
+
+#: finances/utils/db_backup_converter.py:115
+msgid "Failed to restore SQL backup to temporary database"
+msgstr "Falha ao restaurar backup SQL no banco de dados temporário"
+
+#: finances/utils/db_backup_converter.py:216
+#, python-format
+msgid "Conversion failed: %(error)s"
+msgstr "Conversão falhou: %(error)s"
 
 #: finances/utils/db_restore_migration.py:67
 msgid "SQLite backup file is corrupted and cannot be restored."
-msgstr ""
+msgstr "O arquivo de backup SQLite está corrompido e não pode ser restaurado."
 
 #: finances/utils/db_restore_migration.py:113
 #, python-format
 msgid "SQLite backup file is corrupted: %(error)s"
-msgstr ""
+msgstr "O arquivo de backup SQLite está corrompido e não pode ser restaurado."
 
 #: finances/utils/db_restore_migration.py:155
-#, fuzzy
-#| msgid "SQLite data will be migrated to PostgreSQL"
 msgid "SQLite backup successfully migrated to PostgreSQL"
-msgstr "Os dados do SQLite serão migrados para PostgreSQL"
+msgstr "Backup SQLite migrado para PostgreSQL com sucesso"
 
 #: finances/utils/db_restore_migration.py:161
-#, fuzzy
-#| msgid "Failed to migrate backup:"
 msgid "Failed to migrate SQLite backup to PostgreSQL"
-msgstr "Falha ao migrar backup:"
+msgstr "Falha ao migrar backup SQLite para PostgreSQL"
 
 #: finances/utils/db_restore_migration.py:174
-#, fuzzy, python-format
-#| msgid "Migration Failed"
+#, python-format
 msgid "Migration failed: %(error)s"
-msgstr "Migração Falhou"
+msgstr "Migração falhou: %(error)s"
 
-#: finances/utils/db_utils_pgsql.py:240
+#: finances/utils/db_restore_pgsql_legacy.py:92
+#: finances/utils/db_utils_json.py:275 finances/views/views_backup.py:160
+msgid "No backup file provided"
+msgstr "Nenhum arquivo de backup fornecido"
+
+#: finances/utils/db_restore_pgsql_legacy.py:98
+#: finances/utils/db_restore_pgsql_legacy.py:345
+msgid "Invalid file format. Expected .sql file."
+msgstr "Formato de arquivo inválido. Esperado um arquivo .sql."
+
+#: finances/utils/db_restore_pgsql_legacy.py:121
+msgid "Failed to parse backup file"
+msgstr "Falha ao analisar o arquivo de backup"
+
+#: finances/utils/db_restore_pgsql_legacy.py:149
+msgid "Backup file contains no family data"
+msgstr "O arquivo de backup não contém dados de família"
+
+#: finances/utils/db_restore_pgsql_legacy.py:162
+#: finances/utils/db_utils_json.py:380
+#, python-format
+msgid ""
+"Cannot restore backup from different family. Current database has family "
+"\"%(current)s\", but backup is from \"%(backup)s\". To restore this backup, "
+"you need to: 1) Log in with an admin account from the \"%(backup)s\" family, "
+"or 2) Start with a fresh database, or 3) Create a new family account for "
+"\"%(backup)s\" before restoring."
+msgstr ""
+"Não é possível restaurar um backup de outra família. O banco de dados atual "
+"tem a família \"%(current)s\", mas o backup é da família \"%(backup)s\". "
+"Para restaurar este backup, você precisa: 1) Entrar com uma conta de admin "
+"da família \"%(backup)s\", ou 2) Começar com um banco de dados novo, ou 3) "
+"Criar uma nova conta de família para \"%(backup)s\" antes de restaurar."
+
+#: finances/utils/db_restore_pgsql_legacy.py:203
+msgid "Failed to import backup data"
+msgstr "Falha ao importar os dados do backup"
+
+#: finances/utils/db_restore_pgsql_legacy.py:215
+msgid "Import completed but no family data found"
+msgstr "Importação concluída, mas nenhum dado de família encontrado"
+
+#: finances/utils/db_restore_pgsql_legacy.py:269
+#: finances/utils/db_restore_pgsql_legacy.py:524
+#: finances/utils/db_utils_sqlite.py:899
+msgid "Database restored successfully"
+msgstr "Banco de dados restaurado com sucesso"
+
+#: finances/utils/db_restore_pgsql_legacy.py:276
+#: finances/utils/db_restore_pgsql_legacy.py:531
+msgid "Verification failed"
+msgstr "Verificação falhou"
+
+#: finances/utils/db_restore_pgsql_legacy.py:287
+#: finances/utils/db_restore_pgsql_legacy.py:545
+msgid "Restore failed"
+msgstr "Falha na restauração"
+
+#: finances/utils/db_restore_pgsql_legacy.py:358
+msgid "Failed to create database schema"
+msgstr "Falha ao criar o esquema do banco de dados"
+
+#: finances/utils/db_restore_pgsql_legacy.py:433
+msgid "Failed to restore database using psql"
+msgstr "Falha ao restaurar o banco de dados usando o psql"
+
+#: finances/utils/db_restore_pgsql_legacy.py:457
+msgid "Restore completed but no family data found"
+msgstr "Restauração concluída, mas nenhum dado de família encontrado"
+
+#: finances/utils/db_restore_pgsql_legacy.py:539
+msgid "Database restore timed out. The backup file might be too large."
+msgstr ""
+"Tempo limite da restauração do banco de dados esgotado. O arquivo de backup "
+"pode ser muito grande."
+
+#: finances/utils/db_utils_json.py:140 finances/utils/db_utils_sqlite.py:244
+#, python-format
+msgid "Family with ID %(family_id)s not found"
+msgstr "Família com ID %(family_id)s não encontrada"
+
+#: finances/utils/db_utils_json.py:291
+msgid "Invalid backup file format"
+msgstr "Formato de arquivo de backup inválido"
+
+#: finances/utils/db_utils_json.py:300
+msgid "Invalid JSON file"
+msgstr "Arquivo JSON inválido"
+
+#: finances/utils/db_utils_json.py:443
+msgid "Restore successful"
+msgstr "Restauração bem-sucedida"
+
+#: finances/utils/db_utils_json.py:446
+msgid "Restored family not found"
+msgstr "Família restaurada não encontrada"
+
+#: finances/utils/db_utils_pgsql.py:242
 #, python-format
 msgid "PostgreSQL backup failed: %(error)s"
-msgstr ""
+msgstr "Falha no backup do PostgreSQL: %(error)s"
 
-#: finances/utils/db_utils_pgsql.py:247 finances/utils/db_utils_sqlite.py:183
+#: finances/utils/db_utils_pgsql.py:249 finances/utils/db_utils_sqlite.py:183
 #: finances/utils/db_utils_sqlite.py:415
-#, fuzzy
-#| msgid "Backup file not found"
 msgid "Backup file was not created"
-msgstr "Arquivo de backup não encontrado"
+msgstr "O arquivo de backup não foi criado"
 
-#: finances/utils/db_utils_pgsql.py:264 finances/utils/db_utils_pgsql.py:540
-#, fuzzy
-#| msgid "Backup Information:"
+#: finances/utils/db_utils_pgsql.py:266
 msgid "Backup operation timed out"
-msgstr "Informações de backup:"
+msgstr "A operação de backup expirou"
 
-#: finances/utils/db_utils_pgsql.py:270 finances/utils/db_utils_pgsql.py:546
+#: finances/utils/db_utils_pgsql.py:272
 msgid ""
 "pg_dump command not found. Please ensure PostgreSQL client tools are "
 "installed."
 msgstr ""
-
-#: finances/utils/db_utils_pgsql.py:306 finances/utils/db_utils_sqlite.py:244
-#, python-format
-msgid "Family with ID %(family_id)s not found"
-msgstr ""
-
-#: finances/utils/db_utils_pgsql.py:400
-#, fuzzy, python-format
-#| msgid "Invalid data format: %(error)s"
-msgid "Failed to dump schema: %(error)s"
-msgstr "Formato de dados inválido: %(error)s"
-
-#: finances/utils/db_utils_pgsql.py:603 finances/views/views_backup.py:160
-msgid "No backup file provided"
-msgstr "Nenhum arquivo de backup fornecido"
-
-#: finances/utils/db_utils_pgsql.py:699
-#, fuzzy
-#| msgid "Database restored successfully"
-msgid "Database restore failed"
-msgstr "Banco de dados restaurado com sucesso"
-
-#: finances/utils/db_utils_pgsql.py:756
-msgid "Restored database cannot be read by Django"
-msgstr ""
-
-#: finances/utils/db_utils_pgsql.py:776 finances/utils/db_utils_sqlite.py:899
-msgid "Database restored successfully"
-msgstr "Banco de dados restaurado com sucesso"
-
-#: finances/utils/db_utils_pgsql.py:783
-#, fuzzy
-#| msgid "Restore Complete"
-msgid "Restore operation timed out"
-msgstr "Restauração concluída"
-
-#: finances/utils/db_utils_pgsql.py:791
-msgid ""
-"pg_restore command not found. Please ensure PostgreSQL client tools are "
-"installed."
-msgstr ""
+"Comando pg_dump não encontrado. Certifique-se de que as ferramentas de "
+"cliente PostgreSQL estão instaladas."
 
 #: finances/utils/db_utils_sqlite.py:155 finances/utils/db_utils_sqlite.py:229
-#, fuzzy
-#| msgid "Backup file not found"
 msgid "Database file not found"
-msgstr "Arquivo de backup não encontrado"
+msgstr "Arquivo do banco de dados não encontrado"
 
 #: finances/utils/db_utils_sqlite.py:550
 msgid "Uploaded database file is corrupted and cannot be restored."
-msgstr ""
+msgstr "O arquivo de banco enviado está corrompido e não pode ser restaurado."
 
 #: finances/utils/db_utils_sqlite.py:562
-#, fuzzy, python-format
-#| msgid "Database error: %(error)s"
+#, python-format
 msgid "Uploaded database file is corrupted: %(error)s"
-msgstr "Erro no banco de dados: %(error)s"
+msgstr "O arquivo de banco de dados enviado está corrompido: %(error)s"
 
 #: finances/utils/db_utils_sqlite.py:719
 msgid ""
 "Could not wipe current database. Previous database may have been restored."
 msgstr ""
+"Não foi possível limpar o banco de dados atual. O banco anterior pode ter "
+"sido restaurado."
 
 #: finances/utils/db_utils_sqlite.py:783
-#, fuzzy, python-format
-#| msgid "Database error: %(error)s"
+#, python-format
 msgid "Database restore failed: %(error)s"
-msgstr "Erro no banco de dados: %(error)s"
+msgstr "Falha na restauração do banco de dados"
 
 #: finances/utils/db_utils_sqlite.py:815
 msgid "Restored database failed integrity check. Safety backup restored."
 msgstr ""
+"O banco restaurado falhou na verificação de integridade. Backup de segurança "
+"restaurado."
 
 #: finances/utils/db_utils_sqlite.py:839
 msgid ""
 "Error verifying restored database. Safety backup may have been restored."
 msgstr ""
+"Erro ao verificar o banco de dados restaurado. O backup de segurança pode "
+"ter sido restaurado."
 
 #: finances/utils/db_utils_sqlite.py:882
 msgid "Restored database cannot be read by Django. Safety backup restored."
-msgstr ""
+msgstr "O banco de dados restaurado não pode ser lido pelo Django"
+
+#: finances/utils/notifications_utils.py:206
+#, python-format
+msgid "Transaction '%(description)s' is %(days)d day overdue"
+msgstr "A transação '%(description)s' está com %(days)d dias de atraso"
+
+#: finances/utils/notifications_utils.py:211
+#, python-format
+msgid "Transaction '%(description)s' is %(days)d days overdue"
+msgstr "A transação '%(description)s' está com %(days)d dias de atraso"
+
+#: finances/utils/notifications_utils.py:218
+#, python-format
+msgid "Transaction '%(description)s' is due in %(days)d day(s)"
+msgstr "A transação '%(description)s' vence em %(days)d dia(s)"
+
+#: finances/utils/notifications_utils.py:396
+#, python-format
+msgid "%(name)s is over budget by %(amount)s"
+msgstr "%(name)s ultrapassou o orçamento em %(amount)s"
+
+#: finances/utils/notifications_utils.py:559
+msgid "Someone"
+msgstr "Alguém"
+
+#: finances/utils/notifications_utils.py:563
+#, python-format
+msgid "%(creator)s edited '%(description)s' in '%(group)s'"
+msgstr "%(creator)s editou '%(description)s' em '%(group)s'"
+
+#: finances/utils/notifications_utils.py:569
+#, python-format
+msgid "%(creator)s added '%(description)s' in '%(group)s'"
+msgstr "%(creator)s adicionou '%(description)s' em '%(group)s'"
 
 #: finances/utils/period_utils.py:293 finances/utils/period_utils.py:301
 #, python-format
@@ -2760,6 +3349,9 @@ msgid ""
 "period %(days)s days long (ending %(end_date)s). The next period will start "
 "on %(start_date)s with the new schedule."
 msgstr ""
+"Mudar o dia de início de %(old_day)s para %(new_day)s fará o período atual "
+"durar %(days)s dias (terminando em %(end_date)s). O próximo período começará "
+"em %(start_date)s com o novo cronograma."
 
 #: finances/utils/period_utils.py:319
 #, python-format
@@ -2768,6 +3360,9 @@ msgid ""
 "%(adj_end)s (%(adj_days)s days). The new %(period_type)s cycle will start on "
 "%(start_date)s."
 msgstr ""
+"Alterar a data base criará um período de ajuste de %(adj_start)s a "
+"%(adj_end)s (%(adj_days)s dias). O novo ciclo %(period_type)s começará em "
+"%(start_date)s."
 
 #: finances/utils/period_utils.py:328
 #, python-format
@@ -2775,6 +3370,8 @@ msgid ""
 "Changing base date will adjust your current period. The period will be "
 "recalculated to align with the new base date starting %(start_date)s."
 msgstr ""
+"Alterar a data base ajustará seu período atual. O período será recalculado "
+"para alinhar-se à nova data base a partir de %(start_date)s."
 
 #: finances/utils/period_utils.py:360 finances/utils/period_utils.py:404
 #, python-format
@@ -2782,6 +3379,8 @@ msgid ""
 "Changing from %(old_type)s to %(new_type)s will adjust the current period. "
 "The new %(new_type_lower)s cycle starts on %(start_date)s."
 msgstr ""
+"Mudar de %(old_type)s para %(new_type)s ajustará o período atual. O novo "
+"ciclo %(new_type_lower)s começa em %(start_date)s."
 
 #: finances/utils/period_utils.py:376
 #, python-format
@@ -2791,6 +3390,8 @@ msgid ""
 "%(adj_start)s to %(adj_end)s). Your new %(new_type_lower)s cycle will start "
 "on %(start_date)s."
 msgstr ""
+"Mudar de %(old_type)s para %(new_type)s ajustará o período atual. O novo "
+"ciclo %(new_type_lower)s começa em %(start_date)s."
 
 #: finances/utils/period_utils.py:394
 #, python-format
@@ -2799,294 +3400,410 @@ msgid ""
 "of %(adj_days)s days (from %(adj_start)s to %(adj_end)s). Your new "
 "%(new_type_lower)s cycle will start on %(start_date)s."
 msgstr ""
+"Mudar de %(old_type)s para %(new_type)s ajustará o período atual. O novo "
+"ciclo %(new_type_lower)s começa em %(start_date)s."
 
-#: finances/views/views_ajax.py:46 finances/views/views_ajax.py:86
-#: finances/views/views_ajax.py:323 finances/views/views_ajax.py:376
-#: finances/views/views_ajax.py:450 finances/views/views_ajax.py:497
-#: finances/views/views_ajax.py:605 finances/views/views_ajax.py:638
-#: finances/views/views_ajax.py:1250 finances/views/views_ajax.py:1332
-#: finances/views/views_ajax.py:1534 finances/views/views_ajax.py:1576
+#: finances/views/views_ajax.py:53 finances/views/views_ajax.py:106
+#: finances/views/views_ajax.py:358 finances/views/views_ajax.py:411
+#: finances/views/views_ajax.py:541 finances/views/views_ajax.py:617
+#: finances/views/views_ajax.py:691 finances/views/views_ajax.py:741
+#: finances/views/views_ajax.py:788 finances/views/views_ajax.py:908
+#: finances/views/views_ajax.py:955 finances/views/views_ajax.py:1618
+#: finances/views/views_ajax.py:1700 finances/views/views_ajax.py:1917
+#: finances/views/views_ajax.py:1961 finances/views/views_ajax.py:2009
+#: finances/views/views_ajax.py:2091 finances/views/views_ajax.py:2122
+#: finances/views/views_ajax.py:2160 finances/views/views_ajax.py:2189
 msgid "Not an AJAX request."
 msgstr "Não é uma solicitação AJAX."
 
-#: finances/views/views_ajax.py:50 finances/views/views_ajax.py:90
-#: finances/views/views_ajax.py:327 finances/views/views_ajax.py:380
-#: finances/views/views_ajax.py:454 finances/views/views_ajax.py:501
-#: finances/views/views_ajax.py:544 finances/views/views_ajax.py:609
-#: finances/views/views_ajax.py:642 finances/views/views_ajax.py:1254
-#: finances/views/views_ajax.py:1336 finances/views/views_ajax.py:1538
-#: finances/views/views_ajax.py:1580 finances/views/views_pages.py:1039
-#: finances/views/views_pages.py:1203
+#: finances/views/views_ajax.py:57 finances/views/views_ajax.py:110
+#: finances/views/views_ajax.py:362 finances/views/views_ajax.py:415
+#: finances/views/views_ajax.py:545 finances/views/views_ajax.py:621
+#: finances/views/views_ajax.py:695 finances/views/views_ajax.py:745
+#: finances/views/views_ajax.py:792 finances/views/views_ajax.py:835
+#: finances/views/views_ajax.py:912 finances/views/views_ajax.py:959
+#: finances/views/views_ajax.py:1622 finances/views/views_ajax.py:1704
+#: finances/views/views_ajax.py:1921 finances/views/views_ajax.py:1965
+#: finances/views/views_ajax.py:2013 finances/views/views_ajax.py:2095
+#: finances/views/views_ajax.py:2126 finances/views/views_ajax.py:2164
+#: finances/views/views_ajax.py:2193 finances/views/views_pages.py:1164
+#: finances/views/views_pages.py:1338
 msgid "User is not associated with a family."
 msgstr "O usuário não está associado a uma família."
 
-#: finances/views/views_ajax.py:57 finances/views/views_ajax.py:508
+#: finances/views/views_ajax.py:64 finances/views/views_ajax.py:799
+#: finances/views/views_ajax.py:2133
 msgid "No items data provided."
 msgstr "Nenhum dado de item fornecido."
 
-#: finances/views/views_ajax.py:77 finances/views/views_ajax.py:314
-#: finances/views/views_ajax.py:367 finances/views/views_ajax.py:441
-#: finances/views/views_ajax.py:489 finances/views/views_ajax.py:534
+#: finances/views/views_ajax.py:75
+msgid "All items must belong to the same Flow Group."
+msgstr "Todos os itens devem pertencer ao mesmo grupo."
+
+#: finances/views/views_ajax.py:97 finances/views/views_ajax.py:349
+#: finances/views/views_ajax.py:402 finances/views/views_ajax.py:476
+#: finances/views/views_ajax.py:608 finances/views/views_ajax.py:684
+#: finances/views/views_ajax.py:732 finances/views/views_ajax.py:780
+#: finances/views/views_ajax.py:825
 #, python-format
 msgid "A server error occurred: %(error)s"
 msgstr "Ocorreu um erro no servidor: %(error)s"
 
-#: finances/views/views_ajax.py:109
+#: finances/views/views_ajax.py:129
 msgid "Missing required fields."
 msgstr "Campos obrigatórios ausentes."
 
-#: finances/views/views_ajax.py:134
-msgid "Amount cannot be empty."
-msgstr "O valor não pode estar vazio."
-
-#: finances/views/views_ajax.py:138
+#: finances/views/views_ajax.py:140 finances/views/views_ajax.py:522
 #, python-format
 msgid "Invalid amount format: %(amount)s"
 msgstr "Formato de valor inválido: %(amount)s"
 
-#: finances/views/views_ajax.py:143
+#: finances/views/views_ajax.py:145
 msgid "You don't have permission to edit this group."
 msgstr "Você não tem permissão para editar este grupo."
 
-#: finances/views/views_ajax.py:253
+#: finances/views/views_ajax.py:285
 #, python-format
 msgid "Invalid data format: %(error)s"
 msgstr "Formato de dados inválido: %(error)s"
 
-#: finances/views/views_ajax.py:278
+#: finances/views/views_ajax.py:310
 msgid "Missing transaction_id."
 msgstr "Transaction_id ausente."
 
-#: finances/views/views_ajax.py:283
+#: finances/views/views_ajax.py:315
 msgid "You don't have permission to delete from this group."
 msgstr "Você não tem permissão para excluir deste grupo."
 
-#: finances/views/views_ajax.py:330
+#: finances/views/views_ajax.py:365
 msgid "Only Parents and Admins can mark Kids groups as realized."
-msgstr ""
-"Somente Pais e Administradores podem marcar grupos de Crianças como "
-"realizados."
+msgstr "Apenas Pais e Admins podem marcar grupos de Crianças como realizados."
 
-#: finances/views/views_ajax.py:338 finances/views/views_ajax.py:391
+#: finances/views/views_ajax.py:373 finances/views/views_ajax.py:426
 msgid "Missing flow_group_id."
 msgstr "Flow_group_id ausente."
 
-#: finances/views/views_ajax.py:343
+#: finances/views/views_ajax.py:378
 msgid "Can only toggle realized for Kids groups."
 msgstr "Só é possível alternar entre grupos infantis."
 
-#: finances/views/views_ajax.py:383
+#: finances/views/views_ajax.py:418
 msgid "Only Parents and Admins can mark Credit Card groups as closed."
 msgstr ""
-"Somente pais e administradores podem marcar grupos de cartão de crédito como "
-"fechados."
+"Apenas Pais e Admins podem marcar grupos de Cartão de Crédito como fechados."
 
-#: finances/views/views_ajax.py:396
+#: finances/views/views_ajax.py:431
 msgid "Can only toggle closed for Credit Card groups."
 msgstr "Só é possível alternar para fechado para grupos de cartão de crédito."
 
-#: finances/views/views_ajax.py:461
+#: finances/views/views_ajax.py:548 finances/views/views_ajax.py:624
+msgid "Only Parents and Admins can manage credit cards."
+msgstr "Apenas Pais e Admins podem gerenciar cartões de crédito."
+
+#: finances/views/views_ajax.py:630
+msgid "Missing credit_card_id."
+msgstr "credit_card_id ausente."
+
+#: finances/views/views_ajax.py:634
+msgid "This Flow Group is not a credit card."
+msgstr "Este Flow Group não é um cartão de crédito."
+
+#: finances/views/views_ajax.py:752
 msgid "No groups data provided."
 msgstr "Nenhum dado de grupo fornecido."
 
-#: finances/views/views_ajax.py:550
+#: finances/views/views_ajax.py:841
 msgid "Permission denied."
 msgstr "Permissão negada."
 
-#: finances/views/views_ajax.py:592
+#: finances/views/views_ajax.py:895
 #, python-format
 msgid "Flow Group '%(name)s' and all its data have been deleted."
 msgstr "O grupo de fluxo '%(name)s' e todos os seus dados foram excluídos."
 
-#: finances/views/views_ajax.py:612
+#: finances/views/views_ajax.py:915
 msgid "Only Admins and Parents can copy period data."
 msgstr "Somente administradores e pais podem copiar dados do período."
 
-#: finances/views/views_ajax.py:616
+#: finances/views/views_ajax.py:919
 msgid "Current period already has data. Cannot copy."
 msgstr "O período atual já possui dados. Não é possível copiar."
 
-#: finances/views/views_ajax.py:624
+#: finances/views/views_ajax.py:941
 #, python-format
 msgid "Copied %(groups)s groups and %(transactions)s transactions."
 msgstr "Copiados %(groups)s grupos e %(transactions)s transações."
 
-#: finances/views/views_ajax.py:631
+#: finances/views/views_ajax.py:948
 #, python-format
 msgid "Error copying period: %(error)s"
 msgstr "Erro ao copiar período: %(error)s"
 
-#: finances/views/views_ajax.py:654
+#: finances/views/views_ajax.py:971
 #, python-format
 msgid "Error checking period: %(error)s"
 msgstr "Período de verificação de erros: %(error)s"
 
-#: finances/views/views_ajax.py:685 finances/views/views_ajax.py:769
-#: finances/views/views_ajax.py:804 finances/views/views_ajax.py:868
-#: finances/views/views_ajax.py:947 finances/views/views_ajax.py:1067
-#: finances/views/views_ajax.py:1170 finances/views/views_ajax.py:1211
-#: finances/views/views_ajax.py:1430
+#: finances/views/views_ajax.py:1002 finances/views/views_ajax.py:1089
+#: finances/views/views_ajax.py:1138 finances/views/views_ajax.py:1202
+#: finances/views/views_ajax.py:1281 finances/views/views_ajax.py:1399
+#: finances/views/views_ajax.py:1536 finances/views/views_ajax.py:1579
+#: finances/views/views_ajax.py:1798
 msgid "User not in family"
 msgstr "O usuário não é da família"
 
-#: finances/views/views_ajax.py:808 finances/views/views_ajax.py:872
+#: finances/views/views_ajax.py:1142 finances/views/views_ajax.py:1206
 msgid "Permission denied"
 msgstr "Permissão negada"
 
-#: finances/views/views_ajax.py:818 finances/views/views_ajax.py:882
+#: finances/views/views_ajax.py:1152 finances/views/views_ajax.py:1216
 msgid "End date must be after start date"
 msgstr "A data de término deve ser posterior à data de início"
 
-#: finances/views/views_ajax.py:842 finances/views/views_ajax.py:896
+#: finances/views/views_ajax.py:1176 finances/views/views_ajax.py:1230
 msgid "This period overlaps with existing periods"
 msgstr "Este período se sobrepõe a períodos existentes"
 
-#: finances/views/views_ajax.py:849
+#: finances/views/views_ajax.py:1183
 msgid "No overlap detected"
 msgstr "Nenhuma sobreposição detectada"
 
-#: finances/views/views_ajax.py:904
+#: finances/views/views_ajax.py:1238
 msgid "Family configuration not found"
 msgstr "Configuração familiar não encontrada"
 
-#: finances/views/views_ajax.py:922
+#: finances/views/views_ajax.py:1256
 msgid "Period created successfully"
 msgstr "Período criado com sucesso"
 
-#: finances/views/views_ajax.py:1107
+#: finances/views/views_ajax.py:1445
+#, python-format
+msgid "Current period cleared by %(user)s"
+msgstr "Período atual limpo por %(user)s"
+
+#: finances/views/views_ajax.py:1456
 #, python-format
 msgid ""
 "Current period cleared: %(groups)s flow groups and %(transactions)s "
 "transactions removed"
 msgstr ""
+"Período atual limpo: %(groups)s grupos de fluxo e %(transactions)s "
+"transações removidos"
 
-#: finances/views/views_ajax.py:1148
+#: finances/views/views_ajax.py:1503
+#, python-format
+msgid "Period deleted by %(user)s"
+msgstr "Período excluído por %(user)s"
+
+#: finances/views/views_ajax.py:1514
 #, python-format
 msgid ""
 "Period deleted: %(groups)s flow groups and %(transactions)s transactions "
 "removed"
 msgstr ""
+"Período excluído: %(groups)s grupos de fluxo e %(transactions)s transações "
+"removidos"
 
-#: finances/views/views_ajax.py:1258
+#: finances/views/views_ajax.py:1626
 msgid "Children cannot mark groups as recurring."
 msgstr "As crianças não podem marcar grupos como recorrentes."
 
-#: finances/views/views_ajax.py:1265
+#: finances/views/views_ajax.py:1633
 msgid "FlowGroup ID is required"
 msgstr "O ID do FlowGroup é obrigatório"
 
-#: finances/views/views_ajax.py:1271
+#: finances/views/views_ajax.py:1639
 msgid "You do not have permission to modify this FlowGroup."
 msgstr "Você não tem permissão para modificar este FlowGroup."
 
-#: finances/views/views_ajax.py:1316
+#: finances/views/views_ajax.py:1684
 msgid "Recurring status updated successfully"
 msgstr "Status recorrente atualizado com sucesso"
 
-#: finances/views/views_ajax.py:1340
+#: finances/views/views_ajax.py:1708
 msgid "Children cannot mark transactions as fixed."
 msgstr "Os filhos não podem marcar transações como fixas."
 
-#: finances/views/views_ajax.py:1347
+#: finances/views/views_ajax.py:1715
 msgid "Transaction ID is required"
 msgstr "O ID da transação é obrigatório"
 
-#: finances/views/views_ajax.py:1354
+#: finances/views/views_ajax.py:1722
 msgid "You do not have permission to modify this transaction."
 msgstr "Você não tem permissão para modificar esta transação."
 
-#: finances/views/views_ajax.py:1387
+#: finances/views/views_ajax.py:1755
 msgid "Fixed status updated successfully"
 msgstr "Status corrigido atualizado com sucesso"
 
-#: finances/views/views_ajax.py:1547
+#: finances/views/views_ajax.py:1930
 msgid "Invalid mode. Must be \"general\" or \"detailed\"."
-msgstr ""
+msgstr "Modo inválido. Deve ser \"general\" ou \"detailed\"."
 
-#: finances/views/views_ajax.py:1584 finances/views/views_pages.py:1260
+#: finances/views/views_ajax.py:1969 finances/views/views_pages.py:1395
 msgid "Child users cannot access investments."
 msgstr "Os usuários infantis não podem acessar investimentos."
 
-#: finances/views/views_auth.py:46
+#: finances/views/views_ajax.py:2025
+msgid "Description and Amount are required."
+msgstr "Descrição e Valor são obrigatórios."
+
+#: finances/views/views_ajax.py:2030 finances/views/views_ajax.py:2107
+msgid "You don't have permission to edit this list."
+msgstr "Você não tem permissão para editar esta lista."
+
+#: finances/views/views_ajax.py:2035
+msgid "Invalid amount format."
+msgstr "Formato de valor inválido."
+
+#: finances/views/views_ajax.py:2102
+msgid "Item ID is required."
+msgstr "O ID do item é obrigatório."
+
+#: finances/views/views_ajax.py:2171
+msgid "Permission denied. Only the list owner or an Admin can delete it."
+msgstr "Permissão negada. Apenas o dono da lista ou um Admin pode excluí-la."
+
+#: finances/views/views_ajax.py:2199
+msgid "You don't have permission to clone this list."
+msgstr "Você não tem permissão para clonar esta lista."
+
+#: finances/views/views_ajax.py:2202
+msgid "Copy"
+msgstr "Cópia"
+
+#: finances/views/views_auth.py:54
 msgid "Database setup required. Running migrations..."
 msgstr "Configuração do banco de dados necessária. Executando migrações..."
 
-#: finances/views/views_auth.py:60 finances/views/views_auth.py:68
+#: finances/views/views_auth.py:68 finances/views/views_auth.py:76
 #, python-format
 msgid "Database error: %(error)s"
 msgstr "Erro no banco de dados: %(error)s"
 
-#: finances/views/views_auth.py:116
+#: finances/views/views_auth.py:138
 #, python-format
 msgid ""
 "Welcome to SweetMoney! Your family '%(family_name)s' has been created "
 "successfully."
 msgstr ""
+"Bem-vindo ao SweetMoney! Sua família '%(family_name)s' foi criada com "
+"sucesso."
 
-#: finances/views/views_auth.py:123
+#: finances/views/views_auth.py:145
 #, python-format
 msgid "An error occurred during setup: %(error)s. Please try again."
-msgstr ""
-"Ocorreu um erro durante a configuração: %(error)s. Por favor, tente "
-"novamente."
+msgstr "Ocorreu um erro durante a configuração: %(error)s. Tente novamente."
 
-#: finances/views/views_auth.py:169
+#: finances/views/views_auth.py:173 finances/views/views_post_update.py:162
+#: finances/views/views_updater.py:590
+msgid "Invalid request."
+msgstr "Requisição inválida."
+
+#: finances/views/views_auth.py:177 finances/views/views_updater.py:594
+msgid "Password is required."
+msgstr "A senha é obrigatória."
+
+#: finances/views/views_auth.py:181
+msgid "Family not found."
+msgstr "Família não encontrada."
+
+#: finances/views/views_auth.py:184
+msgid "Only Parent users can elevate to Admin."
+msgstr "Somente usuários Pais podem elevar para Admin."
+
+#: finances/views/views_auth.py:193 finances/views/views_updater.py:608
+msgid "No Admin user found for this family."
+msgstr "Nenhum usuário Admin encontrado para esta família."
+
+#: finances/views/views_auth.py:210
+msgid "Admin mode activated successfully."
+msgstr "Modo admin ativado com sucesso."
+
+#: finances/views/views_auth.py:243
 msgid "Profile editing is disabled in demo mode."
 msgstr "A edição de perfil está desabilitada no modo de demonstração."
 
-#: finances/views/views_auth.py:180
-msgid "This username is already taken."
-msgstr "Este nome de usuário já está em uso."
+#: finances/views/views_auth.py:254 finances/views/views_pages.py:1255
+msgid "Admin accounts have no editable username or email."
+msgstr "Contas admin não têm nome de usuário ou e-mail editáveis."
 
-#: finances/views/views_auth.py:185 finances/views/views_pages.py:1145
-msgid "Profile updated successfully."
-msgstr "Perfil atualizado com sucesso."
-
-#: finances/views/views_auth.py:187
+#: finances/views/views_auth.py:256 finances/views/views_pages.py:1257
 msgid "Username cannot be empty."
 msgstr "O nome de usuário não pode ficar vazio."
 
-#: finances/views/views_auth.py:195
+#: finances/views/views_auth.py:258 finances/views/views_pages.py:1259
+msgid "This username is already taken in your family."
+msgstr "Este nome de usuário já está em uso na sua família."
+
+#: finances/views/views_auth.py:260 finances/views/views_pages.py:1261
+msgid "Email is required."
+msgstr "E-mail é obrigatório."
+
+#: finances/views/views_auth.py:262 finances/views/views_pages.py:1263
+msgid "This email is already in use by another account."
+msgstr "Este e-mail já está em uso por outra conta."
+
+#: finances/views/views_auth.py:267 finances/views/views_pages.py:1280
+msgid "Profile updated successfully."
+msgstr "Perfil atualizado com sucesso."
+
+#: finances/views/views_auth.py:275
 msgid "Current password is incorrect."
 msgstr "A senha atual está incorreta."
 
-#: finances/views/views_auth.py:197
+#: finances/views/views_auth.py:277
 msgid "New password must be at least 6 characters long."
 msgstr "A nova senha deve ter pelo menos 6 caracteres."
 
-#: finances/views/views_auth.py:199
+#: finances/views/views_auth.py:279
 msgid "New passwords do not match."
 msgstr "As novas senhas não coincidem."
 
-#: finances/views/views_auth.py:204 finances/views/views_pages.py:1180
+#: finances/views/views_auth.py:284 finances/views/views_pages.py:1315
 msgid "Password changed successfully."
 msgstr "Senha alterada com sucesso."
 
-#: finances/views/views_auth.py:213
+#: finances/views/views_auth.py:306
+msgid "Invalid value for days before. Must be a number between 0 and 30."
+msgstr "Valor inválido para dias antes. Deve ser um número entre 0 e 30."
+
+#: finances/views/views_auth.py:313
+msgid "Notification preferences updated successfully."
+msgstr "Preferências de notificação atualizadas com sucesso."
+
+#: finances/views/views_auth.py:322
 msgid "Language preference updated successfully."
 msgstr "Preferência de idioma atualizada com sucesso."
 
-#: finances/views/views_auth.py:215
+#: finances/views/views_auth.py:324
 msgid "Invalid language selection."
 msgstr "Seleção de idioma inválida."
 
+#: finances/views/views_auth.py:333
+msgid "Timezone preference updated successfully."
+msgstr "Fuso horário atualizado com sucesso."
+
+#: finances/views/views_auth.py:335
+msgid "Invalid timezone selection."
+msgstr "Seleção de fuso horário inválida."
+
 #: finances/views/views_backup.py:31
 msgid "Database backups are disabled in demo mode."
-msgstr ""
-"Os backups de banco de dados são desabilitados no modo de demonstração."
+msgstr "Backups do banco de dados estão desativados no modo demo."
 
 #: finances/views/views_backup.py:47
 msgid "You are not a member of any family. Cannot create backup."
-msgstr ""
+msgstr "Você não é membro de nenhuma família. Não é possível criar o backup."
 
 #: finances/views/views_backup.py:58
 msgid "Error determining your family. Please contact an administrator."
-msgstr ""
+msgstr "Erro ao determinar sua família. Contate um administrador."
 
 #: finances/views/views_backup.py:78
 #, python-format
 msgid "Family backup created successfully for %(family)s"
-msgstr ""
+msgstr "Backup da família criado com sucesso para %(family)s"
 
 #: finances/views/views_backup.py:103
 msgid "Backup downloads are disabled in demo mode."
@@ -3102,31 +3819,37 @@ msgstr "Caminho de arquivo inválido"
 
 #: finances/views/views_backup.py:156
 msgid "Database restore is disabled in demo mode."
-msgstr ""
-"A restauração do banco de dados está desabilitada no modo de demonstração."
+msgstr "A restauração do banco de dados está desativada no modo demo."
 
-#: finances/views/views_backup.py:200
+#: finances/views/views_backup.py:204
 msgid ""
 "Could not determine backup file type. Please ensure this is a valid SQLite "
 "or PostgreSQL backup file."
 msgstr ""
+"Não foi possível determinar o tipo do arquivo de backup. Certifique-se de "
+"que é um arquivo de backup SQLite ou PostgreSQL válido."
 
-#: finances/views/views_backup.py:216
-msgid "Cannot restore PostgreSQL backup to SQLite database"
-msgstr ""
+#: finances/views/views_backup.py:248
+msgid "Cannot restore PostgreSQL SQL dump to SQLite database"
+msgstr "Não é possível restaurar um dump SQL do PostgreSQL em um banco SQLite"
 
-#: finances/views/views_backup.py:217
+#: finances/views/views_backup.py:249
 msgid ""
 "Your system is currently running with SQLite database, but you are trying to "
-"restore a PostgreSQL backup. This operation is not supported. Please restore "
-"a SQLite backup file instead."
+"restore a PostgreSQL SQL dump file (.sql). This operation is not supported "
+"because .sql files contain PostgreSQL-specific syntax. Please use a JSON "
+"backup instead, which works with any database."
 msgstr ""
+"Seu sistema está usando banco de dados SQLite, mas você está tentando "
+"restaurar um arquivo de dump SQL do PostgreSQL (.sql). Esta operação não é "
+"suportada porque arquivos .sql contêm sintaxe específica do PostgreSQL. Use "
+"um backup JSON, que funciona com qualquer banco de dados."
 
-#: finances/views/views_backup.py:230
+#: finances/views/views_backup.py:262
 msgid "Migration Required"
 msgstr "Migração Necessária"
 
-#: finances/views/views_backup.py:231
+#: finances/views/views_backup.py:263
 msgid ""
 "The backup file is from SQLite, but your system is running PostgreSQL. The "
 "data will be migrated from SQLite to PostgreSQL. This operation will drop "
@@ -3136,176 +3859,177 @@ msgstr ""
 "Os dados serão migrados do SQLite para PostgreSQL. Esta operação eliminará "
 "todos os dados atuais no PostgreSQL."
 
-#: finances/views/views_backup.py:304
+#: finances/views/views_backup.py:340
 msgid "Unexpected restore scenario"
-msgstr ""
+msgstr "Cenário de restauração inesperado"
 
 #: finances/views/views_notifications.py:25
-#: finances/views/views_notifications.py:85
-#: finances/views/views_notifications.py:137
+#: finances/views/views_notifications.py:87
+#: finances/views/views_notifications.py:140
 msgid "Member not found"
 msgstr "Membro não encontrado"
 
-#: finances/views/views_notifications.py:81
-#, fuzzy
-#| msgid "Notification"
+#: finances/views/views_notifications.py:83
 msgid "Notification ID required"
-msgstr "Notificação"
+msgstr "ID da notificação é obrigatório"
 
-#: finances/views/views_notifications.py:95
-#, fuzzy
-#| msgid "Notification"
+#: finances/views/views_notifications.py:97
 msgid "Notification not found"
-msgstr "Notificação"
+msgstr "Notificação não encontrada"
 
-#: finances/views/views_pages.py:241
+#: finances/views/views_pages.py:296
 msgid "You are not associated with any family."
 msgstr "Você não está associado a nenhuma família."
 
-#: finances/views/views_pages.py:246
+#: finances/views/views_pages.py:301
 msgid "Child users cannot access system settings."
 msgstr "Os usuários infantis não podem acessar as configurações do sistema."
 
-#: finances/views/views_pages.py:250
+#: finances/views/views_pages.py:305
 msgid "Only Admins and Parents can access configuration."
 msgstr "Somente administradores e pais podem acessar a configuração."
 
-#: finances/views/views_pages.py:411
+#: finances/views/views_pages.py:466
 #, python-format
 msgid ""
 "Period configuration updated successfully. Created %(periods)s new periods "
 "and copied %(groups)s flow groups."
 msgstr ""
+"Configuração de período atualizada com sucesso. Criados %(periods)s novos "
+"períodos e copiados %(groups)s grupos de fluxo."
 
-#: finances/views/views_pages.py:418
+#: finances/views/views_pages.py:473
 msgid ""
 "Period configuration updated. Changes will apply to the current and future "
 "periods."
 msgstr ""
+"Configuração de período atualizada com sucesso. Criados %(periods)s novos "
+"períodos e copiados %(groups)s grupos de fluxo."
 
-#: finances/views/views_pages.py:425
+#: finances/views/views_pages.py:480
 msgid "Bank reconciliation tolerance updated successfully!"
 msgstr "Tolerância de reconciliação bancária atualizada com sucesso!"
 
-#: finances/views/views_pages.py:453
+#: finances/views/views_pages.py:508
 #, python-format
 msgid ""
 "Currency updated to %(currency)s for current period. Updated %(groups)s "
 "groups, %(transactions)s transactions, %(balances)s bank balances, and "
 "%(investments)s investments."
 msgstr ""
+"Moeda atualizada para %(currency)s no período atual. Atualizados %(groups)s "
+"grupos, %(transactions)s transações, %(balances)s saldos bancários e "
+"%(investments)s investimentos."
 
-#: finances/views/views_pages.py:473
+#: finances/views/views_pages.py:528
 #, python-format
 msgid ""
 "Currency updated to %(currency)s for selected period only. Updated "
 "%(groups)s groups, %(transactions)s transactions, and %(balances)s bank "
 "balances."
 msgstr ""
+"Moeda atualizada para %(currency)s no período atual. Atualizados %(groups)s "
+"grupos, %(transactions)s transações, %(balances)s saldos bancários e "
+"%(investments)s investimentos."
 
-#: finances/views/views_pages.py:502
+#: finances/views/views_pages.py:557
 msgid "Configuration updated successfully!"
 msgstr "Configuração atualizada com sucesso!"
 
-#: finances/views/views_pages.py:771
+#: finances/views/views_pages.py:842
 #, python-format
 msgid "Budget cannot exceed your available balance (%(balance)s)."
 msgstr "O orçamento não pode exceder seu saldo disponível (%(balance)s)."
 
-#: finances/views/views_pages.py:818
+#: finances/views/views_pages.py:890
 #, python-format
 msgid "Flow Group '%(name)s' created."
 msgstr "Grupo de fluxo '%(name)s' criado."
 
-#: finances/views/views_pages.py:865
+#: finances/views/views_pages.py:936
 msgid "You don't have permission to access this group."
 msgstr "Você não tem permissão para acessar este grupo."
 
-#: finances/views/views_pages.py:956
+#: finances/views/views_pages.py:1053
 #, python-format
 msgid "Flow Group '%(name)s' updated."
 msgstr "Grupo de fluxo '%(name)s' atualizado."
 
-#: finances/views/views_pages.py:1032
+#: finances/views/views_pages.py:1157
 msgid "User creation is disabled in demo mode."
 msgstr "A criação de usuários está desabilitada no modo de demonstração."
 
-#: finances/views/views_pages.py:1053
+#: finances/views/views_pages.py:1178
 msgid "Parents can only create CHILD users."
 msgstr "Os pais só podem criar usuários CHILD."
 
-#: finances/views/views_pages.py:1055
+#: finances/views/views_pages.py:1180
 msgid "You do not have permission to create users."
 msgstr "Você não tem permissão para criar usuários."
 
-#: finances/views/views_pages.py:1071
+#: finances/views/views_pages.py:1196
 #, python-format
 msgid "Member '%(username)s' added successfully!"
 msgstr "Membro '%(username)s' adicionado com sucesso!"
 
-#: finances/views/views_pages.py:1084
+#: finances/views/views_pages.py:1209
 #, python-format
 msgid "Error creating member: %(error)s"
 msgstr "Erro ao criar membro: %(error)s"
 
-#: finances/views/views_pages.py:1113
+#: finances/views/views_pages.py:1238
 msgid "User editing is disabled in demo mode."
 msgstr "A edição do usuário está desabilitada no modo de demonstração."
 
-#: finances/views/views_pages.py:1118
+#: finances/views/views_pages.py:1243
 msgid "You do not have permission to edit this user."
 msgstr "Você não tem permissão para editar este usuário."
 
-#: finances/views/views_pages.py:1128
-msgid "Username already taken."
-msgstr "Nome de usuário já utilizado."
-
-#: finances/views/views_pages.py:1139 finances/views/views_pages.py:1142
-#: finances/views/views_pages.py:1147
+#: finances/views/views_pages.py:1274 finances/views/views_pages.py:1277
+#: finances/views/views_pages.py:1282
 msgid "Member information updated successfully."
 msgstr "Informações do membro atualizadas com sucesso."
 
-#: finances/views/views_pages.py:1164
+#: finances/views/views_pages.py:1299
 msgid "Password changes are disabled in demo mode."
 msgstr "As alterações de senha são desativadas no modo de demonstração."
 
-#: finances/views/views_pages.py:1169
+#: finances/views/views_pages.py:1304
 msgid "You do not have permission to change this user's password."
 msgstr "Você não tem permissão para alterar a senha deste usuário."
 
-#: finances/views/views_pages.py:1176
+#: finances/views/views_pages.py:1311
 msgid "Password must be at least 6 characters long."
 msgstr "A senha deve ter pelo menos 6 caracteres."
 
-#: finances/views/views_pages.py:1182
-#: finances/views/views_password_reset.py:256
-msgid "Passwords do not match."
-msgstr "As senhas não coincidem."
-
-#: finances/views/views_pages.py:1196
+#: finances/views/views_pages.py:1331
 msgid "User deletion is disabled in demo mode."
 msgstr "A exclusão do usuário está desabilitada no modo de demonstração."
 
-#: finances/views/views_pages.py:1211
+#: finances/views/views_pages.py:1346
 msgid "You cannot remove yourself from the family."
 msgstr "Você não pode se afastar da família."
 
-#: finances/views/views_pages.py:1213
+#: finances/views/views_pages.py:1348
 msgid "Parents can only remove CHILD users."
 msgstr "Os pais só podem remover usuários CHILD."
 
-#: finances/views/views_pages.py:1215
+#: finances/views/views_pages.py:1350
 msgid "You do not have permission to remove this user."
 msgstr "Você não tem permissão para remover este usuário."
 
-#: finances/views/views_pages.py:1232
+#: finances/views/views_pages.py:1367
 #, python-format
 msgid "Member %(username)s has been removed from the family."
 msgstr "O membro %(username)s foi removido da família."
 
-#: finances/views/views_pages.py:1271
+#: finances/views/views_pages.py:1406
 msgid "Investment added."
 msgstr "Investimento adicionado."
+
+#: finances/views/views_pages.py:1573
+msgid "You don't have permission to access this list."
+msgstr "Você não tem permissão para acessar esta lista."
 
 #: finances/views/views_password_reset.py:56
 msgid "Password reset is disabled in demo mode."
@@ -3314,7 +4038,7 @@ msgstr "A redefinição de senha está desabilitada no modo de demonstração."
 #: finances/views/views_password_reset.py:61
 msgid "Password reset is not available. Email system is not configured."
 msgstr ""
-"A redefinição de senha não está disponível. O sistema de e-mail não está "
+"A redefinição de senha não está disponível. O sistema de email não está "
 "configurado."
 
 #: finances/views/views_password_reset.py:68
@@ -3326,12 +4050,16 @@ msgid ""
 "If an account exists with that information, a verification code has been "
 "sent to the registered email address."
 msgstr ""
+"Se existir uma conta com essas informações, um código de verificação foi "
+"enviado ao endereço de e-mail cadastrado."
 
 #: finances/views/views_password_reset.py:87
 msgid ""
 "This account does not have an email address registered. Please contact an "
 "administrator."
 msgstr ""
+"Esta conta não possui um endereço de e-mail cadastrado. Contate um "
+"administrador."
 
 #: finances/views/views_password_reset.py:135
 msgid "A verification code has been sent to your email address."
@@ -3343,6 +4071,8 @@ msgid ""
 "Failed to send email. Please try again later or contact an administrator. "
 "Error: %(error)s"
 msgstr ""
+"Falha ao enviar o e-mail. Tente novamente mais tarde ou contate um "
+"administrador. Erro: %(error)s"
 
 #: finances/views/views_password_reset.py:153
 #: finances/views/views_password_reset.py:217
@@ -3353,8 +4083,8 @@ msgstr "A redefinição de senha não está disponível."
 #: finances/views/views_password_reset.py:161
 msgid "No password reset request found. Please start the process again."
 msgstr ""
-"Nenhuma solicitação de redefinição de senha encontrada. Por favor, reinicie "
-"o processo."
+"Nenhuma solicitação de redefinição de senha encontrada. Inicie o processo "
+"novamente."
 
 #: finances/views/views_password_reset.py:171
 #: finances/views/views_password_reset.py:235
@@ -3368,7 +4098,7 @@ msgstr "Por favor, insira o código de verificação."
 #: finances/views/views_password_reset.py:183
 msgid ""
 "This verification code has expired or been used. Please request a new one."
-msgstr ""
+msgstr "Este código de verificação expirou ou já foi usado. Solicite um novo."
 
 #: finances/views/views_password_reset.py:191
 msgid "Invalid verification code. Please try again."
@@ -3381,8 +4111,7 @@ msgstr "Código verificado! Agora você pode definir sua nova senha."
 #: finances/views/views_password_reset.py:225
 msgid "No verified reset request found. Please start the process again."
 msgstr ""
-"Nenhuma solicitação de redefinição verificada foi encontrada. Por favor, "
-"reinicie o processo."
+"Nenhuma solicitação verificada encontrada. Inicie o processo novamente."
 
 #: finances/views/views_password_reset.py:240
 msgid "Your verification code has expired. Please request a new one."
@@ -3397,6 +4126,7 @@ msgid ""
 "Your password has been successfully reset! You can now log in with your new "
 "password."
 msgstr ""
+"Sua senha foi redefinida com sucesso! Você já pode entrar com sua nova senha."
 
 #: finances/views/views_password_reset.py:292
 msgid "No password reset request found."
@@ -3413,35 +4143,103 @@ msgstr "Um novo código de verificação foi enviado para seu e-mail."
 #: finances/views/views_password_reset.py:349
 #, python-format
 msgid "Failed to send email. Please try again later. Error: %(error)s"
-msgstr ""
-"Falha ao enviar e-mail. Por favor, tente novamente mais tarde. Erro: "
-"%(error)s"
+msgstr "Falha ao enviar email. Tente novamente mais tarde. Erro: %(error)s"
 
-#: finances/views/views_updater.py:391
+#: finances/views/views_post_update.py:180
+#: finances/views/views_post_update.py:183
+msgid "Select an admin user and enter its password."
+msgstr "Selecione um usuário admin e informe a senha."
+
+#: finances/views/views_post_update.py:188
+msgid "Too many attempts. Restart your browser and try again."
+msgstr "Muitas tentativas. Reinicie seu navegador e tente novamente."
+
+#: finances/views/views_post_update.py:200
+#, python-format
+msgid "Incorrect admin password. Attempts left: %(remaining)s"
+msgstr "Senha do admin incorreta. Tentativas restantes: %(remaining)s"
+
+#: finances/views/views_post_update.py:217
+msgid "Identify with an admin user first."
+msgstr "Identifique-se primeiro com um usuário admin."
+
+#: finances/views/views_post_update.py:228
+msgid "Choose the general admin of the account."
+msgstr "Escolha o admin geral da conta."
+
+#: finances/views/views_post_update.py:230
+msgid "Password and confirmation are required and must match."
+msgstr "A senha e a confirmação são obrigatórias e devem ser iguais."
+
+#: finances/views/views_post_update.py:245
+msgid "No family found to create the admin for."
+msgstr "Nenhuma família encontrada para criar o admin."
+
+#: finances/views/views_post_update.py:261
+#: finances/views/views_post_update.py:267
+msgid "Invalid admin selection."
+msgstr "Seleção de admin inválida."
+
+#: finances/views/views_post_update.py:318
+msgid "Complete the admin selection step first."
+msgstr "Conclua primeiro a etapa de seleção do admin."
+
+#: finances/views/views_post_update.py:326
+msgid "No emails to save."
+msgstr "Nenhum e-mail para salvar."
+
+#: finances/views/views_post_update.py:340
+#: finances/views/views_post_update.py:345
+msgid "Invalid member."
+msgstr "Membro inválido."
+
+#: finances/views/views_post_update.py:352
+#, python-format
+msgid "%(username)s: invalid email."
+msgstr "%(username)s: e-mail inválido."
+
+#: finances/views/views_post_update.py:357
+#, python-format
+msgid "%(username)s: this email is already in use."
+msgstr "%(username)s: este e-mail já está em uso."
+
+#: finances/views/views_post_update.py:383
+msgid "There are still pending post-update steps."
+msgstr "Ainda há etapas de pós-atualização pendentes."
+
+#: finances/views/views_updater.py:450
 msgid "Missing required parameter: zipball_url"
 msgstr "Parâmetro obrigatório ausente: zipball_url"
 
-#: finances/views/views_updater.py:405
+#: finances/views/views_updater.py:464
 msgid "Could not verify GitHub release information"
 msgstr "Não foi possível verificar as informações de lançamento do GitHub"
 
-#: finances/views/views_updater.py:423
+#: finances/views/views_updater.py:482
 msgid "Invalid download URL"
 msgstr "URL de download inválido"
 
-#: finances/views/views_updater.py:432
+#: finances/views/views_updater.py:491
 msgid "Could not determine target version from GitHub"
 msgstr "Não foi possível determinar a versão de destino do GitHub"
 
-#: finances/views/views_updater.py:525
+#: finances/views/views_updater.py:599
+msgid "Family member not found."
+msgstr "Membro da família não encontrado."
+
+#: finances/views/views_updater.py:613
+msgid "Admin password verified."
+msgstr "Senha de admin verificada."
+
+#: finances/views/views_updater.py:625
 msgid "Local updates cannot be skipped"
 msgstr "As atualizações locais não podem ser ignoradas"
 
-#: finances/views/views_updater.py:528
+#: finances/views/views_updater.py:628
 msgid "Version is required"
 msgstr "A versão é obrigatória"
 
-#: finances/views/views_updater.py:537
+#: finances/views/views_updater.py:637
 #, python-format
 msgid ""
 "Version %(version)s will not be shown again until a newer version is "
@@ -3449,98 +4247,3 @@ msgid ""
 msgstr ""
 "A versão %(version)s não será exibida novamente até que uma versão mais "
 "recente esteja disponível"
-
-# --- Shopping Lists (v1.7.0) ---
-
-msgid "Shopping Lists"
-msgstr "Listas de Compras"
-
-msgid "Shopping List"
-msgstr "Lista de Compras"
-
-msgid "Shopping List Item"
-msgstr "Item da Lista"
-
-msgid "Lists"
-msgstr "Listas"
-
-msgid "Add List"
-msgstr "Adicionar Lista"
-
-msgid "Clone"
-msgstr "Clonar"
-
-msgid "List Name"
-msgstr "Nome da Lista"
-
-msgid "Shared List"
-msgstr "Lista Compartilhada"
-
-msgid "Share with"
-msgstr "Compartilhar com"
-
-msgid "Link"
-msgstr "Link"
-
-msgid "Total"
-msgstr "Total"
-
-msgid "items"
-msgstr "itens"
-
-msgid "No lists yet. Create your first shopping list!"
-msgstr "Nenhuma lista ainda. Crie sua primeira lista de compras!"
-
-msgid "No items in this list yet."
-msgstr "Nenhum item nesta lista ainda."
-
-msgid "New Item Description"
-msgstr "Descrição do Novo Item"
-
-msgid "No other members"
-msgstr "Nenhum outro membro"
-
-msgid "Are you sure you want to delete this list and all its items?"
-msgstr "Tem certeza de que deseja excluir esta lista e todos os seus itens?"
-
-msgid "Are you sure you want to delete this item?"
-msgstr "Tem certeza de que deseja excluir este item?"
-
-msgid "Description and Amount are required."
-msgstr "Descrição e Valor são obrigatórios."
-
-msgid "Description is required."
-msgstr "A descrição é obrigatória."
-
-msgid "Invalid amount format."
-msgstr "Formato de valor inválido."
-
-msgid "Item ID is required."
-msgstr "O ID do item é obrigatório."
-
-msgid "No items data provided."
-msgstr "Nenhum dado de itens fornecido."
-
-msgid "You don't have permission to access this list."
-msgstr "Você não tem permissão para acessar esta lista."
-
-msgid "You don't have permission to edit this list."
-msgstr "Você não tem permissão para editar esta lista."
-
-msgid "You don't have permission to clone this list."
-msgstr "Você não tem permissão para clonar esta lista."
-
-msgid "List cloned successfully"
-msgstr "Lista clonada com sucesso"
-
-msgid "List deleted successfully"
-msgstr "Lista excluída com sucesso"
-
-msgid "A list with the name '%(name)s' already exists."
-msgstr "Uma lista com o nome '%(name)s' já existe."
-
-msgid "Copy"
-msgstr "Cópia"
-
-msgid "An error occurred."
-msgstr "Ocorreu um erro."

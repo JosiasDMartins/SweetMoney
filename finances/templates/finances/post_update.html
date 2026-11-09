@@ -1,0 +1,210 @@
+{% extends "finances/base_simple.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Post-Update | SweetMoney" %}{% endblock title %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen px-4 py-8">
+    <div class="w-full max-w-2xl space-y-6">
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+            <div class="flex justify-center mb-4">
+                <span class="material-symbols-outlined text-5xl {% if phase_ok %}text-teal-600{% else %}text-red-500{% endif %}">
+                    {% if phase_ok %}system_update_alt{% else %}error{% endif %}
+                </span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">{% trans "System Update" %}</h1>
+            <p class="text-gray-500 dark:text-gray-400">
+                {% blocktrans %}The system was updated from version {{ db_version }} to {{ target_version }}.{% endblocktrans %}
+            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                {% trans "The system stays locked until this screen is completed." %}
+            </p>
+        </div>
+
+        {% if not phase_ok %}
+        {# Automatic phase (migrations/scripts) failed #}
+        <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg p-6">
+            <h2 class="font-semibold text-red-800 dark:text-red-200 mb-2">{% trans "Update step failed" %}</h2>
+            <p class="text-sm text-red-700 dark:text-red-300 mb-4">
+                {% trans "The automatic update steps could not be applied. The system version was not changed; you can safely try again." %}
+            </p>
+            <div class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs max-h-60 overflow-y-auto mb-4">
+                {% for result in phase_results %}
+                <p class="whitespace-pre-wrap">{{ result.output }}</p>
+                {% endfor %}
+            </div>
+            <form method="post" action="{% url 'post_update_retry' %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors">
+                    {% trans "Try Again" %}
+                </button>
+            </form>
+        </div>
+        {% else %}
+
+        {# Automatic phase results (collapsed) #}
+        <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+            <summary class="p-4 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
+                {% trans "Update steps applied (details)" %}
+            </summary>
+            <div class="px-4 pb-4 text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                {% for result in phase_results %}
+                <div class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-lg {% if result.status == 'ok' %}text-green-500{% else %}text-red-500{% endif %}">
+                        {% if result.status == 'ok' %}check_circle{% else %}error{% endif %}
+                    </span>
+                    <span class="font-mono">{% if result.type == 'migration' %}{% trans "Database migrations" %}{% else %}{{ result.filename }}{% endif %}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+
+        {% if pending_steps %}
+        {# Corrective steps #}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-6">
+            {% for step in pending_steps %}
+                {% if step.id == 'assign_emails' %}
+                <div id="step-assign-emails">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-500">mail</span>
+                        {% trans "Assign Emails" %}
+                    </h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                        {% blocktrans with count=step.count %}Login now uses email only. {{ count }} user(s) still have no email registered and cannot log in until it is assigned.{% endblocktrans %}
+                    </p>
+
+                    {% if family_id %}
+                    {# Stage 3: admin chosen - list every user with email inputs #}
+                    <p class="text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-3 mb-4">
+                        {% trans "Every user must have a unique email (it is used for login and cannot be shared, not even across families). Review the list below before confirming." %}
+                    </p>
+                    <form id="save-emails-form" class="space-y-4">
+                        {% csrf_token %}
+                        <div id="members-list" class="space-y-3"></div>
+                        <div id="save-emails-errors" class="hidden text-sm text-red-600 dark:text-red-400"></div>
+                        <div class="flex justify-end">
+                            <button type="submit" id="btn-save-emails" disabled
+                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                {% trans "OK" %}
+                            </button>
+                        </div>
+                    </form>
+                    {% elif authed %}
+                    {# Stage 2: choose the general admin of the account #}
+                    <form id="choose-admin-form" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label for="choose-admin-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "General Admin of the Account" %}</label>
+                            <select id="choose-admin-select" required
+                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <option value="" selected disabled>{% trans "Select the general admin" %}</option>
+                                {% for admin in admins %}
+                                <option value="{{ admin.member_id }}">{{ admin.username }} ({{ admin.family }})</option>
+                                {% endfor %}
+                                <option value="new">{% trans "Create a new admin for my family" %}</option>
+                            </select>
+                            <p class="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
+                                {% trans "Warning: the user selected as general admin will be BLOCKED for login. Admin accounts can only be used through permission elevation." %}
+                            </p>
+                        </div>
+                        <div id="choose-admin-passwords" class="hidden space-y-4">
+                            <div>
+                                <label for="choose-admin-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Admin Password" %}</label>
+                                <input type="password" id="choose-admin-password"
+                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500">
+                            </div>
+                            <div>
+                                <label for="choose-admin-confirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Confirm Admin Password" %}</label>
+                                <input type="password" id="choose-admin-confirm"
+                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    {% trans "This password will be set for the selected admin. Every other admin user will be demoted to Parent." %}
+                                </p>
+                            </div>
+                        </div>
+                        <div id="choose-admin-error" class="hidden text-sm text-red-600 dark:text-red-400"></div>
+                        <div class="flex justify-end">
+                            <button type="submit" id="btn-choose-admin" disabled
+                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                {% trans "Confirm" %}
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    {# Stage 1: identify with an admin user + its password #}
+                    <form id="identify-form" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label for="identify-admin" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Admin User" %}</label>
+                            <select id="identify-admin" required
+                                    class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500">
+                                <option value="" selected disabled>{% trans "Select an admin" %}</option>
+                                {% for admin in admins %}
+                                <option value="{{ admin.member_id }}">{{ admin.username }} ({{ admin.family }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="identify-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Admin Password" %}</label>
+                            <input type="password" id="identify-password" name="password" required
+                                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500">
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {% trans "Authenticate with the password of the selected admin to authorize the post-update changes." %}
+                            </p>
+                        </div>
+                        <div id="identify-error" class="hidden text-sm text-red-600 dark:text-red-400"></div>
+                        <div class="flex justify-end">
+                            <button type="submit" id="btn-identify"
+                                    class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium transition-colors">
+                                {% trans "Next" %}
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+
+        {# Nothing pending: finalize #}
+        <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded-lg p-6 text-center">
+            <span class="material-symbols-outlined text-green-500 text-4xl">check_circle</span>
+            <h2 class="font-semibold text-green-800 dark:text-green-200 mt-2 mb-1">
+                {% blocktrans %}Update to {{ target_version }} completed successfully!{% endblocktrans %}
+            </h2>
+            <p class="text-sm text-green-700 dark:text-green-300 mb-4">
+                {% trans "Click OK to finish the update and start using the system." %}
+            </p>
+            <form method="post" action="{% url 'post_update_finalize' %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors">
+                    {% trans "OK" %}
+                </button>
+            </form>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+
+{% block scripts_extra %}
+<script>
+    window.POST_UPDATE_I18N = {
+        invalidResponse: "{% trans 'Unexpected response from the server. Try again.' %}",
+        networkError: "{% trans 'Network error. Please try again.' %}",
+        saveError: "{% trans 'Some emails could not be saved:' %}",
+        username: "{% trans 'Username' %}",
+        role: "{% trans 'Role' %}",
+        email: "{% trans 'Email' %}",
+        passwordMismatch: "{% trans 'Passwords do not match.' %}",
+        allEmailsAssigned: "{% trans 'All emails assigned. Reloading...' %}"
+    };
+</script>
+<script src="{% static 'finances/js/post_update.js' %}?v=20261017-001" defer></script>
+{% endblock scripts_extra %}

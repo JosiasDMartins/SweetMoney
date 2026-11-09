@@ -51,6 +51,45 @@ from .views_utils import (
 )
 
 
+def build_credit_cards_context(family, start_date, member_role):
+    """Builds the Credit Cards box data for the dashboard (cards + bill totals)."""
+    from ..models import FlowGroup
+    from ..utils.credit_card_utils import get_card_bill_total, is_card_bill_overdue
+
+    cards_qs = FlowGroup.objects.filter(
+        family=family,
+        period_start_date=start_date,
+        is_credit_card=True,
+        linked_card__isnull=True
+    ).select_related('linked_card').order_by('order', 'name')
+
+    can_manage = member_role in ['ADMIN', 'PARENT']
+    cards_data = []
+    for card in cards_qs:
+        bill_total = get_card_bill_total(card, start_date)
+        linked_count = card.linked_groups.count()
+        budgeted = money_to_decimal(card.budgeted_amount)
+        cards_data.append({
+            'id': card.id,
+            'name': card.name,
+            'due_day': card.due_day,
+            'is_shared': card.is_shared,
+            'closed': card.closed,
+            'order': card.order,
+            'bill_total': bill_total,
+            'bill_overdue': is_card_bill_overdue(card, start_date),
+            'over_budget': bool(budgeted) and bill_total > budgeted,
+            'budgeted_amount': budgeted,
+            'linked_count': linked_count,
+            'can_access': can_manage or card.is_shared,
+        })
+
+    return {
+        'cards': [c for c in cards_data if c['can_access']] if not can_manage else cards_data,
+        'can_manage': can_manage,
+    }
+
+
 @login_required
 def dashboard_view(request):
     family, current_member, family_members = get_family_context(request.user)
@@ -78,7 +117,8 @@ def dashboard_view(request):
         family, 
         current_member, 
         start_date, 
-        group_type_filter=FLOW_TYPE_EXPENSE
+        group_type_filter=FLOW_TYPE_EXPENSE,
+        exclude_cards=True
     )
     
     # Annotate accessible groups
@@ -143,6 +183,9 @@ def dashboard_view(request):
         group.credit_card_pending = group.credit_card_pending.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.is_accessible = True
 
+        # Card link indicator for groups attached to a credit card
+        group.linked_card_name = group.linked_card.name if group.linked_card_id else None
+
         if group.is_kids_group and member_role_for_period in ['ADMIN', 'PARENT']:
             # Sum ALL transactions for this FlowGroup, regardless of date
             child_exp = Transaction.objects.filter(
@@ -172,6 +215,9 @@ def dashboard_view(request):
         group.total_spent = group.total_spent.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.credit_card_pending = group.credit_card_pending.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.is_accessible = False
+
+        # Card link indicator for groups attached to a credit card
+        group.linked_card_name = group.linked_card.name if group.linked_card_id else None
 
         budgeted_amt = money_to_decimal(group.budgeted_amount)
 
@@ -208,6 +254,9 @@ def dashboard_view(request):
     periods_history = get_periods_history(family, actual_current_start)
     ytd_metrics = get_year_to_date_metrics(family, end_date, current_member)
 
+    # Credit Cards box (v1.7.2): cards + current bill totals
+    credit_cards_data = build_credit_cards_context(family, start_date, member_role_for_period)
+
     context = {
         'start_date': start_date,
         'end_date': end_date,
@@ -225,6 +274,8 @@ def dashboard_view(request):
         'children_manual_income': children_manual_income if member_role_for_period in ['ADMIN', 'PARENT'] else {},
         'periods_history_json': json.dumps(periods_history),
         'ytd_metrics': ytd_metrics,
+        'credit_cards': credit_cards_data['cards'],
+        'can_manage_credit_cards': credit_cards_data['can_manage'],
     }
         
     period_currency = get_period_currency(family, start_date)
@@ -737,7 +788,7 @@ def create_flow_group_view(request):
     query_period = request.GET.get('period') or request.POST.get('period')
     start_date, end_date, _unused = get_current_period_dates(family, query_period)
     if request.method == 'POST':
-        form = FlowGroupForm(request.POST, family=family)
+        form = FlowGroupForm(request.POST, family=family, period=start_date)
         if form.is_valid():
             flow_group = form.save(commit=False)
             flow_group.family = family
@@ -829,7 +880,7 @@ def create_flow_group_view(request):
             # CRITICAL: Send AFTER saving M2M relationships so assigned_members/assigned_children are included
             try:
                 from ..websocket_utils import WebSocketBroadcaster
-                WebSocketBroadcaster.broadcast_flowgroup_updated(
+                WebSocketBroadcaster.broadcast_flowgroup_created(
                     flowgroup=flow_group,
                     actor_user=request.user
                 )
@@ -840,7 +891,7 @@ def create_flow_group_view(request):
             redirect_url = f"?period={start_date.strftime('%Y-%m-%d')}"
             return redirect(f"/flow-group/{flow_group.id}/edit/{redirect_url}")
     else:
-        form = FlowGroupForm(family=family)
+        form = FlowGroupForm(family=family, period=start_date)
 
     default_date = get_default_date_for_period(start_date, end_date)
     
@@ -884,7 +935,11 @@ def edit_flow_group_view(request, group_id):
     if not can_access_flow_group(group, current_member):
         messages.error(request, _("You don't have permission to access this group."))
         return redirect('dashboard')
-    
+
+    # Card containers get the simplified credit-card view (no group-type
+    # checkboxes; bill closing date shown instead)
+    is_card_view = group.is_credit_card and group.linked_card_id is None
+
     query_period = request.GET.get('period') or group.period_start_date.strftime('%Y-%m-%d')
     start_date, end_date, _unused = get_current_period_dates(family, query_period)
 
@@ -905,7 +960,7 @@ def edit_flow_group_view(request, group_id):
         current_group_id = group.id
         current_period = group.period_start_date
 
-        form = FlowGroupForm(request.POST, instance=group, family=family)
+        form = FlowGroupForm(request.POST, instance=group, family=family, period=start_date)
 
         # Check for duplicate name validation error
         if not form.is_valid() and 'name' in form.errors:
@@ -1000,7 +1055,7 @@ def edit_flow_group_view(request, group_id):
             return redirect(f"/flow-group/{group_id}/edit/{redirect_url}")
     else:
         budget_initial = group.budgeted_amount.amount if hasattr(group.budgeted_amount, 'amount') else group.budgeted_amount
-        form = FlowGroupForm(instance=group, family=family, initial={'budgeted_amount': budget_initial})
+        form = FlowGroupForm(instance=group, family=family, period=start_date, initial={'budgeted_amount': budget_initial})
 
     transactions = Transaction.objects.filter(flow_group=group).select_related('member__user').order_by('order', '-date')
 
@@ -1017,6 +1072,32 @@ def edit_flow_group_view(request, group_id):
 
     total_estimated = money_to_decimal(total_est)
     total_realized = money_to_decimal(total_real)
+
+    linked_transactions = []
+    if is_card_view:
+        from ..utils.credit_card_utils import get_card_bill_transactions
+        direct_ids = {t.id for t in transactions}
+        bill_transactions = [
+            t for t in get_card_bill_transactions(group, start_date)
+            if t.flow_group_id != group.id and t.id not in direct_ids
+        ]
+        bill_transactions.sort(key=lambda t: (t.date, t.id))
+        for t in bill_transactions:
+            origin = t.flow_group if t.flow_group.linked_card_id is not None else None
+            origin_url = ''
+            if origin is not None:
+                origin_url = f"/flow-group/{origin.id}/edit/"
+                if request.GET.get('period'):
+                    origin_url += f"?period={request.GET.get('period')}"
+            linked_transactions.append({
+                'transaction': t,
+                'origin_group': origin,
+                'origin_url': origin_url,
+            })
+            total_estimated += money_to_decimal(t.amount)
+            if t.realized:
+                total_realized += money_to_decimal(t.amount)
+
     budg_amt_val = money_to_decimal(group.budgeted_amount)
 
     budget_warning = total_estimated > budg_amt_val if budg_amt_val else False
@@ -1028,9 +1109,11 @@ def edit_flow_group_view(request, group_id):
     context = {
         'form': form,
         'is_new': False,
+        'is_card_view': is_card_view,
         'flow_group': group,
         'flow_group_owner': group.owner,  # Owner of the FlowGroup
         'transactions': transactions,
+        'linked_transactions': linked_transactions,
         'family_members': family_members,
         'current_member': current_member,
         'current_user_id': request.user.id,  # Current user ID for comparison
@@ -1164,40 +1247,50 @@ def edit_member_view(request, member_id):
             email = request.POST.get('email', '')
             role = request.POST.get('role')
 
-            if username:
-                UserModel = get_user_model()
-                if UserModel.objects.filter(username=username).exclude(id=member.user.id).exists():
-                    messages.error(request, _('Username already taken.'))
+            from ..utils_user import email_taken_by_non_admin, username_taken_in_family
+
+            if member.role == 'ADMIN':
+                # Admin usernames are technical (auto-generated) and admins
+                # carry no login email.
+                messages.info(request, _('Admin accounts have no editable username or email.'))
+            elif not username:
+                messages.error(request, _('Username cannot be empty.'))
+            elif username_taken_in_family(family, username, exclude_user_id=member.user.id):
+                messages.error(request, _('This username is already taken in your family.'))
+            elif not email:
+                messages.error(request, _('Email is required.'))
+            elif email_taken_by_non_admin(email, exclude_user_id=member.user.id):
+                messages.error(request, _('This email is already in use by another account.'))
+            else:
+                member.user.username = username
+                member.user.email = email
+                member.user.save()
+
+                # Only allow role changes if user has permission
+                # Admin can change any role, Parent can change Child roles
+                if current_member.role == 'ADMIN':
+                    member.role = role
+                    member.save()
+                    messages.success(request, _('Member information updated successfully.'))
+                elif current_member.role == 'PARENT' and member.role == 'CHILD':
+                    # Parents cannot change role, only edit name/email
+                    messages.success(request, _('Member information updated successfully.'))
+                elif current_member.id == member.id:
+                    # User editing themselves cannot change role
+                    messages.success(request, _('Profile updated successfully.'))
                 else:
-                    member.user.username = username
-                    member.user.email = email
-                    member.user.save()
+                    messages.success(request, _('Member information updated successfully.'))
 
-                    # Only allow role changes if user has permission
-                    # Admin can change any role, Parent can change Child roles
-                    if current_member.role == 'ADMIN':
-                        member.role = role
-                        member.save()
-                        messages.success(request, _('Member information updated successfully.'))
-                    elif current_member.role == 'PARENT' and member.role == 'CHILD':
-                        # Parents cannot change role, only edit name/email
-                        messages.success(request, _('Member information updated successfully.'))
-                    elif current_member.id == member.id:
-                        # User editing themselves cannot change role
-                        messages.success(request, _('Profile updated successfully.'))
-                    else:
-                        messages.success(request, _('Member information updated successfully.'))
-
-                    # Broadcast member update to all family members
-                    try:
-                        from ..websocket_utils import WebSocketBroadcaster
-                        member.refresh_from_db()
-                        WebSocketBroadcaster.broadcast_member_updated(
-                            member=member,
-                            actor_user=request.user
-                        )
-                    except Exception as e:
-                        print(f"[WebSocket] Error broadcasting member update: {e}")
+                # Broadcast member update to all family members
+                try:
+                    from ..websocket_utils import WebSocketBroadcaster
+                    member.refresh_from_db()
+                    WebSocketBroadcaster.broadcast_member_updated(
+                        member=member,
+                        actor_user=request.user
+                    )
+                except Exception as e:
+                    print(f"[WebSocket] Error broadcasting member update: {e}")
 
         elif action == 'change_password':
             # Block password changes in demo mode

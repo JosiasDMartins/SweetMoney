@@ -2105,6 +2105,7 @@ function initializeDragAndDrop() {
         if (e.stopPropagation) { e.stopPropagation(); }
         const target = e.target.closest('tr[id^="item-"]');
         if (!target || target === draggedElement) return;
+        if (target.dataset.readonly === 'true') return;
         const itemId = target.id.replace('item-', '');
         if (itemId === 'NEW' || itemId === 'new-item-template') return;
         if (draggedElement !== target) {
@@ -2134,7 +2135,7 @@ function reorderItems() {
     if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr[id^="item-"]')).filter(row => {
         const id = row.id.replace('item-', '');
-        return id !== 'NEW' && id !== 'new-item-template';
+        return id !== 'NEW' && id !== 'new-item-template' && row.dataset.readonly !== 'true';
     });
     const order = rows.map((row, index) => ({
         id: row.id.replace('item-', ''),

@@ -8,6 +8,15 @@ urlpatterns = [
     # === SETUP (must be first) ===
     path('setup/', views.initial_setup_view, name='initial_setup'),
 
+    # === POST-UPDATE (locks the system until an update is finalized) ===
+    path('post-update/', views.post_update_view, name='post_update'),
+    path('post-update/retry/', views.post_update_retry, name='post_update_retry'),
+    path('post-update/identify/', views.post_update_identify, name='post_update_identify'),
+    path('post-update/choose-admin/', views.post_update_choose_admin, name='post_update_choose_admin'),
+    path('post-update/step-data/', views.post_update_step_data, name='post_update_step_data'),
+    path('post-update/save-emails/', views.post_update_save_emails, name='post_update_save_emails'),
+    path('post-update/finalize/', views.post_update_finalize, name='post_update_finalize'),
+
     # === PWA ===
     path('offline/', views.offline_view, name='offline'),
     path('manifest.json', views.manifest_json, name='manifest_json'),
@@ -22,6 +31,9 @@ urlpatterns = [
     
     # User Profile
     path('profile/', views.user_profile_view, name='user_profile'),
+
+    # Admin Elevation
+    path('elevate-to-admin/', views.elevate_to_admin_view, name='elevate_to_admin'),
     
     # Members (integrated into Settings page - configurations.html)
     path('members/', views.members_view, name='members'),  # Redirects to Settings for backward compatibility
@@ -60,6 +72,11 @@ urlpatterns = [
 
     # Toggle Credit Card group closed status
     path('api/credit-card/toggle-closed/', views.toggle_credit_card_closed_ajax, name='toggle_credit_card_closed_ajax'),
+
+    # Credit Cards dashboard box (v1.7.2)
+    path('api/credit-cards/create/', views.create_credit_card_ajax, name='create_credit_card_ajax'),
+    path('api/credit-cards/update/', views.update_credit_card_ajax, name='update_credit_card_ajax'),
+    path('api/credit-cards/list/', views.list_credit_cards_ajax, name='list_credit_cards_ajax'),
 
     # Toggle recurring FlowGroup and fixed Transaction status
     path('api/flowgroup/toggle-recurring/', views.toggle_flowgroup_recurring_ajax, name='toggle_flowgroup_recurring_ajax'),
@@ -106,6 +123,9 @@ urlpatterns = [
     path('apply-local-updates/', views.apply_local_updates, name='apply_local_updates'),
     path('download-github-update/', views.download_github_update, name='download_github_update'),
     path('skip-updates/', views.skip_updates, name='skip_updates'),
+
+    # Admin password verification (for OTA updates)
+    path('verify-admin-password/', views.verify_admin_password, name='verify_admin_password'),
 
     # Backup and Restore (moved to views_backup.py)
     path('create-backup/', views_backup.create_backup, name='create_backup'),

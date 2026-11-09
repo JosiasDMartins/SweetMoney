@@ -1,8 +1,10 @@
 import io
+import json
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from django.contrib.auth import get_user_model, logout as auth_logout, login
+from django.contrib.auth import get_user_model, authenticate, logout as auth_logout, login
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -10,11 +12,17 @@ from django.db import transaction as db_transaction
 from django.db.utils import OperationalError
 from django.core.management import call_command
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.backends import ModelBackend
 
 # Importações relativas do app (.. sobe um nível, de /views/ para /finances/)
 from ..models import Family, FamilyMember, FamilyConfiguration, SystemVersion
 from ..forms import InitialSetupForm
 from ..utils import get_current_period_dates
+from ..utils_user import (
+    build_admin_username,
+    email_taken_by_non_admin,
+    username_taken_in_family,
+)
 
 # Importações de utils locais (mesmo pacote /views/)
 from .views_utils import (
@@ -80,20 +88,34 @@ def initial_setup_view(request):
             try:
                 with db_transaction.atomic():
                     UserModel = get_user_model()
-                    admin_user = UserModel.objects.create_user(
-                        username=form.cleaned_data['username'],
-                        email=form.cleaned_data.get('email', ''),
-                        password=form.cleaned_data['password']
-                    )
-                    
+
                     family = Family.objects.create(
                         name=form.cleaned_data['family_name']
                     )
-                    
+
+                    # Technical admin account: auto-generated username
+                    # (admin_<family_slug>_01), no email, cannot log in.
+                    admin_user = UserModel.objects.create_user(
+                        username=build_admin_username(family.name),
+                        password=form.cleaned_data['password']
+                    )
                     FamilyMember.objects.create(
                         user=admin_user,
                         family=family,
                         role='ADMIN'
+                    )
+
+                    # First PARENT account: the one the user logs in with
+                    # (strictly by email).
+                    parent_user = UserModel.objects.create_user(
+                        username=form.cleaned_data['username'],
+                        email=form.cleaned_data['email'],
+                        password=form.cleaned_data['password']
+                    )
+                    FamilyMember.objects.create(
+                        user=parent_user,
+                        family=family,
+                        role='PARENT'
                     )
                     
                     base_date = form.cleaned_data.get('base_date') or timezone.localdate()
@@ -109,7 +131,7 @@ def initial_setup_view(request):
                     
                     SystemVersion.set_version(VERSION)
                     
-                    login(request, admin_user)
+                    login(request, parent_user)
                     
                     messages.success(
                         request,
@@ -136,6 +158,58 @@ def initial_setup_view(request):
         form = InitialSetupForm(initial=initial_data)
     
     return render(request, 'finances/setup.html', {'form': form, 'version': VERSION})
+
+
+@require_POST
+@login_required
+def elevate_to_admin_view(request):
+    """
+    Elevate the current PARENT user to ADMIN by verifying the admin password
+    and logging in as the family's admin user.
+    """
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'success': False, 'error': _('Invalid request.')}, status=400)
+
+    password = data.get('password', '')
+    if not password:
+        return JsonResponse({'success': False, 'error': _('Password is required.')}, status=400)
+
+    family, current_member, _members = get_family_context(request.user)
+    if not family:
+        return JsonResponse({'success': False, 'error': _('Family not found.')}, status=400)
+
+    if current_member.role != 'PARENT':
+        return JsonResponse({'success': False, 'error': _('Only Parent users can elevate to Admin.')}, status=403)
+
+    # Find the admin FamilyMember for this family
+    admin_member = FamilyMember.objects.filter(
+        family=family,
+        role='ADMIN'
+    ).select_related('user').first()
+
+    if not admin_member:
+        return JsonResponse({'success': False, 'error': _('No Admin user found for this family.')}, status=400)
+
+    admin_user = admin_member.user
+
+    # Verify the admin password using the standard ModelBackend (bypasses NonAdminModelBackend)
+    if not admin_user.check_password(password):
+        return JsonResponse({'success': False, 'error': _('Incorrect admin password.')}, status=400)
+
+    # Log out the current user and log in as admin. login() selects the
+    # single configured backend (NonAdminModelBackend); its get_user()
+    # accepts ADMIN users so the admin session stays valid on subsequent
+    # requests, while authenticate() keeps blocking direct admin login.
+    auth_logout(request)
+    login(request, admin_user)
+
+    return JsonResponse({
+        'success': True,
+        'message': _('Admin mode activated successfully.'),
+        'redirect_url': '/'
+    })
 
 
 @require_POST
@@ -174,17 +248,23 @@ def user_profile_view(request):
             username = request.POST.get('username', '').strip()
             email = request.POST.get('email', '').strip()
 
-            if username:
-                UserModel = get_user_model()
-                if UserModel.objects.filter(username=username).exclude(id=request.user.id).exists():
-                    messages.error(request, _('This username is already taken.'))
-                else:
-                    request.user.username = username
-                    request.user.email = email
-                    request.user.save()
-                    messages.success(request, _('Profile updated successfully.'))
-            else:
+            if current_member.role == 'ADMIN':
+                # Admin usernames are technical (auto-generated) and admins
+                # carry no login email; only password/notifications apply.
+                messages.info(request, _('Admin accounts have no editable username or email.'))
+            elif not username:
                 messages.error(request, _('Username cannot be empty.'))
+            elif username_taken_in_family(family, username, exclude_user_id=request.user.id):
+                messages.error(request, _('This username is already taken in your family.'))
+            elif not email:
+                messages.error(request, _('Email is required.'))
+            elif email_taken_by_non_admin(email, exclude_user_id=request.user.id):
+                messages.error(request, _('This email is already in use by another account.'))
+            else:
+                request.user.username = username
+                request.user.email = email
+                request.user.save()
+                messages.success(request, _('Profile updated successfully.'))
 
         elif action == 'change_password':
             current_password = request.POST.get('current_password')
@@ -260,6 +340,7 @@ def user_profile_view(request):
         'start_date': start_date,
         'end_date': end_date,
         'current_member': current_member,
+        'is_parent': current_member.role == 'PARENT',
     }
     context.update(get_base_template_context(family, query_period, start_date))
     return render(request, 'finances/profile.html', context)

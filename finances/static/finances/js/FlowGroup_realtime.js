@@ -1,7 +1,8 @@
 /**
  * FlowGroup_realtime.js - Real-time Updates for FlowGroup Page
  * PHASE 3 CSP Compliance: All inline real-time scripts moved to external file
- * Version: 20260615-001 - Keep stored date verbatim for date-full/input (fix timezone date rebuild bug)
+ * Version: 20261105-001 - card view keeps the linked-card dropdown hidden on remote updates
+ * Previous: 20260615-001 - Keep stored date verbatim for date-full/input (fix timezone date rebuild bug)
  * Handles WebSocket broadcasts to update the page when other users make changes
  */
 
@@ -571,6 +572,23 @@
                             closedBtnContainer.style.display = '';
                         } else {
                             closedBtnContainer.style.display = 'none';
+                        }
+                    }
+
+                    // Show/hide the linked-card dropdown alongside the checkbox
+                    // (card containers run the simplified card view: keep hidden)
+                    const isCardView = (function () {
+                        const configEl = document.getElementById('flowgroup-config');
+                        return !!(configEl &&
+                            configEl.getAttribute('data-is-card-view') === 'true');
+                    })();
+                    const linkedCardContainer = document.getElementById('linked-card-container');
+                    if (linkedCardContainer) {
+                        linkedCardContainer.style.display =
+                            (flowgroupData.is_credit_card && !isCardView) ? 'flex' : 'none';
+                        if (!flowgroupData.is_credit_card) {
+                            const linkedSelect = document.getElementById('id_linked_card');
+                            if (linkedSelect) linkedSelect.value = '';
                         }
                     }
                 }

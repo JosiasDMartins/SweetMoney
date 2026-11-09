@@ -13,3 +13,4 @@ from .views_pages import *
 from .views_ajax import *
 from .views_notifications import *
 from .views_pwa import *
+from .views_post_update import *

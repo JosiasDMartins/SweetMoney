@@ -8,6 +8,17 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q
 from .models import FlowGroup, Transaction
+from .utils.flowgroup_utils import find_card_in_period
+
+
+def _resolve_linked_card(family, source_group, new_period_start):
+    """Re-point a copied group's linked_card to the card copy of the new period.
+
+    Returns None when the source has no link or no card copy exists yet.
+    """
+    if not source_group.linked_card_id:
+        return None
+    return find_card_in_period(family, source_group, new_period_start)
 
 
 def _get_previous_period_date(family, current_period_start):
@@ -90,11 +101,13 @@ def ensure_recurring_data_for_period(family, period_start_date):
     )
 
     # Only process groups from the immediate previous period
-    # that don't already exist in the current period
-    groups_to_check = [
-        group for group in previous_recurring_groups
-        if group.name not in existing_group_names
-    ]
+    # that don't already exist in the current period.
+    # Cards (linked_card NULL) are copied first so linked groups can
+    # re-point to the card copy of this period.
+    groups_to_check = sorted(
+        [group for group in previous_recurring_groups if group.name not in existing_group_names],
+        key=lambda g: g.linked_card_id is not None
+    )
 
     if not groups_to_check:
         return {
@@ -133,6 +146,8 @@ def ensure_recurring_data_for_period(family, period_start_date):
             is_kids_group=source_group.is_kids_group,
             is_investment=source_group.is_investment,
             is_credit_card=source_group.is_credit_card,
+            due_day=source_group.due_day,
+            linked_card=_resolve_linked_card(family, source_group, period_start_date),
             is_recurring=True,
             owner=source_group.owner,
             order=source_group.order
@@ -235,6 +250,10 @@ def replicate_recurring_flowgroups(family, new_period_start_date):
             seen_groups.add(group_key)
             groups_to_copy.append(group)
 
+    # Cards (linked_card NULL) first so linked groups re-point to the
+    # card copy of the new period.
+    groups_to_copy.sort(key=lambda g: g.linked_card_id is not None)
+
     created_groups = []
     total_transactions = 0
 
@@ -265,6 +284,8 @@ def replicate_recurring_flowgroups(family, new_period_start_date):
             is_kids_group=source_group.is_kids_group,
             is_investment=source_group.is_investment,
             is_credit_card=source_group.is_credit_card,
+            due_day=source_group.due_day,
+            linked_card=_resolve_linked_card(family, source_group, new_period_start_date),
             is_recurring=True,  # Maintain recurring status
             owner=source_group.owner,
             order=source_group.order
