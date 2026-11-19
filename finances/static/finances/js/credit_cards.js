@@ -1,4 +1,4 @@
-// Version: 20261105-002
+// Version: 20261111-001
 /**
  * Credit Cards dashboard box (v1.7.2).
  * Handles: card list rendering helpers, simplified Add/Edit card modal,
@@ -141,8 +141,15 @@
             '<span class="material-symbols-outlined text-gray-400 dark:text-gray-500 drag-handle-card cursor-grab active:cursor-grabbing">drag_indicator</span></td>' +
             '<td class="card-info-cell py-3 px-3 text-sm text-[#0d171b] dark:text-white">' +
             infoCellHtml(card) + '</td>' +
-            '<td class="py-3 px-3 text-sm text-right text-red-600 dark:text-red-500 font-semibold" data-card-total="' + card.bill_total + '">' +
-            formatMoney(card.bill_total) + '</td>' +
+            '<td class="py-3 px-3 text-sm text-right font-semibold">' +
+            '<div class="text-red-600 dark:text-red-500" data-card-total="' + card.bill_total + '">' +
+            formatMoney(card.bill_total) + '</div>' +
+            (card.next_bill_total != null
+                ? '<div class="text-xs text-gray-500 dark:text-gray-400 font-normal mt-0.5" data-card-next-total="' +
+                  card.next_bill_total + '">' +
+                  escapeHtml(getI18N().nextBill || 'Next bill') + ': ' + formatMoney(card.next_bill_total) + '</div>'
+                : '') +
+            '</td>' +
             '<td class="py-3 px-2 text-center whitespace-nowrap mobile-hide-column">' +
             '<div class="flex items-center justify-center gap-1">' +
             manageButtons +
@@ -192,6 +199,23 @@
         if (typeof card.bill_total !== 'undefined' && totalCell) {
             totalCell.setAttribute('data-card-total', card.bill_total);
             totalCell.textContent = formatMoney(card.bill_total);
+        }
+        // Issue #44 (comment 230): keep the Next Bill split in sync too.
+        // next_bill_total is null for cards without a due day (manual close
+        // only) — nothing to project, so the split line must not appear.
+        const nextCell = row.querySelector('[data-card-next-total]');
+        if (nextCell) {
+            if (card.next_bill_total != null) {
+                nextCell.setAttribute('data-card-next-total', card.next_bill_total);
+                nextCell.textContent = (getI18N().nextBill || 'Next bill') + ': ' + formatMoney(card.next_bill_total);
+            } else {
+                nextCell.remove();
+            }
+        } else if (card.next_bill_total != null && totalCell) {
+            totalCell.insertAdjacentHTML('afterend',
+                '<div class="text-xs text-gray-500 dark:text-gray-400 font-normal mt-0.5" data-card-next-total="' +
+                card.next_bill_total + '">' + escapeHtml(getI18N().nextBill || 'Next bill') + ': ' +
+                formatMoney(card.next_bill_total) + '</div>');
         }
         const lockBtn = row.querySelector('[data-action="toggle-card-closed"]');
         if (lockBtn && typeof card.closed !== 'undefined') {
@@ -322,6 +346,9 @@
 
         if (isEdit) {
             payload.credit_card_id = cardId;
+            // Bug 3.1 (v1.8.0): the Dashboard's global bill edit is the only
+            // flow allowed to change the due day of a closed bill.
+            payload.source = 'bill_edit';
             ajaxPost(getConfig().urlCreditCardUpdate, payload)
                 .then(data => {
                     if (data.error) {
@@ -355,11 +382,12 @@
     }
 
     function withTotalFromRow(card) {
-        // Keep the existing displayed total until the next refreshTotals.
+        // Keep the existing displayed totals until the next refreshTotals.
         const row = document.getElementById('credit-card-' + card.id);
-        card.bill_total = row
-            ? row.querySelector('[data-card-total]').getAttribute('data-card-total')
-            : '0.00';
+        const totalEl = row ? row.querySelector('[data-card-total]') : null;
+        card.bill_total = totalEl ? totalEl.getAttribute('data-card-total') : '0.00';
+        const nextEl = row ? row.querySelector('[data-card-next-total]') : null;
+        card.next_bill_total = nextEl ? nextEl.getAttribute('data-card-next-total') : null;
         return card;
     }
 
@@ -570,8 +598,25 @@
     function registerRealtimeHandlers() {
         if (typeof window.wsManager === 'undefined') return;
 
+        // Multi-currency (v1.8.0): skip foreign-currency payloads; the totals
+        // they change belong to another silo's dashboard.
+        function matchesActiveSilo(data) {
+            const cfg = document.getElementById('base-config');
+            if (!cfg) return true;
+            const active = cfg.dataset.activeCurrency || '';
+            if (!active) return true;
+            let silo = data ? data.group_currency : undefined;
+            if (silo === undefined || silo === null || silo === '') {
+                silo = (data && data.flow_group && data.flow_group.currency)
+                    ? data.flow_group.currency : (data ? data.currency : undefined);
+            }
+            if (!silo) silo = cfg.dataset.defaultCurrency || '';
+            return silo === active;
+        }
+
         window.wsManager.registerHandler('flowgroup_created', function (payload) {
             const data = payload && payload.data ? payload.data : payload;
+            if (!matchesActiveSilo(data)) return;
             if (isCardPayload(data)) {
                 refreshTotals();
                 refreshLinkedCardSelects();
@@ -581,6 +626,7 @@
         window.wsManager.registerHandler('flowgroup_updated', function (payload) {
             const data = payload && payload.data ? payload.data : payload;
             if (!data) return;
+            if (!matchesActiveSilo(data)) return;
             if (isCardPayload(data)) {
                 const row = document.getElementById('credit-card-' + data.id);
                 if (row) updateRowFromPayload(row, data);
@@ -597,6 +643,7 @@
 
         window.wsManager.registerHandler('credit_card_updated', function (payload) {
             const data = payload && payload.data ? payload.data : payload;
+            if (!matchesActiveSilo(data)) return;
             if (data && data.credit_card) {
                 const row = document.getElementById('credit-card-' + data.credit_card.id);
                 if (row) updateRowFromPayload(row, data.credit_card);
@@ -615,6 +662,7 @@
 
         window.wsManager.registerHandler('transaction_created', function (payload) {
             const data = payload && payload.data ? payload.data : payload;
+            if (!matchesActiveSilo(data)) return;
             const group = data && data.flow_group ? data.flow_group : null;
             if (!group) return;
             if (group.is_card || group.linked_card_id) refreshTotals();
@@ -622,6 +670,7 @@
 
         window.wsManager.registerHandler('transaction_updated', function (payload) {
             const data = payload && payload.data ? payload.data : payload;
+            if (!matchesActiveSilo(data)) return;
             const group = data && data.flow_group ? data.flow_group : null;
             if (!group) return;
             if (group.is_card || group.linked_card_id) refreshTotals();

@@ -1,7 +1,8 @@
 /**
  * FlowGroup_realtime.js - Real-time Updates for FlowGroup Page
  * PHASE 3 CSP Compliance: All inline real-time scripts moved to external file
- * Version: 20261105-001 - card view keeps the linked-card dropdown hidden on remote updates
+ * Version: 20261112-001 - card view Next bill rows sync via canonical payload
+ * Previous: 20261105-001 - card view keeps the linked-card dropdown hidden on remote updates
  * Previous: 20260615-001 - Keep stored date verbatim for date-full/input (fix timezone date rebuild bug)
  * Handles WebSocket broadcasts to update the page when other users make changes
  */
@@ -790,6 +791,11 @@
                     if (realizedDisplayMobile) realizedDisplayMobile.textContent = formattedRealized;
                 }
 
+                // Issue #44 (comment 322): Next bill (card view) — the payload
+                // carries the authoritative server-side projection; keep the
+                // rows in sync live instead of waiting for a reload.
+                this.updateCardBillNext(flowgroupData, currencySymbol, thousandSep, decimalSep);
+
                 // Update overbudget warning based on backend calculation
                 console.log('[FlowGroup RT] Budget warning from backend:', flowgroupData.budget_warning);
                 console.log('[FlowGroup RT] Estimated:', flowgroupData.total_estimated, 'Budgeted:', flowgroupData.budgeted_amount);
@@ -799,6 +805,113 @@
             } catch (error) {
                 console.error('[FlowGroup RT] Error updating FlowGroup:', error);
             }
+        },
+
+        /**
+         * Issue #44 (comment 322): keep the card's Next bill rows in sync
+         * with the canonical flowgroup payload. Updates values in place when
+         * the rows exist, builds them when a due day is added after load,
+         * and hides everything when the projection becomes unavailable.
+         */
+        updateCardBillNext: function (flowgroupData, currencySymbol, thousandSep, decimalSep) {
+            const next = flowgroupData.next_bill_total;
+            if (typeof next === 'undefined') {
+                return; // payload without the field: nothing to sync
+            }
+
+            const nextBillLabel = window.FLOWGROUP_CONFIG?.i18n?.nextBill || 'Next bill:';
+            const formatValue = typeof window.formatCurrency === 'function'
+                ? window.formatCurrency(next, currencySymbol, thousandSep, decimalSep)
+                : currencySymbol + ' ' + next;
+
+            let desktopValue = document.getElementById('card-bill-next-desktop');
+            let mobileValue = document.getElementById('card-bill-next-mobile-value');
+            let mobileValueRow = document.getElementById('card-bill-next-mobile');
+
+            if (next === null || next === '') {
+                const desktopRow = desktopValue ? desktopValue.closest('.text-sm') : null;
+                [desktopRow, mobileValueRow,
+                 document.getElementById('card-bill-next-label-desktop'),
+                 document.getElementById('card-bill-next-label-mobile')
+                ].forEach(function (el) { if (el) el.classList.add('hidden'); });
+                return;
+            }
+
+            // Build the rows when the card rendered without the split
+            // (e.g. a due day was added after the page loaded).
+            if (!desktopValue) {
+                const desktopAmountCol = document.querySelector('.totals-amount-desktop');
+                if (desktopAmountCol) {
+                    const row = document.createElement('div');
+                    row.className = 'text-sm';
+                    desktopValue = document.createElement('span');
+                    desktopValue.id = 'card-bill-next-desktop';
+                    desktopValue.className = 'text-xs font-semibold text-gray-500 dark:text-gray-400';
+                    row.appendChild(desktopValue);
+                    desktopAmountCol.appendChild(row);
+                }
+            }
+            if (!mobileValue) {
+                const mobileAmountCol = document.querySelector('.totals-amount-mobile');
+                if (mobileAmountCol) {
+                    mobileValueRow = document.createElement('div');
+                    mobileValueRow.className = 'text-sm flex justify-end items-center gap-2';
+                    mobileValueRow.id = 'card-bill-next-mobile';
+                    const label = document.createElement('span');
+                    label.className = 'totals-label text-xs uppercase';
+                    label.textContent = nextBillLabel;
+                    mobileValue = document.createElement('span');
+                    mobileValue.id = 'card-bill-next-mobile-value';
+                    mobileValue.className = 'text-xs font-semibold text-gray-500 dark:text-gray-400';
+                    mobileValueRow.appendChild(label);
+                    mobileValueRow.appendChild(mobileValue);
+                    mobileAmountCol.appendChild(mobileValueRow);
+                }
+            }
+            // Legend rows when the split was absent at render time
+            if (!document.getElementById('card-bill-next-label-desktop')) {
+                const desktopLabelCol = document.querySelector('.totals-fixed-col .flex.flex-col.gap-1');
+                if (desktopLabelCol) {
+                    const row = document.createElement('div');
+                    row.className = 'text-sm';
+                    row.id = 'card-bill-next-label-desktop';
+                    const label = document.createElement('span');
+                    label.className = 'totals-label text-xs uppercase';
+                    label.textContent = nextBillLabel;
+                    row.appendChild(label);
+                    desktopLabelCol.appendChild(row);
+                }
+            }
+            if (!document.getElementById('card-bill-next-label-mobile')) {
+                const mobileLabelCol = document.querySelector('.totals-member-col .flex.flex-col.gap-1');
+                if (mobileLabelCol) {
+                    const row = document.createElement('div');
+                    row.className = 'text-sm';
+                    row.id = 'card-bill-next-label-mobile';
+                    const label = document.createElement('span');
+                    label.className = 'totals-label text-xs uppercase';
+                    label.textContent = nextBillLabel;
+                    row.appendChild(label);
+                    mobileLabelCol.appendChild(row);
+                }
+            }
+
+            if (desktopValue) {
+                desktopValue.textContent = formatValue;
+                desktopValue.setAttribute('data-card-bill-next', next);
+                desktopValue.closest('.text-sm')?.classList.remove('hidden');
+            }
+            if (mobileValue) {
+                mobileValue.textContent = formatValue;
+                mobileValue.setAttribute('data-card-bill-next', next);
+            }
+            if (mobileValueRow) {
+                mobileValueRow.classList.remove('hidden');
+            }
+            ['card-bill-next-label-desktop', 'card-bill-next-label-mobile'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            });
         },
 
         /**

@@ -2,7 +2,7 @@
  * Base Template JavaScript
  * External JavaScript file (CSP compliant - no inline scripts)
  * Handles: Dark mode toggle, DPI scaling, Period management, Admin warning, Modals, PWA, WebSocket init, UI Components
- * Version: 20260622-001 - Remove obsolete PWA "outdated WebApp" reinstall popup (app self-updates via SW)
+ * Version: 20261109-001 - Multi-currency: ignore real-time broadcasts from other currency silos
  */
 
 // ===== 0. TIMEZONE HELPERS =====
@@ -620,13 +620,32 @@ function initializeWebSocket() {
 
     // Register message handlers for real-time updates
     // Note: wsManager.registerHandler only adds if not already present or replaces
+
+    // Multi-currency (v1.8.0): ignore broadcasts belonging to another currency
+    // silo so a foreign-currency save never mutates the active dashboard.
+    function broadcastMatchesActiveCurrency(data) {
+        const cfg = document.getElementById('base-config');
+        if (!cfg) return true;
+        const active = cfg.dataset.activeCurrency || '';
+        if (!active) return true;
+        const d = (data && data.data) || {};
+        let silo = d.group_currency;
+        if (silo === undefined || silo === null || silo === '') {
+            silo = (d.flow_group && d.flow_group.currency) ? d.flow_group.currency : d.currency;
+        }
+        if (!silo) silo = cfg.dataset.defaultCurrency || '';
+        return silo === active;
+    }
+
     window.wsManager.registerHandler('transaction_created', function (data) {
+        if (!broadcastMatchesActiveCurrency(data)) return;
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionCreated(data);
         }
     });
 
     window.wsManager.registerHandler('transaction_updated', function (data) {
+        if (!broadcastMatchesActiveCurrency(data)) return;
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleTransactionUpdated(data);
         }
@@ -639,18 +658,21 @@ function initializeWebSocket() {
     });
 
     window.wsManager.registerHandler('flowgroup_updated', function (data) {
+        if (!broadcastMatchesActiveCurrency(data)) return;
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleFlowGroupUpdated(data);
         }
     });
 
     window.wsManager.registerHandler('balance_updated', function (data) {
+        if (!broadcastMatchesActiveCurrency(data)) return;
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleBalanceUpdated(data);
         }
     });
 
     window.wsManager.registerHandler('bank_balance_updated', function (data) {
+        if (!broadcastMatchesActiveCurrency(data)) return;
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleBankBalanceUpdated(data);
         }
@@ -669,6 +691,7 @@ function initializeWebSocket() {
     });
 
     window.wsManager.registerHandler('flowgroup_created', function (data) {
+        if (!broadcastMatchesActiveCurrency(data)) return;
         if (typeof window.RealtimeUI !== 'undefined') {
             window.RealtimeUI.handleFlowGroupCreated(data);
         }

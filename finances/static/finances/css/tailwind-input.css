@@ -1,3 +1,51 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Sidebar multi-currency submenu (v1.8.0, issue #44 comment 230):
+   slides out of the Dashboard pill on expand and collapses back up. */
+@keyframes currencySlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scaleY(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+    }
+}
+
+@keyframes currencySlideUp {
+    from {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-6px) scaleY(0.9);
+    }
+}
+
+@layer components {
+    .currency-submenu {
+        display: none;
+        transform-origin: top center;
+    }
+
+    .currency-submenu.currency-submenu-open {
+        display: block;
+        animation: currencySlideDown 180ms ease-out;
+    }
+
+    .currency-submenu.currency-submenu-closing {
+        display: block;
+        animation: currencySlideUp 150ms ease-in forwards;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .currency-submenu.currency-submenu-open,
+        .currency-submenu.currency-submenu-closing {
+            animation: none;
+        }
+    }
+}

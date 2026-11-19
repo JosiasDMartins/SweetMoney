@@ -10,6 +10,26 @@ from django.db.models import Q
 from .models import FlowGroup, Transaction
 from .utils.flowgroup_utils import find_card_in_period
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def credit_interest_for_previous_period(family, new_period_start_date):
+    """Credit investment interest for the period closing at this rollover
+    (v1.8.0). Idempotent per period (see investment_utils); failures must
+    never block the rollover itself."""
+    from .models import Period
+    from .utils.investment_utils import calculate_interest_on_period_close
+    previous = Period.objects.filter(
+        family=family, start_date__lt=new_period_start_date
+    ).order_by('-start_date').first()
+    if previous:
+        try:
+            calculate_interest_on_period_close(family, previous)
+        except Exception:
+            logger.exception("Investment interest crediting failed at period rollover")
+
 
 def _resolve_linked_card(family, source_group, new_period_start):
     """Re-point a copied group's linked_card to the card copy of the new period.
@@ -97,7 +117,7 @@ def ensure_recurring_data_for_period(family, period_start_date):
         FlowGroup.objects.filter(
             family=family,
             period_start_date=period_start_date
-        ).values_list('name', flat=True)
+        ).values_list('name', 'currency')
     )
 
     # Only process groups from the immediate previous period
@@ -105,7 +125,7 @@ def ensure_recurring_data_for_period(family, period_start_date):
     # Cards (linked_card NULL) are copied first so linked groups can
     # re-point to the card copy of this period.
     groups_to_check = sorted(
-        [group for group in previous_recurring_groups if group.name not in existing_group_names],
+        [group for group in previous_recurring_groups if (group.name, group.currency) not in existing_group_names],
         key=lambda g: g.linked_card_id is not None
     )
 
@@ -150,6 +170,7 @@ def ensure_recurring_data_for_period(family, period_start_date):
             linked_card=_resolve_linked_card(family, source_group, period_start_date),
             is_recurring=True,
             owner=source_group.owner,
+            currency=source_group.currency,  # Keep the currency silo (v1.8.0)
             order=source_group.order
         )
 
@@ -201,6 +222,8 @@ def ensure_recurring_data_for_period(family, period_start_date):
 
             total_transactions += 1
 
+    credit_interest_for_previous_period(family, period_start_date)
+
     return {
         'groups_created': created_groups,
         'transactions_created': total_transactions,
@@ -245,7 +268,7 @@ def replicate_recurring_flowgroups(family, new_period_start_date):
 
     for group in previous_groups:
         # Use a tuple of identifying characteristics to avoid duplicates
-        group_key = (group.name, group.group_type)
+        group_key = (group.name, group.group_type, group.currency)
         if group_key not in seen_groups:
             seen_groups.add(group_key)
             groups_to_copy.append(group)
@@ -288,6 +311,7 @@ def replicate_recurring_flowgroups(family, new_period_start_date):
             linked_card=_resolve_linked_card(family, source_group, new_period_start_date),
             is_recurring=True,  # Maintain recurring status
             owner=source_group.owner,
+            currency=source_group.currency,  # Keep the currency silo (v1.8.0)
             order=source_group.order
         )
 
@@ -340,6 +364,8 @@ def replicate_recurring_flowgroups(family, new_period_start_date):
             )
 
             total_transactions += 1
+
+    credit_interest_for_previous_period(family, new_period_start_date)
 
     return {
         'groups_created': len(created_groups),

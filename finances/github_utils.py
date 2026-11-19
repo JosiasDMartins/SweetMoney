@@ -135,7 +135,10 @@ def check_github_update(current_version: str) -> Tuple[bool, Optional[Dict]]:
         
         # Extract version from tag_name (remove 'v' prefix if present)
         tag_name = release.get('tag_name', '')
-        github_version = tag_name.lstrip('v')
+        # Normalize separators: a tag like 'v1.7,2' (comma typo) must compare
+        # as 1.7.2, otherwise the ValueError fallback below advertises a
+        # bogus update to every admin on every page load.
+        github_version = tag_name.lstrip('v').replace(',', '.')
         
         if not github_version:
             return False, None

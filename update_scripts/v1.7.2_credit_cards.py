@@ -4,9 +4,10 @@ Update script for SweetMoney v1.7.2 - Credit Cards feature data migration
 
 This script:
 1. Ensures every FlowGroup marked is_credit_card=True (all periods) becomes
-   a card container: is_recurring=True and linked_card=NULL. The new Credit
-   Cards dashboard box lists cards per period, so these groups automatically
-   move to the Credit Cards session with their transactions.
+   a card container: is_recurring=True. The new Credit Cards dashboard box
+   lists cards per period, so these groups automatically move to the Credit
+   Cards session with their transactions. Existing linked_card values are
+   preserved — the script never overwrites user data.
 2. Leaves due_day=NULL on migrated cards: the user defines the closing day
    later and the UI shows a "set due date" warning meanwhile.
 
@@ -52,8 +53,20 @@ def migrate_credit_card_groups():
             changes.append('is_recurring=True')
 
         if group.linked_card_id is not None:
-            group.linked_card_id = None
-            changes.append('linked_card=NULL')
+            if group.linked_card_id == group.id:
+                # Corrupt self-reference: a container card must never link to
+                # itself. Clearing is safe — the row points back at itself.
+                group.linked_card_id = None
+                changes.append('linked_card=NULL (self-reference cleanup)')
+            else:
+                # Points at ANOTHER group: that is user data (a FlowGroup the
+                # user linked to this card). Overwriting it here destroyed
+                # live associations on every re-run / re-executed update
+                # (issue #44 comment 230 — "script sobrescrevia os dados").
+                # The link is preserved untouched.
+                log(f"Family {group.family_id}, period {group.period_start_date}: "
+                    f"card '{group.name}' (id={group.id}) keeps linked_card="
+                    f"{group.linked_card_id} (user link preserved)")
 
         if changes:
             group.save()
@@ -120,7 +133,8 @@ def run():
         log("   - Copied with closed=False (new open bill)")
         log("")
         log("3. Legacy credit-card groups migrated:")
-        log("   - Marked is_recurring=True, linked_card=NULL (containers)")
+        log("   - Marked is_recurring=True (containers)")
+        log("   - linked_card kept as-is: user links are never overwritten")
         log("   - due_day left empty; set it on the card to enable the")
         log("     billing cycle split (a warning badge shows meanwhile)")
         log("")

@@ -1,9 +1,21 @@
-// Version: 20260626-001 - Added admin elevation handler
+// Version: 20261112-001 - CSP: i18n moved to a JSON data block (issue #44 comment 322)
+// Previous: 20260626-001 - Added admin elevation handler
 'use strict';
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Admin Mode elevation translations (injected from template)
-    var t = window.PROFILE_I18N || {};
+    // Admin Mode elevation translations (CSP-safe: parsed from the
+    // <script type="application/json" id="profile-i18n"> data block;
+    // issue #44 comment 322 removed the inline window.PROFILE_I18N script)
+    var t = (function () {
+        var el = document.getElementById('profile-i18n');
+        if (!el) return {};
+        try {
+            return JSON.parse(el.textContent) || {};
+        } catch (e) {
+            console.error('[Profile] Invalid i18n JSON', e);
+            return {};
+        }
+    })();
 
     var btnAdminMode = document.getElementById('btn-admin-mode');
     if (btnAdminMode) {

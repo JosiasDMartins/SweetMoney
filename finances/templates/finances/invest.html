@@ -6,42 +6,103 @@
 {% block content %}
 <main class="p-6 md:p-10 lg:p-12">
     <div class="max-w-7xl mx-auto">
-        <h1 class="text-[#0d171b] dark:text-white text-2xl font-bold tracking-[-0.015em] mb-6">{% trans "Family Investments" %}</h1>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <h1 class="text-[#0d171b] dark:text-white text-2xl font-bold tracking-[-0.015em]">{% trans "Family Investments" %}</h1>
+            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 border border-green-600 dark:bg-green-900/40 dark:text-green-300 dark:border-green-500">
+                <span class="material-symbols-outlined text-base">currency_exchange</span>
+                {{ active_currency }}
+            </span>
+        </div>
 
-        <!-- Available Balance Card -->
-        <div class="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 rounded-xl shadow-lg p-8 mb-8 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold opacity-90 mb-2">{% trans "Available Investment Balance" %}</h2>
-                    <p class="text-4xl font-bold">{{ currency_symbol }} {{ available_balance|intcomma|default:"0.00" }}</p>
-                    <p class="text-sm opacity-80 mt-2">{% trans "From investment Flow Groups (realized transactions)" %}</p>
-                </div>
-                <div class="text-6xl opacity-20">
-                    <span class="material-symbols-outlined" style="font-size: 96px;">savings</span>
-                </div>
+        <!-- Summary cards: active-currency silo -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 rounded-xl shadow-lg p-6 text-white">
+                <h2 class="text-base font-semibold opacity-90 mb-2">{% trans "Available Investment Balance" %}</h2>
+                <p class="text-3xl font-bold" id="available-balance">{{ currency_symbol }} {{ available_balance|intcomma|default:"0.00" }}</p>
+                <p class="text-sm opacity-80 mt-2">{% trans "From investment Flow Groups (realized transactions)" %}</p>
+            </div>
+            <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 dark:from-emerald-700 dark:to-emerald-800 rounded-xl shadow-lg p-6 text-white">
+                <h2 class="text-base font-semibold opacity-90 mb-2">{% trans "Total Invested in Currency" %}</h2>
+                <p class="text-3xl font-bold" id="total-invested">{{ currency_symbol }} {{ total_invested|intcomma|default:"0.00" }}</p>
+                <p class="text-sm opacity-80 mt-2">{% blocktrans with code=active_currency %}Sum of your {{ code }} investment records{% endblocktrans %}</p>
             </div>
         </div>
 
-        <!-- Future Development Notice -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden p-8 text-center">
-            <span class="material-symbols-outlined text-6xl text-blue-500 mb-4">construction</span>
-            <h2 class="text-2xl font-bold text-[#0d171b] dark:text-white mb-4">{% trans "Coming Soon" %}</h2>
-            <p class="text-gray-600 dark:text-gray-400 mb-6">
-                {% trans "The investments management interface is currently under development." %}
-                <br>{% trans "Soon you'll be able to track and manage your family investments directly from this page." %}
-            </p>
-            <p class="text-sm text-gray-500 dark:text-gray-500">
-                {% trans "For now, mark Flow Groups as \"Investment\" in the dashboard to track money set aside for investing." %}
-            </p>
+        <!-- Global grid: all currencies, badge per record -->
+        <div id="investments-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {% for item in investments %}
+            <div id="investment-card-{{ item.id }}" data-investment-id="{{ item.id }}"
+                 class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-col">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <h3 class="font-semibold text-[#0d171b] dark:text-white text-sm leading-snug break-words">{{ item.name }}</h3>
+                    <span class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">{{ item.currency }}</span>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ item.plugin_label }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    {% trans "Rate" %}: {% if item.annual_rate is not None %}{{ item.annual_rate|floatformat:2 }}%{% else %}{% trans "n/a" %}{% endif %}
+                </p>
+                {% if item.maturity_date %}<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Maturity" %}: {{ item.maturity_date }}</p>{% endif %}
+                <p class="text-lg font-bold text-[#0d171b] dark:text-white mb-3 investment-balance" data-currency="{{ item.currency }}">{{ item.currency_symbol }} {{ item.balance|intcomma }}</p>
+                <div class="mt-auto grid grid-cols-2 gap-1.5 text-xs">
+                    <button type="button" data-action="invest-deposit" data-id="{{ item.id }}" data-currency="{{ item.currency }}"
+                        class="px-2 py-1.5 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700">{% trans "Deposit" %}</button>
+                    <button type="button" data-action="invest-withdraw" data-id="{{ item.id }}" data-currency="{{ item.currency }}"
+                        class="px-2 py-1.5 rounded-lg font-semibold bg-orange-500 text-white hover:bg-orange-600">{% trans "Withdraw" %}</button>
+                    <button type="button" data-action="invest-edit" data-id="{{ item.id }}"
+                        class="px-2 py-1.5 rounded-lg font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">{% trans "Edit" %}</button>
+                    <a href="{% url 'investment_detail' item.id %}{% if selected_period %}?period={{ selected_period }}{% endif %}"
+                        class="px-2 py-1.5 rounded-lg font-semibold text-center bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 hover:brightness-95">{% trans "Details" %}</a>
+                </div>
+            </div>
+            {% empty %}
+            <p id="investments-empty" class="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">{% trans "No investments yet. Use the Add button below to create the first one." %}</p>
+            {% endfor %}
+
+            <!-- Fixed Add card -->
+            <button type="button" data-action="invest-add"
+                class="min-h-[140px] rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-colors flex flex-col items-center justify-center gap-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+                <span class="material-symbols-outlined text-4xl">add_circle</span>
+                <span class="text-sm font-semibold">{% trans "Add" %}</span>
+            </button>
         </div>
     </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<!-- PHASE 3 CSP Compliance: Investments logic moved to external investments.js -->
 <div id="investments-config" class="hidden"
-     data-ajax-url="{% url 'get_investment_balance_ajax' %}">
-</div>
-<script src="{% static 'finances/js/investments.js' %}?v=20251231-001" defer></script>
+     data-ajax-url="{% url 'get_investment_balance_ajax' %}"
+     data-url-list="{% url 'api_investments_list' %}"
+     data-url-add="{% url 'api_investments_add' %}"
+     data-active-currency="{{ active_currency }}"
+     data-symbols="{{ currency_symbols_json }}"
+     data-plugins="{{ plugins_json }}"></div>
+<script type="application/json" id="investments-i18n">{
+    "addInvestment": "{% trans "Add Investment" %}",
+    "editInvestment": "{% trans "Edit Investment" %}",
+    "edit": "{% trans "Edit" %}",
+    "details": "{% trans "Details" %}",
+    "na": "{% trans "n/a" %}",
+    "deposit": "{% trans "Deposit" %}",
+    "withdraw": "{% trans "Withdraw" %}",
+    "name": "{% trans "Name" %}",
+    "type": "{% trans "Investment type" %}",
+    "rate": "{% trans "Annual interest rate (%)" %}",
+    "currency": "{% trans "Currency" %}",
+    "maturity": "{% trans "Maturity date" %}",
+    "ir": "{% trans "Income tax rate (%)" %}",
+    "amount": "{% trans "Amount" %}",
+    "deduct": "{% trans "Deduct from Available Investment Balance?" %}",
+    "newBalance": "{% trans "Total invested (overwrite)" %}",
+    "adjustNote": "{% trans "Adjustment note" %}",
+    "save": "{% trans "Save" %}",
+    "cancel": "{% trans "Cancel" %}",
+    "confirm": "{% trans "Confirm" %}",
+    "nameRequired": "{% trans "Name is required." %}",
+    "amountRequired": "{% trans "Enter a valid amount." %}",
+    "networkError": "{% trans "A server error occurred." %}",
+    "maturityGicOnly": "{% trans "Maturity date applies to GIC." %}",
+    "rateLimit": "{% trans "Interest rate must be XXX.YY: at most 999.99." %}"
+}</script>
+<script src="{% static 'finances/js/investments.js' %}?v=20261116-001" defer></script>
 {% endblock %}

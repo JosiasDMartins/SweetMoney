@@ -1,0 +1,101 @@
+{% extends "finances/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load i18n %}
+
+{% block content %}
+<main class="p-6 md:p-10 lg:p-12">
+    <div class="max-w-4xl mx-auto">
+        <a href="{% url 'investments' %}{% if selected_period %}?period={{ selected_period }}{% endif %}"
+           class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4">
+            <span class="material-symbols-outlined text-base">arrow_back</span>{% trans "Back to investments" %}
+        </a>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <h1 class="text-xl font-bold text-[#0d171b] dark:text-white break-words">{{ investment.name }}</h1>
+                <span class="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">{{ investment.currency }}</span>
+            </div>
+            <dl class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Type" %}</dt>
+                    <dd class="font-semibold text-[#0d171b] dark:text-white">{{ investment.plugin_label }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Annual rate" %}</dt>
+                    <dd class="font-semibold text-[#0d171b] dark:text-white">{% if investment.annual_rate is not None %}{{ investment.annual_rate|floatformat:2 }}%{% else %}{% trans "n/a" %}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Income tax" %}</dt>
+                    <dd class="font-semibold text-[#0d171b] dark:text-white">{{ investment.ir_rate|floatformat:2 }}%</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Maturity date" %}</dt>
+                    <dd class="font-semibold text-[#0d171b] dark:text-white">{% if investment.maturity_date %}{{ investment.maturity_date }}{% else %}{% trans "n/a" %}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Created" %}</dt>
+                    <dd class="font-semibold text-[#0d171b] dark:text-white">{{ investment.created_at|date:"Y-m-d" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Total invested" %}</dt>
+                    <dd class="font-bold text-lg text-emerald-600 dark:text-emerald-400">{{ investment.currency_symbol }} {{ investment.balance|intcomma }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <h2 class="text-lg font-semibold text-[#0d171b] dark:text-white mb-3">{% trans "History" %}</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-900/60 text-gray-500 dark:text-gray-400">
+                    <tr>
+                        <th class="text-left px-4 py-2.5">{% trans "Date" %}</th>
+                        <th class="text-left px-4 py-2.5">{% trans "Type" %}</th>
+                        <th class="text-right px-4 py-2.5">{% trans "Amount" %}</th>
+                        <th class="text-right px-4 py-2.5">{% trans "Balance after" %}</th>
+                        <th class="text-left px-4 py-2.5 hidden md:table-cell">{% trans "By" %}</th>
+                        <th class="text-left px-4 py-2.5 hidden lg:table-cell">{% trans "Note" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for event in events %}
+                    <tr>
+                        <td class="px-4 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ event.created_at|date:"Y-m-d H:i" }}</td>
+                        <td class="px-4 py-2.5">
+                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold
+                                {% if event.event_type == 'DEPOSIT' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300
+                                {% elif event.event_type == 'WITHDRAWAL' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300
+                                {% elif event.event_type == 'INTEREST' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+                                {% elif event.event_type == 'ADJUSTMENT' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+                                {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">{{ event.get_event_type_display }}</span>
+                        </td>
+                        <td class="px-4 py-2.5 text-right font-semibold {% if event.amount < 0 %}text-red-600 dark:text-red-400{% else %}text-gray-700 dark:text-gray-200{% endif %}">{{ event.amount|intcomma }}</td>
+                        <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-200">{{ event.balance_after|intcomma }}</td>
+                        <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ event.created_by_name }}</td>
+                        <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400 hidden lg:table-cell">{{ event.note }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">{% trans "No events recorded yet." %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if has_previous or has_next %}
+        <div class="flex items-center justify-between mt-4">
+            {% if has_previous %}
+            <a href="?page={{ previous_page }}{% if selected_period %}&period={{ selected_period }}{% endif %}"
+               class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                {% trans "Previous" %}</a>
+            {% else %}<span></span>{% endif %}
+            <span class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans %}Page {{ page }}{% endblocktrans %}</span>
+            {% if has_next %}
+            <a href="?page={{ next_page }}{% if selected_period %}&period={{ selected_period }}{% endif %}"
+               class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                {% trans "Next" %}</a>
+            {% else %}<span></span>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}

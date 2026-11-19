@@ -25,7 +25,7 @@ from django.contrib.auth import get_user_model
 # Import models
 from finances.models import (
     Family, FamilyMember, FamilyConfiguration, Period, 
-    FlowGroup, Transaction, Investment, BankBalance, 
+    FlowGroup, Transaction, Investment, InvestmentEvent, FamilyCurrency, BankBalance, 
     Notification, FlowGroupAccess, FamilyMemberRoleHistory,
     SystemVersion
 )
@@ -203,6 +203,14 @@ def create_family_json_backup(family_id):
         investment_qs = Investment.objects.filter(family=family)
         all_serialized_objects.extend(serialize_safely(investment_qs, Investment))
 
+        # 11.1 Investment Events (v1.8.0 history)
+        event_qs = InvestmentEvent.objects.filter(investment__family=family)
+        all_serialized_objects.extend(serialize_safely(event_qs, InvestmentEvent))
+
+        # 11.2 Family Currencies (v1.8.0 secondary silos)
+        family_currency_qs = FamilyCurrency.objects.filter(family=family)
+        all_serialized_objects.extend(serialize_safely(family_currency_qs, FamilyCurrency))
+
         # 12. Bank Balances
         balance_qs = BankBalance.objects.filter(family=family)
         all_serialized_objects.extend(serialize_safely(balance_qs, BankBalance))
@@ -310,10 +318,12 @@ def restore_json_backup(uploaded_file):
             'finances.familymember', # Depends on User and Family
             'finances.familymemberrolehistory',
             'finances.period',
+            'finances.familycurrency',  # v1.8.0 secondary silos
             'finances.flowgroup',       # Load FlowGroups FIRST ( FlowGroupAccess depends on it)
             'finances.flowgroupaccess', # Load FlowGroupAccess AFTER FlowGroup
             'finances.transaction',
             'finances.investment',
+            'finances.investmentevent', # v1.8.0 investment history
             'finances.bankbalance',
             'finances.notification'
         ]

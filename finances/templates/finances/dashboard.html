@@ -141,7 +141,7 @@
                             </th>
                         </tr>
                     </thead>
-                    <tbody id="expense-groups-tbody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody id="expense-groups-tbody" class="divide-y divide-gray-200 dark:divide-gray-700" data-next-bill-label="{% trans 'Next bill:' %}">
                         {% for group in expense_groups %}
                         <tr {% if group.is_child_group %}style="color: #DAA520;"{% elif not group.is_accessible %}class="opacity-50"{% endif %} data-group-id="{{ group.id }}" data-order="{{ group.order }}" data-accessible="{{ group.is_accessible|yesno:'true,false' }}" data-group-url="{% url 'edit_flow_group' group.id %}{% if selected_period %}?period={{ selected_period }}{% endif %}" draggable="true" class="draggable-row cursor-default hover:bg-gray-50 dark:hover:bg-gray-700/30 {% if group.is_accessible %}group-row-clickable{% endif %}">
                             <td class="px-2 py-4 text-center drag-handle-cell">
@@ -172,15 +172,23 @@
                             <td class="py-4 px-4 text-sm {% if group.is_child_group %}font-medium{% elif group.budget_warning %}text-yellow-600 dark:text-yellow-500 font-semibold{% elif not group.is_accessible %}text-gray-400 dark:text-gray-500{% else %}text-gray-500 dark:text-gray-400{% endif %} text-right group-estimated" data-value="{{ group.total_estimated|unlocalize }}">{{ currency_symbol }} {{ group.total_estimated|format_amount }}</td>
                             <td class="py-4 px-4 text-sm {% if group.is_child_group %}font-medium{% elif group.is_credit_card and not group.closed %}text-orange-600 dark:text-orange-500 font-semibold{% elif not group.is_accessible %}text-gray-400 dark:text-gray-500{% else %}text-red-600 dark:text-red-500{% endif %} text-right group-realized" data-value="{{ group.total_spent|default:'0.00'|unlocalize }}">
                                 {% if group.is_kids_group and member_role_for_period in 'PARENT,ADMIN' %}
-                                    {% if group.realized %}
-                                        {{ group.budgeted_amount|format_amount }} ( {{ group.child_expenses|default:"0.00"|format_amount }} )
-                                    {% else %}
-                                        ({{ currency_symbol }} {{ group.child_expenses|default:"0.00"|format_amount }})
-                                    {% endif %}
+                                    <span class="group-realized-value">
+                                        {% if group.realized %}
+                                            {{ group.budgeted_amount|format_amount }} ( {{ group.child_expenses|default:"0.00"|format_amount }} )
+                                        {% else %}
+                                            ({{ currency_symbol }} {{ group.child_expenses|default:"0.00"|format_amount }})
+                                        {% endif %}
+                                    </span>
                                 {% elif group.is_credit_card and not group.closed %}
-                                    {{ currency_symbol }} {{ group.credit_card_pending|default:"0.00"|format_amount }} *
+                                    <span class="group-realized-value text-orange-600 dark:text-orange-500 font-semibold">{{ currency_symbol }} {{ group.credit_card_pending|default:"0.00"|format_amount }} *</span>
+                                    {% if group.credit_card_next is not None %}
+                                    {# Issue #44 (comment 322): next-bill split for open credit-card groups #}
+                                    <div class="group-next-bill text-xs font-normal text-gray-500 dark:text-gray-400 mt-1" data-value="{{ group.credit_card_next|unlocalize }}">
+                                        {% trans "Next bill" %}: {{ currency_symbol }} {{ group.credit_card_next|format_amount }}
+                                    </div>
+                                    {% endif %}
                                 {% else %}
-                                    {{ currency_symbol }} {{ group.total_spent|default:"0.00"|format_amount }}
+                                    <span class="group-realized-value">{{ currency_symbol }} {{ group.total_spent|default:"0.00"|format_amount }}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -262,8 +270,15 @@
                                 {% endif %}
                             </td>
 
-                            <td class="py-3 px-3 text-sm text-right text-red-600 dark:text-red-500 font-semibold" data-card-total="{{ card.bill_total|stringformat:'.2f' }}">
-                                {{ currency_symbol }} {{ card.bill_total|format_amount }}
+                            <td class="py-3 px-3 text-sm text-right font-semibold">
+                                <div class="text-red-600 dark:text-red-500" data-card-total="{{ card.bill_total|stringformat:'.2f' }}">
+                                    {{ currency_symbol }} {{ card.bill_total|format_amount }}
+                                </div>
+                                {% if card.due_day %}
+                                <div class="text-xs text-gray-500 dark:text-gray-400 font-normal mt-0.5" data-card-next-total="{{ card.next_bill_total|stringformat:'.2f' }}">
+                                    {% trans "Next bill" %}: {{ currency_symbol }} {{ card.next_bill_total|format_amount }}
+                                </div>
+                                {% endif %}
                             </td>
 
                             <td class="py-3 px-2 text-center whitespace-nowrap mobile-hide-column">
@@ -559,8 +574,8 @@
 <script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
 <script src="{% static 'finances/js/calculator.js' %}?v=20260219-3" defer></script>
 <script src="{% static 'finances/js/dashboard.js' %}?v=20261106-1" defer></script>
-<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20261104-001" defer></script>
-<script src="{% static 'finances/js/credit_cards.js' %}?v=20261105-002" defer></script>
+<script src="{% static 'finances/js/dashboard_realtime.js' %}?v=20261112-001" defer></script>
+<script src="{% static 'finances/js/credit_cards.js' %}?v=20261111-001" defer></script>
 
 <script type="application/json" id="credit-cards-i18n">
 {
@@ -584,6 +599,7 @@
     "billPastDue": "{% trans 'Bill past due' %}",
     "billPastDueTitle": "{% trans 'The bill closing date has passed. Review the bill and close it.' %}",
     "overBudget": "{% trans '⚠ Over budget' %}",
+    "nextBill": "{% trans 'Next bill' %}",
     "noCards": "{% trans 'No credit cards yet.' %}",
     "closesOnDay": "{% blocktrans with day='%(day)s' %}Closes on day {{ day }}{% endblocktrans %}"
 }

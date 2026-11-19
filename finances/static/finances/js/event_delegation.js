@@ -4,7 +4,9 @@
  * Centralizes ALL event listeners to eliminate inline event handlers
  * This allows removal of 'unsafe-inline' from CSP
  *
- * Version: 1.0.0
+ * Version: 20261112-001 - skip currency-menu actions so chip anchors keep
+ *                         native navigation (issue #44 comment 322)
+ * Previous: 1.0.0
  * Created: 2025-12-24
  * Part of: Security Phase 3 - CSP Hardening
  */
@@ -57,6 +59,16 @@ class EventDelegationManager {
      * Handle action buttons (edit, save, delete, cancel, etc.)
      */
     handleAction(button, event) {
+        // Issue #44 (comment 322): currency-menu actions own their click
+        // handling (currency_menu.js). The blanket preventDefault() below
+        // silently cancelled the currency chip anchors — the menu closed
+        // without switching (desktop and mobile). Skip them so the native
+        // link navigation works again.
+        const requestedAction = button.dataset.action;
+        if (requestedAction && requestedAction.indexOf('currency') !== -1) {
+            return;
+        }
+
         event.preventDefault();
 
         const action = button.dataset.action;

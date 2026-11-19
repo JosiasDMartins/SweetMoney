@@ -19,6 +19,7 @@ from ..utils.notifications_utils import (
 
 # Importações relativas do app (.. sobe um nível, de /views/ para /finances/)
 from ..models import Transaction, FlowGroup, FamilyMember, BankBalance, ShopList, ShopListItem, FLOW_TYPE_INCOME, EXPENSE_SECONDARY
+from ..models import FamilyCurrency, Investment
 from ..utils import (
     current_period_has_data,
     copy_previous_period_data,
@@ -26,6 +27,11 @@ from ..utils import (
     ensure_period_exists,
     get_period_currency,
     get_available_periods
+)
+from ..utils.currency_utils import (
+    get_family_currencies,
+    get_default_currency,
+    can_add_currency,
 )
 from ..websocket_utils import WebSocketBroadcaster
 
@@ -39,6 +45,7 @@ from .views_utils import (
     get_decimal_separator,
     get_balance_summary,
     get_year_to_date_metrics,
+    get_available_investment_balance,
     money_to_decimal,
     normalize_decimal_input
 )
@@ -129,7 +136,9 @@ def save_flow_item_ajax(request):
             return JsonResponse({'error': _('Missing required fields.')}, status=400)
         
         flow_group = get_object_or_404(FlowGroup, id=flow_group_id, family=family)
-        currency = get_period_currency(family, flow_group.period_start_date)
+        # Item currency follows the group's silo; legacy (empty) groups fall
+        # back to the period currency.
+        currency = flow_group.currency or get_period_currency(family, flow_group.period_start_date)
         
         try:
             # Frontend sends locale-formatted values (e.g., "1.234,56" for PT-BR, "1,234.56" for EN)
@@ -556,14 +565,18 @@ def create_credit_card_ajax(request):
 
         start_date, end_date, _unused_label = get_current_period_dates(family)
 
+        # Card belongs to the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency
+        currency = get_active_currency(request, family)
+
         if FlowGroup.objects.filter(
-            family=family, name=name, period_start_date=start_date
+            family=family, name=name, period_start_date=start_date,
+            currency=currency
         ).exists():
             return JsonResponse(
                 {'error': _('A Flow Group with the name \'%(name)s\' already exists in this period.') % {'name': name}},
                 status=400)
 
-        currency = get_period_currency(family, start_date)
         card = FlowGroup.objects.create(
             family=family,
             owner=request.user,
@@ -571,6 +584,7 @@ def create_credit_card_ajax(request):
             group_type=EXPENSE_SECONDARY,
             budgeted_amount=Money(budget_decimal, currency),
             period_start_date=start_date,
+            currency=currency,
             is_shared=is_shared,
             is_credit_card=True,
             due_day=due_day,
@@ -638,9 +652,18 @@ def update_credit_card_ajax(request):
         if error is not None:
             return error
 
+        # Bug 3.1 (v1.8.0): the due day of a closed bill is locked. Only the
+        # Dashboard's global bill-edit flow (source='bill_edit') may change it.
+        if card.closed and due_day != card.due_day and data.get('source') != 'bill_edit':
+            return JsonResponse(
+                {'error': _('The due day of a closed bill can only be changed through the bill edit on the Dashboard.')},
+                status=400)
+
+        # Name collision is scoped to the card's own currency silo (v1.8.0)
         duplicate = FlowGroup.objects.filter(
             family=family, name=name,
-            period_start_date=card.period_start_date
+            period_start_date=card.period_start_date,
+            currency=card.currency
         ).exclude(id=card.id).exists()
         if duplicate:
             return JsonResponse(
@@ -705,7 +728,12 @@ def list_credit_cards_ajax(request):
             linked_card__isnull=True
         ).order_by('order', 'name')
 
-        from ..utils.credit_card_utils import get_card_bill_total
+        # Restrict to the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency, flowgroup_currency_q
+        active_currency = get_active_currency(request, family)
+        cards = cards.filter(flowgroup_currency_q(family, active_currency))
+
+        from ..utils.credit_card_utils import get_card_bill_total, get_card_next_bill_total
 
         include_totals = request.GET.get('include_totals') == '1'
         serialized = []
@@ -717,6 +745,8 @@ def list_credit_cards_ajax(request):
                 bill_total = get_card_bill_total(card, start_date)
                 budgeted = money_to_decimal(card.budgeted_amount)
                 card_data['bill_total'] = str(bill_total)
+                next_total = get_card_next_bill_total(card, start_date)
+                card_data['next_bill_total'] = str(next_total) if next_total is not None else None
                 card_data['bill_overdue'] = is_card_bill_overdue(card, start_date)
                 card_data['over_budget'] = bool(budgeted) and bill_total > budgeted
                 card_data['budgeted_amount'] = str(budgeted)
@@ -861,6 +891,7 @@ def delete_flow_group_view(request, group_id):
         previous_group = FlowGroup.objects.filter(
             family=family,
             name=group_name,
+            currency=flow_group.currency,
             period_start_date__lt=period_start,
             is_recurring=True
         ).order_by('-period_start_date').first()
@@ -1018,7 +1049,9 @@ def save_bank_balance_ajax(request):
         if member_id and member_id != 'null':
             member = FamilyMember.objects.get(id=member_id, family=family)
 
-        currency = get_period_currency(family, period_start_date)
+        # Bank balances live in the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency
+        currency = get_active_currency(request, family)
         money_amount = Money(amount, currency)
 
         is_new = not (balance_id and balance_id != 'new')
@@ -1051,10 +1084,11 @@ def save_bank_balance_ajax(request):
         except Exception as e:
             print(f"[WebSocket] Broadcast error: {e}")
 
-        # Calculate new total after save
+        # Calculate new total after save (active currency silo only)
         tot_bank = BankBalance.objects.filter(
             family=family,
-            period_start_date=period_start_date
+            period_start_date=period_start_date,
+            amount_currency=currency
         ).aggregate(total=Sum('amount'))['total']
 
         total_bank_balance = money_to_decimal(tot_bank)
@@ -1091,13 +1125,15 @@ def delete_bank_balance_ajax(request):
         bank_balance = BankBalance.objects.get(id=balance_id, family=family)
         family_id = bank_balance.family.id
         period_start_date = bank_balance.period_start_date
+        entry_currency = bank_balance.amount_currency
 
         bank_balance.delete()
 
-        # Calculate new total after deletion
+        # Calculate new total after deletion (same currency silo as the entry)
         tot_bank = BankBalance.objects.filter(
             family=family,
-            period_start_date=period_start_date
+            period_start_date=period_start_date,
+            amount_currency=entry_currency
         ).aggregate(total=Sum('amount'))['total']
 
         total_bank_balance = money_to_decimal(tot_bank)
@@ -1539,13 +1575,16 @@ def get_balance_summary_ajax(request):
         query_period = request.GET.get('period')
         start_date, end_date, _unused = get_current_period_dates(family, query_period)
 
+        # Restrict to the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency
+        active_currency = get_active_currency(request, family)
+
         # Get balance summary using the new shared function
-        balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date)
+        balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date, currency=active_currency)
         summary = balance_data['summary_totals']
 
         # Get currency symbol for formatting
-        period_currency = get_period_currency(family, start_date)
-        currency_symbol = get_currency_symbol(period_currency)
+        currency_symbol = get_currency_symbol(active_currency)
 
         # Return formatted values as strings, maintaining the original structure for the JS
         return JsonResponse({
@@ -1582,12 +1621,15 @@ def get_ytd_metrics_ajax(request):
         query_period = request.GET.get('period')
         start_date, end_date, _unused = get_current_period_dates(family, query_period)
 
+        # Restrict to the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency
+        active_currency = get_active_currency(request, family)
+
         # Get YTD metrics (using end_date as current_period_end)
-        ytd_data = get_year_to_date_metrics(family, end_date, current_member)
+        ytd_data = get_year_to_date_metrics(family, end_date, current_member, currency=active_currency)
 
         # Get currency symbol for formatting
-        period_currency = get_period_currency(family, start_date)
-        currency_symbol = get_currency_symbol(period_currency)
+        currency_symbol = get_currency_symbol(active_currency)
 
         # Return formatted values as strings
         return JsonResponse({
@@ -1804,11 +1846,17 @@ def get_bank_reconciliation_summary_ajax(request):
         config = family.configuration
         tolerance = config.bank_reconciliation_tolerance
 
+        # Restrict everything to the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency, flowgroup_currency_q
+        active_currency = get_active_currency(request, family)
+        fcq_trans = flowgroup_currency_q(family, active_currency, prefix='flow_group__')
+
         # This logic is duplicated from bank_reconciliation_view.
         # It should be refactored into a reusable function if needed elsewhere.
-        bank_balances = BankBalance.objects.filter(family=family, period_start_date=start_date)
+        bank_balances = BankBalance.objects.filter(
+            family=family, period_start_date=start_date, amount_currency=active_currency)
         
-        balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date)
+        balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date, currency=active_currency)
         
         reconciliation_data = {}
 
@@ -1844,13 +1892,13 @@ def get_bank_reconciliation_summary_ajax(request):
                 flow_group__period_start_date=start_date,
                 flow_group__group_type=FLOW_TYPE_INCOME,
                 realized=True
-            )
+            ).filter(fcq_trans)
             expense_transactions = Transaction.objects.filter(
                 flow_group__family=family,
                 flow_group__period_start_date=start_date,
                 flow_group__group_type__in=['EXPENSE_MAIN', 'EXPENSE_SECONDARY'],
                 realized=True
-            ).exclude(flow_group__is_investment=True)
+            ).exclude(flow_group__is_investment=True).filter(fcq_trans)
 
             members_data = []
             for member in family_members:
@@ -1969,26 +2017,17 @@ def get_investment_balance_ajax(request):
         return HttpResponseForbidden(_("Child users cannot access investments."))
 
     try:
-        from datetime import date
         from decimal import Decimal, ROUND_DOWN
 
         # Get current period
         query_period = request.GET.get('period')
         start_date, end_date, _unused = get_current_period_dates(family, query_period)
 
-        # Calculate from year start to current period end
-        year_start = date(end_date.year, 1, 1)
+        # Restrict to the requester's active currency silo (v1.8.0)
+        from ..utils.currency_utils import get_active_currency
+        active_currency = get_active_currency(request, family)
 
-        investment_balance = Transaction.objects.filter(
-            flow_group__family=family,
-            flow_group__is_investment=True,
-            flow_group__period_start_date__range=(year_start, end_date),
-            realized=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-
-        # Convert Money to Decimal
-        available_balance = money_to_decimal(investment_balance)
-        available_balance = available_balance.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        available_balance = get_available_investment_balance(family, active_currency, end_date)
 
         return JsonResponse({
             'status': 'success',
@@ -2035,7 +2074,7 @@ def save_shop_list_item_ajax(request):
             return JsonResponse({'error': _('Invalid amount format.')}, status=400)
 
         config = getattr(family, 'configuration', None)
-        currency = config.base_currency if config else 'USD'
+        currency = shop_list.currency or (config.base_currency if config else 'USD')
 
         is_new = not item_id or item_id == '0' or item_id == 'NEW'
 
@@ -2203,6 +2242,7 @@ def clone_shop_list_ajax(request, list_id):
             family=family,
             owner=request.user,
             is_shared=False,
+            currency=original.currency,
             order=0,
         )
         cloned.save()
@@ -2229,3 +2269,384 @@ def clone_shop_list_ajax(request, list_id):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@db_transaction.atomic
+def add_family_currency_ajax(request):
+    """AJAX: Adds a secondary currency to the family (max 3 total)."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    if current_member.role not in ['ADMIN', 'PARENT']:
+        return HttpResponseForbidden(_("Only Parents and Admins can manage currencies."))
+
+    try:
+        from ..forms import CURRENCY_CHOICES
+        data = json.loads(request.body)
+        code = (data.get('code') or '').strip().upper()
+
+        if code not in [choice for choice, _label in CURRENCY_CHOICES]:
+            return JsonResponse({'error': _('Invalid currency code.')}, status=400)
+
+        error_key, allowed = can_add_currency(family, code)
+        if not allowed:
+            if error_key == 'already_added':
+                message = _("Currency %(code)s is already enabled for this family.") % {'code': code}
+            else:
+                message = _(
+                    "Currency limit reached: a family can have at most %(limit)d currencies."
+                ) % {'limit': 3}
+            return JsonResponse({'error': message, 'error_key': error_key}, status=400)
+
+        FamilyCurrency.objects.create(family=family, code=code, is_default=False)
+
+        try:
+            db_transaction.on_commit(lambda: WebSocketBroadcaster.broadcast_to_family(
+                family_id=family.id,
+                message_type='family_currency_changed',
+                data={'currencies': get_family_currencies(family)},
+                actor_user=request.user
+            ))
+        except Exception:
+            pass
+
+        return JsonResponse({
+            'status': 'success',
+            'currencies': get_family_currencies(family),
+            'default_currency': get_default_currency(family),
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+@require_POST
+@db_transaction.atomic
+def remove_family_currency_ajax(request):
+    """AJAX: Removes a secondary currency (default cannot be removed).
+
+    The currency's existing data is kept; only the menu chip disappears.
+    """
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return HttpResponseForbidden(_("User is not associated with a family."))
+
+    if current_member.role not in ['ADMIN', 'PARENT']:
+        return HttpResponseForbidden(_("Only Parents and Admins can manage currencies."))
+
+    try:
+        data = json.loads(request.body)
+        code = (data.get('code') or '').strip().upper()
+
+        if code == get_default_currency(family):
+            return JsonResponse(
+                {'error': _('The default currency cannot be removed.')},
+                status=400)
+
+        deleted, _unused_count = FamilyCurrency.objects.filter(
+            family=family, code=code).delete()
+        if not deleted:
+            return JsonResponse({'error': _('Currency not found.')}, status=404)
+
+        if request.session.get('currency') == code:
+            request.session['currency'] = get_default_currency(family)
+
+        try:
+            db_transaction.on_commit(lambda: WebSocketBroadcaster.broadcast_to_family(
+                family_id=family.id,
+                message_type='family_currency_changed',
+                data={'currencies': get_family_currencies(family)},
+                actor_user=request.user
+            ))
+        except Exception:
+            pass
+
+        return JsonResponse({
+            'status': 'success',
+            'currencies': get_family_currencies(family),
+            'default_currency': get_default_currency(family),
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+# --- Investments AJAX (v1.8.0) ---
+
+
+def _investment_member_guard(request):
+    """Family/member context for investment endpoints.
+
+    Returns (family, current_member, error_response). CHILD members have no
+    access to the investments module (sidebar rule, enforced server-side).
+    """
+    family, current_member, _unused = get_family_context(request.user)
+    if not family:
+        return None, None, HttpResponseForbidden(_("User is not associated with a family."))
+    if current_member.role == 'CHILD':
+        return None, None, HttpResponseForbidden(_("Child users cannot access investments."))
+    return family, current_member, None
+
+
+def _parse_amount(value):
+    """Decimal from a plain decimal string (getRawValue output). Raises ValueError."""
+    amount = Decimal(str(value))
+    if amount.is_nan() or amount.is_infinite():
+        raise ValueError
+    return amount.quantize(Decimal('0.01'))
+
+
+def _resolve_period(family, query_period):
+    from ..utils.period_utils import get_current_period_dates
+    from ..utils.currency_utils import ensure_period_exists
+    start_date, end_date, _unused = get_current_period_dates(family, query_period)
+    config = getattr(family, 'configuration', None)
+    period_type = config.period_type if config else 'M'
+    return ensure_period_exists(family, start_date, end_date, period_type)
+
+
+@login_required
+@require_POST
+def add_investment_ajax(request):
+    """AJAX: Creates an investment record (currency comes from the plugin;
+    free-currency plugins (Custom/International) take the validated client
+    currency — issue #44 comment 324)."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, _current_member, error = _investment_member_guard(request)
+    if error:
+        return error
+
+    try:
+        data = json.loads(request.body)
+        from ..investments.registry import get_plugin, PLUGINS
+        name = (data.get('name') or '').strip()
+        plugin_code = data.get('plugin_code') or 'cash'
+        if not name:
+            return JsonResponse({'error': _('Name is required.')}, status=400)
+        if plugin_code not in PLUGINS:
+            return JsonResponse({'error': _('Invalid investment type.')}, status=400)
+        plugin = get_plugin(plugin_code)
+
+        currency = plugin.currency
+        if not currency:
+            from ..forms import CURRENCY_CHOICES
+            currency = (data.get('currency') or '').strip().upper()
+            if currency not in [choice for choice, _label in CURRENCY_CHOICES]:
+                return JsonResponse({'error': _('Invalid currency.')}, status=400)
+
+        annual_rate = None
+        if data.get('annual_rate') not in (None, ''):
+            annual_rate = Decimal(str(data.get('annual_rate')))
+            if annual_rate < 0:
+                return JsonResponse({'error': _('Interest rate cannot be negative.')}, status=400)
+            if annual_rate > Decimal('999.99'):
+                return JsonResponse(
+                    {'error': _('Interest rate must be XXX.YY: at most 999.99.')},
+                    status=400)
+            annual_rate = annual_rate.quantize(Decimal('0.01'))
+
+        maturity_date = data.get('maturity_date') or None
+        if maturity_date and plugin_code != 'gic':
+            maturity_date = None
+        if maturity_date:
+            from datetime import date as _date
+            try:
+                maturity_date = _date.fromisoformat(maturity_date)
+            except ValueError:
+                return JsonResponse({'error': _('Invalid maturity date.')}, status=400)
+
+        ir_rate = Decimal(str(data.get('ir_rate') or 0))
+        if ir_rate < 0 or ir_rate > 100:
+            return JsonResponse({'error': _('Invalid income-tax rate.')}, status=400)
+        ir_rate = ir_rate.quantize(Decimal('0.01'))
+
+        investment = Investment.objects.create(
+            family=family,
+            name=name,
+            plugin_code=plugin_code,
+            currency=currency,
+            annual_rate=annual_rate,
+            balance=Money(Decimal('0.00'), currency),
+            maturity_date=maturity_date,
+            ir_rate=ir_rate,
+        )
+        WebSocketBroadcaster.broadcast_investment_updated(investment, actor_user=request.user)
+        return JsonResponse({
+            'status': 'success',
+            'investment': WebSocketBroadcaster.investment_payload(investment),
+        })
+    except (InvalidOperation, ValueError):
+        return JsonResponse({'error': _('Invalid numeric value.')}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+@require_POST
+def edit_investment_ajax(request, investment_id):
+    """AJAX: Edits an investment; optional manual balance overwrite."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, _current_member, error = _investment_member_guard(request)
+    if error:
+        return error
+
+    investment = get_object_or_404(Investment, id=investment_id, family=family)
+    try:
+        data = json.loads(request.body)
+        from ..utils.investment_utils import adjust_balance
+
+        name = (data.get('name') or '').strip()
+        if name:
+            investment.name = name
+        if 'annual_rate' in data:
+            if data.get('annual_rate') in (None, ''):
+                investment.annual_rate = None
+            else:
+                annual_rate = Decimal(str(data.get('annual_rate')))
+                if annual_rate < 0:
+                    return JsonResponse({'error': _('Interest rate cannot be negative.')}, status=400)
+                if annual_rate > Decimal('999.99'):
+                    return JsonResponse(
+                        {'error': _('Interest rate must be XXX.YY: at most 999.99.')},
+                        status=400)
+                investment.annual_rate = annual_rate.quantize(Decimal('0.01'))
+
+        maturity_date = data.get('maturity_date') or None
+        if maturity_date:
+            from datetime import date as _date
+            try:
+                maturity_date = _date.fromisoformat(maturity_date)
+            except ValueError:
+                return JsonResponse({'error': _('Invalid maturity date.')}, status=400)
+        investment.maturity_date = maturity_date if investment.plugin_code == 'gic' else None
+
+        if 'ir_rate' in data:
+            ir_rate = Decimal(str(data.get('ir_rate') or 0))
+            if ir_rate < 0 or ir_rate > 100:
+                return JsonResponse({'error': _('Invalid income-tax rate.')}, status=400)
+            investment.ir_rate = ir_rate.quantize(Decimal('0.01'))
+
+        investment.save()
+
+        if data.get('new_balance') not in (None, ''):
+            new_balance = _parse_amount(data.get('new_balance'))
+            if new_balance < 0:
+                return JsonResponse({'error': _('Balance cannot be negative.')}, status=400)
+            adjust_balance(
+                investment, new_balance,
+                user=request.user,
+                note=data.get('adjust_note') or '',
+            )
+        else:
+            WebSocketBroadcaster.broadcast_investment_updated(investment, actor_user=request.user)
+
+        return JsonResponse({
+            'status': 'success',
+            'investment': WebSocketBroadcaster.investment_payload(investment),
+        })
+    except (InvalidOperation, ValueError):
+        return JsonResponse({'error': _('Invalid numeric value.')}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+@require_POST
+def deposit_investment_ajax(request, investment_id):
+    """AJAX: Deposit; optionally deducts the Available Investment Balance."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, _current_member, error = _investment_member_guard(request)
+    if error:
+        return error
+
+    investment = get_object_or_404(Investment, id=investment_id, family=family)
+    try:
+        data = json.loads(request.body)
+        amount = _parse_amount(data.get('amount'))
+        deduct = bool(data.get('deduct_from_available'))
+        period = _resolve_period(family, data.get('period'))
+        from ..utils.investment_utils import deposit
+        deposit(investment, amount, deduct, user=request.user, period=period)
+        return JsonResponse({
+            'status': 'success',
+            'investment': WebSocketBroadcaster.investment_payload(investment),
+        })
+    except (InvalidOperation, ValueError):
+        return JsonResponse({'error': _('Invalid amount.')}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+@require_POST
+def withdraw_investment_ajax(request, investment_id):
+    """AJAX: Withdrawal; writes realized income on the investment's currency."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, _current_member, error = _investment_member_guard(request)
+    if error:
+        return error
+
+    investment = get_object_or_404(Investment, id=investment_id, family=family)
+    try:
+        data = json.loads(request.body)
+        amount = _parse_amount(data.get('amount'))
+        period = _resolve_period(family, data.get('period'))
+        from ..utils.investment_utils import withdraw, InsufficientBalanceError
+        withdraw(investment, amount, user=request.user, period=period)
+        return JsonResponse({
+            'status': 'success',
+            'investment': WebSocketBroadcaster.investment_payload(investment),
+        })
+    except InsufficientBalanceError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    except (InvalidOperation, ValueError):
+        return JsonResponse({'error': _('Invalid amount.')}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)
+
+
+@login_required
+def list_investments_ajax(request):
+    """AJAX: Full investment list (global screen) + active-currency totals."""
+    if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return HttpResponseBadRequest(_("Not an AJAX request."))
+
+    family, _current_member, error = _investment_member_guard(request)
+    if error:
+        return error
+
+    try:
+        from ..utils.currency_utils import get_active_currency
+        active_currency = get_active_currency(request, family)
+        investments = Investment.objects.filter(family=family).order_by('name')
+        payload = [WebSocketBroadcaster.investment_payload(i) for i in investments]
+        total = sum(
+            (Decimal(i['balance']) for i in payload if i['currency'] == active_currency),
+            Decimal('0.00'))
+        return JsonResponse({
+            'status': 'success',
+            'investments': payload,
+            'active_currency': active_currency,
+            'currency_symbol': get_currency_symbol(active_currency),
+            'total_invested': str(total),
+        })
+    except Exception as e:
+        return JsonResponse({'error': _('A server error occurred: %(error)s') % {'error': str(e)}}, status=500)

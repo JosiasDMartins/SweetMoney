@@ -40,7 +40,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
 from ..context_processors import VERSION
-from ..models import Family, FamilyMember, SystemVersion
+from ..models import Family, FamilyMember, SystemVersion, UpdatePhaseState
 from ..post_update_steps import get_pending_steps
 from ..utils_user import build_admin_username, email_taken_by_non_admin
 from .views_updater import (
@@ -126,9 +126,19 @@ def post_update_view(request):
     phase_ok = request.session.get('post_update_phase_ok')
 
     if results is None or not phase_ok:
-        phase_ok, results = _apply_update_phase()
-        request.session['post_update_phase_ok'] = phase_ok
-        request.session['post_update_results'] = results
+        # Persistent once-per-target guard (issue #44 comment 230): the
+        # session-scoped cache re-ran the scripts on every fresh browser
+        # session and every reboot while the DB version lagged behind.
+        if UpdatePhaseState.has_run_for(VERSION):
+            phase_ok = True
+            results = [{'type': 'script', 'status': 'ok',
+                        'output': _('Update steps already applied for this version.')}]
+        else:
+            phase_ok, results = _apply_update_phase()
+            if phase_ok:
+                UpdatePhaseState.mark_run_for(VERSION)
+            request.session['post_update_phase_ok'] = phase_ok
+            request.session['post_update_results'] = results
 
     context = {
         'db_version': get_db_version(),
@@ -148,6 +158,9 @@ def post_update_retry(request):
     """Clear the recorded phase result and retry migrations/scripts."""
     request.session.pop('post_update_results', None)
     request.session.pop('post_update_phase_ok', None)
+    # Retry must also clear the persistent once-per-target marker, otherwise
+    # the phase would be skipped as already applied (issue #44 comment 230).
+    UpdatePhaseState.clear_for(VERSION)
     return _redirect_to_post_update()
 
 

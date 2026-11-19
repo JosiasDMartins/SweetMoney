@@ -21,6 +21,29 @@ from ..utils import (
 from ..context_processors import VERSION
 
 
+def get_available_investment_balance(family, currency, end_date):
+    """Available Investment Balance for one currency silo (v1.8.0).
+
+    Sums realized transactions in investment FlowGroups from Jan 1st of the
+    period's year up to the period end, restricted to the given currency
+    silo. Single source shared by the investments page and the AJAX endpoint.
+    """
+    import datetime as _dt
+    from decimal import ROUND_DOWN
+    from ..utils.currency_utils import flowgroup_currency_q
+
+    year_start = _dt.date(end_date.year, 1, 1)
+    total = Transaction.objects.filter(
+        flow_group__family=family,
+        flow_group__is_investment=True,
+        flow_group__period_start_date__range=(year_start, end_date),
+        realized=True
+    ).filter(
+        flowgroup_currency_q(family, currency, prefix='flow_group__')
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    return total.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+
 def _get_babel_locale():
     """
     Returns the Babel locale string for the current active Django language.
@@ -106,30 +129,50 @@ def get_family_context(user):
         return None, None, []
 
 
-def get_default_income_flow_group(family, user, period_start_date):
-    """Retrieves or creates the default income FlowGroup for the family and period."""
+def get_default_income_flow_group(family, user, period_start_date, currency=None):
+    """Retrieves or creates the default income FlowGroup for the family and period.
+
+    Multi-currency: each currency silo has its own income group. The default
+    silo keeps the legacy name 'Income (Default)'; secondary silos are named
+    'Income (<CODE>)' to respect the (family, name, period) uniqueness.
+    """
     from ..utils import ensure_period_exists, get_current_period_dates
     from moneyed import Money
 
-    currency = get_period_currency(family, period_start_date)
-    
+    if not currency:
+        currency = get_period_currency(family, period_start_date)
+
+    default_currency = currency
+    from ..utils.currency_utils import get_default_currency as _family_default
+    try:
+        default_currency = _family_default(family)
+    except Exception:
+        pass
+
+    name = 'Income (Default)' if currency == default_currency else f'Income ({currency})'
+
     income_group, created = FlowGroup.objects.get_or_create(
         family=family,
         group_type=FLOW_TYPE_INCOME,
         period_start_date=period_start_date,
+        name=name,
         defaults={
-            'name': 'Income (Default)', 
             'budgeted_amount': Money(0, currency),
-            'owner': user
+            'owner': user,
+            'currency': currency
         }
     )
-    
+    # Legacy group created before v1.8.0: stamp its currency silo
+    if not created and not income_group.currency:
+        income_group.currency = currency
+        income_group.save()
+
     if created:
         config = getattr(family, 'configuration', None)
         if config:
             _unused1, end_date, _unused2 = get_current_period_dates(family, period_start_date.strftime('%Y-%m-%d'))
             ensure_period_exists(family, period_start_date, end_date, config.period_type)
-    
+
     return income_group
 
 
@@ -158,7 +201,7 @@ def can_access_flow_group(flow_group, family_member):
     return False
 
 
-def get_visible_flow_groups_for_dashboard(family, family_member, period_start_date, group_type_filter=None, exclude_cards=False):
+def get_visible_flow_groups_for_dashboard(family, family_member, period_start_date, group_type_filter=None, exclude_cards=False, currency=None):
     """
     Returns FlowGroups visible on the dashboard.
     (accessible_groups, display_only_groups)
@@ -167,11 +210,17 @@ def get_visible_flow_groups_for_dashboard(family, family_member, period_start_da
     Cards are rendered in the Credit Cards box instead of the expense table.
     Balance/summary calculations must NOT pass this flag so totals stay
     unchanged (a card is a grouping view, not an extra value).
+
+    currency: restrict to one currency silo (multi-currency v1.8.0).
     """
     base_query = FlowGroup.objects.filter(
         family=family,
         period_start_date=period_start_date
     )
+
+    if currency:
+        from ..utils.currency_utils import flowgroup_currency_q
+        base_query = base_query.filter(flowgroup_currency_q(family, currency))
 
     if exclude_cards:
         base_query = base_query.exclude(is_credit_card=True, linked_card__isnull=True)
@@ -201,13 +250,17 @@ def get_visible_flow_groups_for_dashboard(family, family_member, period_start_da
     return accessible_groups, display_only_groups
 
 
-def get_visible_flow_groups(family, family_member, period_start_date, group_type_filter=None):
+def get_visible_flow_groups(family, family_member, period_start_date, group_type_filter=None, currency=None):
     """Returns FlowGroups visible for editing/access."""
     base_query = FlowGroup.objects.filter(
         family=family,
         period_start_date=period_start_date
     )
-    
+
+    if currency:
+        from ..utils.currency_utils import flowgroup_currency_q
+        base_query = base_query.filter(flowgroup_currency_q(family, currency))
+
     if group_type_filter:
         base_query = base_query.filter(group_type__in=group_type_filter)
     
@@ -299,8 +352,13 @@ def get_default_date_for_period(start_date, end_date):
         return start_date
 
 
-def get_periods_history(family, current_period_start):
+def get_periods_history(family, current_period_start, currency=None):
     """Returns the historical data for the last 12 periods, which can be used for the chart."""
+    from ..utils.currency_utils import flowgroup_currency_q
+
+    fcq_group = flowgroup_currency_q(family, currency) if currency else None
+    fcq_trans = flowgroup_currency_q(family, currency, prefix='flow_group__') if currency else None
+
     available_periods = get_available_periods(family)
 
     periods_to_show = []
@@ -310,52 +368,79 @@ def get_periods_history(family, current_period_start):
         period_start = period['start_date']
         period_end = period['end_date']
 
-        has_data = Transaction.objects.filter(
+        has_data_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__period_start_date=period_start
-        ).exists()
+        )
+        if fcq_trans:
+            has_data_q = has_data_q.filter(fcq_trans)
+        has_data = has_data_q.exists()
 
         if not has_data:
             continue
 
-        total_expenses = Transaction.objects.filter(
+        # Issue #44 (comment 230): movements internal to the Investments
+        # screen — allocating from the Available Investment Balance into an
+        # investment block — write a NEGATIVE realized expense inside the
+        # investment pass-through group. That bookkeeping entry is not a
+        # dashboard flow, so the chart ignores it entirely; only real
+        # realized expenses feeding the Available Balance count.
+        internal_allocation = Q(flow_group__is_investment=True) & Q(amount__lt=0)
+
+        total_expenses_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type__in=FLOW_TYPE_EXPENSE,
             flow_group__period_start_date=period_start,
             realized=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        ).exclude(internal_allocation)
+        if fcq_trans:
+            total_expenses_q = total_expenses_q.filter(fcq_trans)
+        total_expenses = total_expenses_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-        investment_expenses = Transaction.objects.filter(
+        investment_expenses_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type__in=FLOW_TYPE_EXPENSE,
             flow_group__is_investment=True,
             flow_group__period_start_date=period_start,
-            realized=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            realized=True,
+            amount__gte=0
+        )
+        if fcq_trans:
+            investment_expenses_q = investment_expenses_q.filter(fcq_trans)
+        investment_expenses = investment_expenses_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-        total_income = Transaction.objects.filter(
+        total_income_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type=FLOW_TYPE_INCOME,
             flow_group__period_start_date=period_start,
             realized=True,
             is_child_manual_income=False
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            total_income_q = total_income_q.filter(fcq_trans)
+        total_income = total_income_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-        kids_realized = FlowGroup.objects.filter(
+        kids_realized_q = FlowGroup.objects.filter(
             family=family,
             period_start_date=period_start,
             is_kids_group=True,
             is_investment=False,
             realized=True
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_group:
+            kids_realized_q = kids_realized_q.filter(fcq_group)
+        kids_realized = kids_realized_q.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
-        kids_realized_investments = FlowGroup.objects.filter(
+        kids_realized_investments_q = FlowGroup.objects.filter(
             family=family,
             period_start_date=period_start,
             is_kids_group=True,
             is_investment=True,
             realized=True
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_group:
+            kids_realized_investments_q = kids_realized_investments_q.filter(fcq_group)
+        kids_realized_investments = kids_realized_investments_q.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_expenses += kids_realized + kids_realized_investments
         investment_expenses += kids_realized_investments
@@ -423,19 +508,27 @@ def get_periods_history(family, current_period_start):
     }
 
 
-def get_year_to_date_metrics(family, current_period_end, current_member=None):
+def get_year_to_date_metrics(family, current_period_end, current_member=None, currency=None):
     """
     Returns year-to-date metrics from January 1 to the current selected period.
     Returns realized values for: total savings, total investments, total income.
 
     For CHILD users: calculates only their personal metrics (their groups and manual income)
     For ADMIN/PARENT users: calculates family-wide metrics
+
+    Multi-currency: ``currency`` restricts all aggregates to one silo.
     """
     from datetime import date
+
+    from ..utils.currency_utils import flowgroup_currency_q
 
     # Get the year from the current period
     current_year = current_period_end.year
     year_start = date(current_year, 1, 1)
+
+    # Silo filters (None-safe: only applied when a currency is given)
+    fcq_group = flowgroup_currency_q(family, currency) if currency else None
+    fcq_trans = flowgroup_currency_q(family, currency, prefix='flow_group__') if currency else None
 
     # Check if user is a Child
     is_child = current_member and current_member.role == 'CHILD'
@@ -444,29 +537,35 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
         # CHILD: Calculate only personal metrics
 
         # Income = Kids groups assigned to them + manual income they created
-        kids_income = FlowGroup.objects.filter(
+        kids_income_q = FlowGroup.objects.filter(
             family=family,
             period_start_date__range=(year_start, current_period_end),
             is_kids_group=True,
             is_investment=False,
             realized=True,
             assigned_children=current_member
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_group:
+            kids_income_q = kids_income_q.filter(fcq_group)
+        kids_income = kids_income_q.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
-        manual_income = Transaction.objects.filter(
+        manual_income_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type=FLOW_TYPE_INCOME,
             flow_group__period_start_date__range=(year_start, current_period_end),
             realized=True,
             is_child_manual_income=True,
             member=current_member
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            manual_income_q = manual_income_q.filter(fcq_trans)
+        manual_income = manual_income_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         total_income = kids_income + manual_income
         total_income_dec = money_to_decimal(total_income)
 
         # Expenses = Only their own expense transactions
-        total_expenses = Transaction.objects.filter(
+        total_expenses_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type__in=FLOW_TYPE_EXPENSE,
             flow_group__is_investment=False,
@@ -474,29 +573,38 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
             realized=True,
             is_child_expense=True,
             member=current_member
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            total_expenses_q = total_expenses_q.filter(fcq_trans)
+        total_expenses = total_expenses_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         total_expenses_dec = money_to_decimal(total_expenses)
 
         # Investments = Only their own investment transactions
-        total_investments = Transaction.objects.filter(
+        total_investments_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type__in=FLOW_TYPE_EXPENSE,
             flow_group__is_investment=True,
             flow_group__period_start_date__range=(year_start, current_period_end),
             realized=True,
             member=current_member
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            total_investments_q = total_investments_q.filter(fcq_trans)
+        total_investments = total_investments_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # Add investment kids groups assigned to them
-        kids_investment_income = FlowGroup.objects.filter(
+        kids_investment_income_q = FlowGroup.objects.filter(
             family=family,
             period_start_date__range=(year_start, current_period_end),
             is_kids_group=True,
             is_investment=True,
             realized=True,
             assigned_children=current_member
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_group:
+            kids_investment_income_q = kids_investment_income_q.filter(fcq_group)
+        kids_investment_income = kids_investment_income_q.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_investments += kids_investment_income
         total_investments_dec = money_to_decimal(total_investments)
@@ -504,54 +612,69 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
         # ADMIN/PARENT: Calculate family-wide metrics (original logic)
 
         # Total Income (realized only, excluding child manual income)
-        total_income = Transaction.objects.filter(
+        total_income_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type=FLOW_TYPE_INCOME,
             flow_group__period_start_date__range=(year_start, current_period_end),
             realized=True,
             is_child_manual_income=False
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            total_income_q = total_income_q.filter(fcq_trans)
+        total_income = total_income_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         total_income_dec = money_to_decimal(total_income)
 
         # Total Expenses (realized only)
-        total_expenses = Transaction.objects.filter(
+        total_expenses_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type__in=FLOW_TYPE_EXPENSE,
             flow_group__is_investment=False,
             flow_group__period_start_date__range=(year_start, current_period_end),
             realized=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            total_expenses_q = total_expenses_q.filter(fcq_trans)
+        total_expenses = total_expenses_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # Add kids groups realized budgets (exclude investment kids groups)
-        kids_realized = FlowGroup.objects.filter(
+        kids_realized_q = FlowGroup.objects.filter(
             family=family,
             period_start_date__range=(year_start, current_period_end),
             is_kids_group=True,
             is_investment=False,
             realized=True
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_group:
+            kids_realized_q = kids_realized_q.filter(fcq_group)
+        kids_realized = kids_realized_q.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_expenses += kids_realized
         total_expenses_dec = money_to_decimal(total_expenses)
 
         # Total Investments (realized only)
-        total_investments = Transaction.objects.filter(
+        total_investments_q = Transaction.objects.filter(
             flow_group__family=family,
             flow_group__group_type__in=FLOW_TYPE_EXPENSE,
             flow_group__is_investment=True,
             flow_group__period_start_date__range=(year_start, current_period_end),
             realized=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_trans:
+            total_investments_q = total_investments_q.filter(fcq_trans)
+        total_investments = total_investments_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
         # Add investment kids groups realized budgets
-        kids_investment_realized = FlowGroup.objects.filter(
+        kids_investment_realized_q = FlowGroup.objects.filter(
             family=family,
             period_start_date__range=(year_start, current_period_end),
             is_kids_group=True,
             is_investment=True,
             realized=True
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if fcq_group:
+            kids_investment_realized_q = kids_investment_realized_q.filter(fcq_group)
+        kids_investment_realized = kids_investment_realized_q.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
 
         total_investments += kids_investment_realized
         total_investments_dec = money_to_decimal(total_investments)
@@ -566,10 +689,13 @@ def get_year_to_date_metrics(family, current_period_end, current_member=None):
     }
 
 
-def get_balance_summary(family, current_member, family_members, start_date, end_date):
+def get_balance_summary(family, current_member, family_members, start_date, end_date, currency=None):
     """
     Calculate balance summary (income, expense, result) for a given period.
     This function centralizes the logic used in the dashboard.
+
+    Multi-currency: when ``currency`` is given, every query is restricted to
+    that currency silo so totals never mix currencies.
 
     Returns a dictionary containing:
     - 'summary_totals': Dict with final calculated totals.
@@ -589,7 +715,7 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
 
     # Get expense groups and calculate budgeted_expense
     accessible_expense_groups, display_only_expense_groups = get_visible_flow_groups_for_dashboard(
-        family, current_member, start_date, group_type_filter=FLOW_TYPE_EXPENSE
+        family, current_member, start_date, group_type_filter=FLOW_TYPE_EXPENSE, currency=currency
     )
 
     # Sum ALL transactions for FlowGroups, regardless of transaction date
@@ -643,6 +769,9 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             family=family, period_start_date=start_date,
             is_kids_group=True, assigned_children=current_member
         )
+        if currency:
+            from ..utils.currency_utils import flowgroup_currency_q
+            kids_groups = kids_groups.filter(flowgroup_currency_q(family, currency))
         for kids_group in kids_groups:
             budg_amt = money_to_decimal(kids_group.budgeted_amount)
             kids_income_entries.append({
@@ -655,7 +784,7 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
             if kids_group.realized:
                 realized_income += budg_amt
 
-        income_group = get_default_income_flow_group(family, current_member.user, start_date)
+        income_group = get_default_income_flow_group(family, current_member.user, start_date, currency=currency)
         manual_income_transactions = Transaction.objects.filter(
             flow_group=income_group,
             member=current_member, is_child_manual_income=True
@@ -676,8 +805,10 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
         ).filter(
             Q(flow_group__is_credit_card=False) | Q(flow_group__is_credit_card=True, flow_group__closed=True)
         ).aggregate(
-            total=Sum('amount'),
-            total_investment=Sum('amount', filter=Q(flow_group__is_investment=True))
+            # Issue #44 (comment 230): ignore the Investments screen internal
+            # allocation entries (negative expenses in the pass-through group)
+            total=Sum('amount', filter=~(Q(flow_group__is_investment=True) & Q(amount__lt=0))),
+            total_investment=Sum('amount', filter=Q(flow_group__is_investment=True) & Q(amount__gte=0))
         )
         realized_expense = realized_exp_q['total'] or Decimal('0.00')
         realized_expense = money_to_decimal(realized_expense)
@@ -685,7 +816,7 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
         realized_investment = money_to_decimal(realized_investment)
 
     else: # PARENT/ADMIN
-        income_group = get_default_income_flow_group(family, current_member.user, start_date)
+        income_group = get_default_income_flow_group(family, current_member.user, start_date, currency=currency)
         recent_income_transactions = Transaction.objects.filter(
             flow_group=income_group, is_child_manual_income=False
         ).select_related('member__user').order_by('-date', 'order')
@@ -704,7 +835,11 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
 
         kids_realized_sum = FlowGroup.objects.filter(
             family=family, period_start_date=start_date, is_kids_group=True, realized=True
-        ).aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
+        )
+        if currency:
+            from ..utils.currency_utils import flowgroup_currency_q as _fcq
+            kids_realized_sum = kids_realized_sum.filter(_fcq(family, currency))
+        kids_realized_sum = kids_realized_sum.aggregate(total=Sum('budgeted_amount'))['total'] or Decimal('0.00')
         kids_groups_realized_budget = money_to_decimal(kids_realized_sum)
 
         for child in family_members.filter(role='CHILD'):
@@ -737,8 +872,10 @@ def get_balance_summary(family, current_member, family_members, start_date, end_
         ).filter(
             Q(flow_group__is_credit_card=False) | Q(flow_group__is_credit_card=True, flow_group__closed=True)
         ).aggregate(
-            total=Sum('amount'),
-            total_investment=Sum('amount', filter=Q(flow_group__is_investment=True))
+            # Issue #44 (comment 230): ignore the Investments screen internal
+            # allocation entries (negative expenses in the pass-through group)
+            total=Sum('amount', filter=~(Q(flow_group__is_investment=True) & Q(amount__lt=0))),
+            total_investment=Sum('amount', filter=Q(flow_group__is_investment=True) & Q(amount__gte=0))
         )
         realized_expense = realized_exp_calc['total'] or Decimal('0.00')
         realized_expense = money_to_decimal(realized_expense)

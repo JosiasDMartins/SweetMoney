@@ -44,7 +44,13 @@ urlpatterns = [
     # Investments
     path('investments/', views.investments_view, name='investments'),
     path('investments/add/', views.investment_add_view, name='investment_add'),
+    path('investments/<int:investment_id>/', views.investment_detail_view, name='investment_detail'),
     path('api/investments/balance/', views.get_investment_balance_ajax, name='get_investment_balance_ajax'),
+    path('api/investments/add/', views.add_investment_ajax, name='api_investments_add'),
+    path('api/investments/edit/<int:investment_id>/', views.edit_investment_ajax, name='api_investments_edit'),
+    path('api/investments/deposit/<int:investment_id>/', views.deposit_investment_ajax, name='api_investments_deposit'),
+    path('api/investments/withdraw/<int:investment_id>/', views.withdraw_investment_ajax, name='api_investments_withdraw'),
+    path('api/investments/list/', views.list_investments_ajax, name='api_investments_list'),
 
     # Shopping Lists
     path('lists/', views.shop_lists_dashboard_view, name='shop_lists_dashboard'),
@@ -72,6 +78,10 @@ urlpatterns = [
 
     # Toggle Credit Card group closed status
     path('api/credit-card/toggle-closed/', views.toggle_credit_card_closed_ajax, name='toggle_credit_card_closed_ajax'),
+
+    # Multi-currency menu (v1.8.0)
+    path('api/currencies/add/', views.add_family_currency_ajax, name='add_family_currency_ajax'),
+    path('api/currencies/remove/', views.remove_family_currency_ajax, name='remove_family_currency_ajax'),
 
     # Credit Cards dashboard box (v1.7.2)
     path('api/credit-cards/create/', views.create_credit_card_ajax, name='create_credit_card_ajax'),

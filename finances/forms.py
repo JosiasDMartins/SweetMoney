@@ -11,6 +11,8 @@ from django.utils.translation import gettext_lazy as _
 from django.forms import modelformset_factory
 from djmoney.forms.fields import MoneyField as MoneyFormField
 
+from .utils.currency_utils import get_period_currency
+
 
 # Lista completa de moedas G20 e BRICS
 CURRENCY_CHOICES = [
@@ -286,6 +288,9 @@ class FlowGroupForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.family = kwargs.pop('family', None)
         self.period = kwargs.pop('period', None)
+        # Currency silo used for the duplicate-name validation (v1.8.0):
+        # group names only collide inside the same currency silo.
+        self.currency = kwargs.pop('currency', None)
         super().__init__(*args, **kwargs)
         
         # If editing existing FlowGroup, populate with current amount value (extract from Money)
@@ -353,8 +358,28 @@ class FlowGroupForm(forms.ModelForm):
             cleaned_data['due_day'] = None
         return cleaned_data
 
+    def _silo_currency(self):
+        """Currency silo for the duplicate-name check (v1.8.0).
+
+        Explicit ``currency`` kwarg wins; otherwise the edited group's own
+        silo (legacy empty rows resolve to their period's currency, matching
+        the value the view stamps on save).
+        """
+        if self.currency:
+            return self.currency
+        if self.instance and self.instance.pk:
+            if self.instance.currency:
+                return self.instance.currency
+            if self.instance.period_start_date:
+                return get_period_currency(self.family, self.instance.period_start_date)
+        return ''
+
     def clean_name(self):
-        """Validate that FlowGroup name is unique within the same period."""
+        """Validate that FlowGroup name is unique within silo + period.
+
+        Group names only collide inside the same currency silo (v1.8.0):
+        the same name is allowed across different currencies of a period.
+        """
         from django.utils.translation import gettext as _
         name = self.cleaned_data.get('name')
 
@@ -369,11 +394,13 @@ class FlowGroupForm(forms.ModelForm):
             # Validation will happen in the view
             return name
 
-        # Check if another FlowGroup with same name exists in same period
+        # Check if another FlowGroup with same name exists in the same
+        # period AND the same currency silo
         duplicate_check = FlowGroup.objects.filter(
             family=self.family,
             name=name,
-            period_start_date=period_start
+            period_start_date=period_start,
+            currency=self._silo_currency()
         )
 
         # Exclude current instance if editing
@@ -410,11 +437,11 @@ TransactionFormSet = modelformset_factory(
 class InvestmentForm(forms.ModelForm):
     class Meta:
         model = Investment
-        fields = ['name', 'amount']
+        fields = ['name', 'balance']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Stocks, Savings Account'}),
-            # amount Ã© MoneyField - widget automÃ¡tico
-            'amount': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '0.00'}),
+            # balance is a MoneyField - automatic widget
+            'balance': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': '0.00'}),
         }
 
 
@@ -426,10 +453,22 @@ class ShopListForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'members-checkbox'}),
         label=_('Share with')
     )
+    # Per-record currency (v1.8.0): choices restricted to the family's
+    # enabled currencies in __init__; server-side validated in clean_currency.
+    currency = forms.ChoiceField(
+        choices=[],
+        required=True,
+        label=_('Currency'),
+        widget=forms.Select(attrs={
+            'class': 'w-full border rounded-lg bg-white dark:bg-gray-700 '
+                     'border-slate-300 dark:border-slate-600 focus:ring-primary '
+                     'focus:border-primary text-slate-800 dark:text-slate-200 p-2'
+        })
+    )
 
     class Meta:
         model = ShopList
-        fields = ['name', 'is_shared', 'assigned_members']
+        fields = ['name', 'is_shared', 'assigned_members', 'currency']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'w-full border rounded-lg bg-white dark:bg-gray-700 '
@@ -442,13 +481,30 @@ class ShopListForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.family = kwargs.pop('family', None)
         self.current_member = kwargs.pop('current_member', None)
+        default_currency = kwargs.pop('default_currency', None)
         super().__init__(*args, **kwargs)
         if self.family:
+            from .utils.currency_utils import get_family_currencies
+            codes = list(get_family_currencies(self.family))
+            self.fields['currency'].choices = [(code, code) for code in codes]
+            if default_currency:
+                self.fields['currency'].initial = default_currency
             self.fields['assigned_members'].queryset = FamilyMember.objects.filter(
                 family=self.family
             ).exclude(
                 user=self.current_member.user
             ).select_related('user').order_by('user__username')
+        else:
+            from .utils.currency_utils import _all_currency_codes
+            self.fields['currency'].choices = [(c, c) for c in _all_currency_codes()]
+
+    def clean_currency(self):
+        code = self.cleaned_data.get('currency') or ''
+        if self.family:
+            from .utils.currency_utils import is_valid_family_currency
+            if not is_valid_family_currency(self.family, code):
+                raise forms.ValidationError(_('Invalid currency for this family.'))
+        return code
 
     def clean_name(self):
         name = self.cleaned_data.get('name')

@@ -26,6 +26,7 @@ def find_card_in_period(family, source_group, new_period_start):
         family=family,
         name=source_group.linked_card.name,
         period_start_date=new_period_start,
+        currency=source_group.linked_card.currency,
     ).first()
 
 
@@ -54,7 +55,8 @@ def copy_previous_period_data(family, old_period_start, new_period_start, new_pe
         existing = FlowGroup.objects.filter(
             family=family,
             name=old_group.name,
-            period_start_date=new_period_start
+            period_start_date=new_period_start,
+            currency=old_group.currency
         ).first()
 
         if not existing:
@@ -84,6 +86,7 @@ def copy_previous_period_data(family, old_period_start, new_period_start, new_pe
                 due_day=old_group.due_day,  # Carry credit card bill day
                 linked_card=new_linked_card,  # Re-point to the card of this period
                 closed=False,  # Reset closed status for new period
+                currency=old_group.currency,  # Keep the currency silo (v1.8.0)
                 order=old_group.order
             )
 

@@ -309,17 +309,17 @@
 {% endblock content %}
 
 {% block extra_js %}
-<script>
-  window.PROFILE_I18N = {
-    adminMode: '{% trans "Admin Mode" %}',
-    elevationWarning: '{% trans "You are about to enter Admin Mode. Please enter the admin password for your family to continue." %}',
-    adminPassword: '{% trans "Admin password" %}',
-    cancel: '{% trans "Cancel" %}',
-    elevate: '{% trans "Elevate" %}',
-    elevating: '{% trans "Elevating..." %}',
-    failedElevate: '{% trans "Failed to elevate." %}',
-    networkError: '{% trans "Network error. Please try again." %}'
-  };
-</script>
-<script src="{% static 'finances/js/profile.js' %}?v=20260626-001" defer></script>
+{# Issue #44 (comment 322): CSP compliance — translations served as a JSON data #}
+{# block (script-src 'self' forbids inline executable scripts); profile.js parses it. #}
+<script type="application/json" id="profile-i18n">{
+    "adminMode": "{% trans "Admin Mode" %}",
+    "elevationWarning": "{% trans "You are about to enter Admin Mode. Please enter the admin password for your family to continue." %}",
+    "adminPassword": "{% trans "Admin password" %}",
+    "cancel": "{% trans "Cancel" %}",
+    "elevate": "{% trans "Elevate" %}",
+    "elevating": "{% trans "Elevating..." %}",
+    "failedElevate": "{% trans "Failed to elevate." %}",
+    "networkError": "{% trans "Network error. Please try again." %}"
+}</script>
+<script src="{% static 'finances/js/profile.js' %}?v=20261112-001" defer></script>
 {% endblock extra_js %}

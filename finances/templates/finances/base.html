@@ -89,6 +89,8 @@
         data-is-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}"
         data-decimal-separator="{{ decimal_separator }}" data-thousand-separator="{{ thousand_separator }}"
         data-currency-symbol="{{ currency_symbol }}"
+        data-active-currency="{{ active_currency|default:'' }}"
+        data-default-currency="{{ default_currency|default:'' }}"
         data-user-timezone="{{ user_timezone|default:'UTC' }}"
         data-i18n-error-loading-period-details="{% trans 'Error loading period details:' %}"
         data-i18n-error-loading-period="{% trans 'An error occurred while loading period details' %}"
@@ -131,11 +133,48 @@
 
             <nav class="flex flex-col justify-between flex-1 mt-6">
                 <div class="space-y-2">
-                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'dashboard' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
-                        href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
-                        <span class="material-symbols-outlined">dashboard</span>
-                        <span class="mx-4 font-medium">{% trans "Dashboard" %}</span>
-                    </a>
+                    <div id="currency-menu-wrapper" class="relative">
+                        <div class="flex items-center gap-1 pl-1 pr-1 py-1 rounded-md transition-colors {% if request.resolver_match.url_name == 'dashboard' %}bg-gray-100 dark:bg-gray-700{% else %}hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}">
+                            <a class="flex items-center flex-1 min-w-0 px-3 py-1.5 rounded-md {% if request.resolver_match.url_name == 'dashboard' %}text-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400{% endif %}"
+                                href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
+                                <span class="material-symbols-outlined">dashboard</span>
+                                <span class="mx-4 font-medium">{% trans "Dashboard" %}</span>
+                            </a>
+                            <button type="button" id="currency-menu-toggle" data-action="toggle-currency-menu"
+                                aria-expanded="false" aria-controls="currency-submenu" aria-haspopup="true"
+                                data-has-extras="{% if family_currencies|length > 1 %}true{% else %}false{% endif %}"
+                                title="{% trans 'Multi Currency' %}"
+                                class="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors {% if family_currencies|length > 1 %}bg-green-100 border border-green-600 text-green-700 dark:bg-green-900/40 dark:border-green-500 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/60{% else %}bg-gray-200 border border-transparent text-gray-500 dark:bg-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500{% endif %}">
+                                {% if family_currencies|length > 1 %}
+                                {# Issue #44 (comment 322): show the active currency whenever several exist #}
+                                <span class="text-[10px] font-bold leading-none tracking-tight">{{ active_currency }}</span>
+                                {% else %}
+                                <span class="material-symbols-outlined text-base">currency_exchange</span>
+                                {% endif %}
+                            </button>
+                        </div>
+                        {% if family_currencies|length > 1 or not is_child %}
+                        <div id="currency-submenu" role="menu" aria-label="{% trans 'Currencies' %}"
+                            class="currency-submenu absolute left-0 right-0 top-full mt-1 z-30 px-2 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
+                            <div class="flex items-center gap-1 flex-wrap">
+                                {% if family_currencies|length > 1 %}
+                                {% for code in family_currencies %}
+                                <a href="{% url 'dashboard' %}{% if selected_period %}?period={{ selected_period }}&currency={{ code }}{% else %}?currency={{ code }}{% endif %}"
+                                    data-action="select-currency" data-currency="{{ code }}" role="menuitem"
+                                    {# Issue #44 (comment 322): larger chips on touch screens (+25% hit target) #}
+                                    class="currency-chip inline-flex items-center gap-0.5 px-2.5 py-1 rounded text-sm font-semibold md:px-2 md:py-0.5 md:text-xs {% if code == active_currency %}bg-green-500 text-white{% else %}bg-green-100 border border-green-600 text-green-700 dark:bg-green-900/40 dark:border-green-500 dark:text-green-300{% endif %} hover:brightness-95 transition-colors">{{ code }}</a>
+                                {% endfor %}
+                                {% endif %}
+                                {% if not is_child %}
+                                <button type="button" data-action="add-currency" title="{% trans 'Add Currency' %}" aria-label="{% trans 'Add Currency' %}"
+                                    class="ml-auto inline-flex items-center justify-center w-6 h-6 rounded bg-green-100 border border-green-600 text-green-700 dark:bg-green-900/40 dark:border-green-500 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors">
+                                    <span class="material-symbols-outlined text-sm">add</span>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
 
                     <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'shop_lists_dashboard' or request.resolver_match.url_name == 'edit_shop_list' or request.resolver_match.url_name == 'add_shop_list' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
                         href="{% url 'shop_lists_dashboard' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
@@ -144,11 +183,10 @@
                     </a>
 
                     {% if not is_child %}
-                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'investments' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
+                    <a class="flex items-center px-4 py-2 rounded-md {% if request.resolver_match.url_name == 'investments' or request.resolver_match.url_name == 'investment_detail' %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-200{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}"
                         href="{% url 'investments' %}{% if selected_period %}?period={{ selected_period }}{% endif %}">
                         <span class="material-symbols-outlined">trending_up</span>
                         <span class="mx-4 font-medium">{% trans "Investments" %}</span>
-                        <span class="text-xs font-normal text-teal-600 dark:text-teal-500 ml-auto">{% trans "Soon" %}</span>
                     </a>
                     {% endif %}
 
@@ -618,12 +656,34 @@
     <script src="{% static 'finances/js/generic_modal.js' %}?v=20260125-001" defer></script>
 
     <!-- PHASE 3: Event Delegation Manager -->
-    <script src="{% static 'finances/js/event_delegation.js' %}?v=20261104-001" defer></script>
+    <script src="{% static 'finances/js/event_delegation.js' %}?v=20261112-001" defer></script>
 
     <!-- PHASE 3 CSP Compliance: All inline scripts moved to external base.js -->
     <!-- This file handles: Dark mode, DPI scaling, Periods, Admin warning, PWA, WebSocket, UI Components -->
     <!-- NOTE: NO defer - dark mode init must run immediately to prevent FOUC -->
-    <script src="{% static 'finances/js/base.js' %}?v=20260622-001"></script>
+    <script src="{% static 'finances/js/base.js' %}?v=20261109-001"></script>
+
+    {% if user.is_authenticated %}
+    <!-- Multi-currency sidebar menu (v1.8.0) -->
+    <div id="currency-menu-data" class="hidden"
+         data-choices="{{ currency_choices_json }}"
+         data-currencies="{{ family_currencies_json }}"
+         data-can-manage="{% if not is_child %}true{% else %}false{% endif %}"
+         data-url-add="{% url 'add_family_currency_ajax' %}"
+         data-url-remove="{% url 'remove_family_currency_ajax' %}"></div>
+    <script type="application/json" id="currency-menu-i18n">{
+        "addCurrency": "{% trans 'Add Currency' %}",
+        "currency": "{% trans 'Currency' %}",
+        "add": "{% trans 'Add' %}",
+        "cancel": "{% trans 'Cancel' %}",
+        "confirmTitle": "{% trans 'Confirm Action' %}",
+        "removeConfirm": "{% trans 'Remove this currency? Its chip will disappear; the data is kept.' %}",
+        "removeHint": "{% trans 'Removing a currency only hides its chip; its data is kept.' %}",
+        "limitReached": "{% trans 'Currency limit reached: a family can have at most 3 currencies.' %}",
+        "errorGeneric": "{% trans 'A server error occurred.' %}"
+    }</script>
+    <script src="{% static 'finances/js/currency_menu.js' %}?v=20261114-001" defer></script>
+    {% endif %}
 </body>
 
 </html>

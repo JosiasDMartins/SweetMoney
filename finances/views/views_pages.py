@@ -27,6 +27,7 @@ from ..utils import (
     get_period_currency,
     get_member_role_for_period
 )
+from ..utils.credit_card_utils import get_group_next_bill_total
 from ..forms import (
     FamilyConfigurationForm, FlowGroupForm, InvestmentForm,
     ShopListForm, NewUserAndMemberForm
@@ -45,16 +46,19 @@ from .views_utils import (
     get_periods_history,
     get_year_to_date_metrics,
     get_currency_symbol,
+    get_available_investment_balance,
     get_balance_summary,
     money_to_decimal,
     VERSION,
 )
 
 
-def build_credit_cards_context(family, start_date, member_role):
+def build_credit_cards_context(family, start_date, member_role, currency=None):
     """Builds the Credit Cards box data for the dashboard (cards + bill totals)."""
     from ..models import FlowGroup
-    from ..utils.credit_card_utils import get_card_bill_total, is_card_bill_overdue
+    from ..utils.credit_card_utils import (
+        get_card_bill_total, get_card_next_bill_total, is_card_bill_overdue
+    )
 
     cards_qs = FlowGroup.objects.filter(
         family=family,
@@ -62,6 +66,10 @@ def build_credit_cards_context(family, start_date, member_role):
         is_credit_card=True,
         linked_card__isnull=True
     ).select_related('linked_card').order_by('order', 'name')
+
+    if currency:
+        from ..utils.currency_utils import flowgroup_currency_q
+        cards_qs = cards_qs.filter(flowgroup_currency_q(family, currency))
 
     can_manage = member_role in ['ADMIN', 'PARENT']
     cards_data = []
@@ -77,6 +85,7 @@ def build_credit_cards_context(family, start_date, member_role):
             'closed': card.closed,
             'order': card.order,
             'bill_total': bill_total,
+            'next_bill_total': get_card_next_bill_total(card, start_date),
             'bill_overdue': is_card_bill_overdue(card, start_date),
             'over_budget': bool(budgeted) and bill_total > budgeted,
             'budgeted_amount': budgeted,
@@ -112,13 +121,18 @@ def dashboard_view(request):
     ensure_recurring_data_for_period(family, start_date)
 
     member_role_for_period = get_member_role_for_period(current_member, start_date)
-    
+
+    # Multi-currency silo for this request (?currency= wins over session)
+    from ..utils.currency_utils import get_active_currency
+    active_currency = get_active_currency(request, family)
+
     accessible_expense_groups, display_only_expense_groups = get_visible_flow_groups_for_dashboard(
-        family, 
-        current_member, 
-        start_date, 
+        family,
+        current_member,
+        start_date,
         group_type_filter=FLOW_TYPE_EXPENSE,
-        exclude_cards=True
+        exclude_cards=True,
+        currency=active_currency
     )
     
     # Annotate accessible groups
@@ -183,6 +197,9 @@ def dashboard_view(request):
         group.credit_card_pending = group.credit_card_pending.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.is_accessible = True
 
+        # Issue #44 (comment 322): next-bill split for open credit-card groups
+        group.credit_card_next = get_group_next_bill_total(group, start_date)
+
         # Card link indicator for groups attached to a credit card
         group.linked_card_name = group.linked_card.name if group.linked_card_id else None
 
@@ -216,6 +233,9 @@ def dashboard_view(request):
         group.credit_card_pending = group.credit_card_pending.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         group.is_accessible = False
 
+        # Issue #44 (comment 322): next-bill split for open credit-card groups
+        group.credit_card_next = get_group_next_bill_total(group, start_date)
+
         # Card link indicator for groups attached to a credit card
         group.linked_card_name = group.linked_card.name if group.linked_card_id else None
 
@@ -227,7 +247,7 @@ def dashboard_view(request):
     expense_groups = list(accessible_expense_groups) + list(display_only_expense_groups)
 
     # Get all balance calculations from the centralized function
-    balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date)
+    balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date, currency=active_currency)
 
     summary_totals = balance_data['summary_totals']
     recent_income_transactions = balance_data['recent_income_transactions']
@@ -239,23 +259,26 @@ def dashboard_view(request):
     
     child_can_create_groups = False
     if member_role_for_period == 'CHILD':
-        child_manual_sum = Transaction.objects.filter(
+        child_manual_sum_q = Transaction.objects.filter(
             flow_group__group_type=FLOW_TYPE_INCOME,
             flow_group__period_start_date=start_date,
             member=current_member,
             is_child_manual_income=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        from ..utils.currency_utils import flowgroup_currency_q
+        child_manual_sum_q = child_manual_sum_q.filter(flowgroup_currency_q(family, active_currency, prefix='flow_group__'))
+        child_manual_sum = child_manual_sum_q.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         child_manual_income_total = money_to_decimal(child_manual_sum)
         child_can_create_groups = child_manual_income_total > Decimal('0.00')
 
     # Trend chart should always be based on actual current period (today), not selected period
     actual_current_start, _, _ = get_current_period_dates(family, None)
-    periods_history = get_periods_history(family, actual_current_start)
-    ytd_metrics = get_year_to_date_metrics(family, end_date, current_member)
+    periods_history = get_periods_history(family, actual_current_start, currency=active_currency)
+    ytd_metrics = get_year_to_date_metrics(family, end_date, current_member, currency=active_currency)
 
     # Credit Cards box (v1.7.2): cards + current bill totals
-    credit_cards_data = build_credit_cards_context(family, start_date, member_role_for_period)
+    credit_cards_data = build_credit_cards_context(family, start_date, member_role_for_period, currency=active_currency)
 
     context = {
         'start_date': start_date,
@@ -278,8 +301,7 @@ def dashboard_view(request):
         'can_manage_credit_cards': credit_cards_data['can_manage'],
     }
         
-    period_currency = get_period_currency(family, start_date)
-    context['currency_symbol'] = get_currency_symbol(period_currency)
+    context['currency_symbol'] = get_currency_symbol(active_currency)
     context.update(get_base_template_context(family, query_period, start_date))
     
     return render(request, 'finances/dashboard.html', context)
@@ -481,6 +503,7 @@ def configuration_view(request):
 
             if currency_changed:
                 new_currency = new_config['base_currency']
+                old_currency = old_config.get('base_currency', new_currency)
                 period = ensure_period_exists(family, start_date, end_date, config.period_type)
 
                 if is_current_period:
@@ -496,12 +519,22 @@ def configuration_view(request):
                     config.save()
                     period.currency = new_currency
                     period.save()
-                    
+
                     # Atualiza dados no período atual
                     updated_groups = FlowGroup.objects.filter(family=family, period_start_date=start_date).update(budgeted_amount_currency=new_currency)
                     updated_transactions = Transaction.objects.filter(flow_group__family=family, flow_group__period_start_date=start_date).update(amount_currency=new_currency)
                     updated_balances = BankBalance.objects.filter(family=family, period_start_date=start_date).update(amount_currency=new_currency)
-                    updated_investments = Investment.objects.filter(family=family).update(amount_currency=new_currency) # Investimentos não são por período
+                    updated_investments = Investment.objects.filter(family=family).update(balance_currency=new_currency) # Investimentos não são por período
+
+                    # v1.8.0: renaming the base currency migrates the default
+                    # currency silo (legacy '' groups included) in ALL periods,
+                    # so no records are orphaned outside every chip.
+                    from django.db.models import Q as _Q
+                    FlowGroup.objects.filter(family=family).filter(
+                        _Q(currency='') | _Q(currency=old_currency)
+                    ).exclude(currency=new_currency).update(currency=new_currency)
+                    Investment.objects.filter(family=family, currency=old_currency).update(
+                        currency=new_currency, balance_currency=new_currency)
                     
                     messages.success(
                         request,
@@ -621,6 +654,11 @@ def bank_reconciliation_view(request):
     query_period = request.GET.get('period')
     start_date, end_date, _unused = get_current_period_dates(family, query_period)
 
+    # Restrict everything to the requester's active currency silo (v1.8.0)
+    from ..utils.currency_utils import get_active_currency, flowgroup_currency_q
+    active_currency = get_active_currency(request, family)
+    fcq_trans = flowgroup_currency_q(family, active_currency, prefix='flow_group__')
+
     member_role_for_period = get_member_role_for_period(current_member, start_date)
 
     # Get mode from query string or FamilyConfiguration (shared across all family members)
@@ -634,7 +672,7 @@ def bank_reconciliation_view(request):
         mode = config.bank_reconciliation_mode
     
     # Get balance summary from the centralized function
-    balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date)
+    balance_data = get_balance_summary(family, current_member, family_members, start_date, end_date, currency=active_currency)
     
     # Extract realized income and expenses from balance_data
     total_income_calculated = balance_data['summary_totals']['total_realized_income']
@@ -642,7 +680,8 @@ def bank_reconciliation_view(request):
 
     bank_balances = BankBalance.objects.filter(
         family=family,
-        period_start_date=start_date
+        period_start_date=start_date,
+        amount_currency=active_currency
     ).order_by('member', '-date')
     
     # These transaction querysets are still needed for the detailed mode filtering by member.
@@ -653,14 +692,14 @@ def bank_reconciliation_view(request):
         flow_group__period_start_date=start_date,
         flow_group__group_type=FLOW_TYPE_INCOME,
         realized=True
-    )
+    ).filter(fcq_trans)
 
     expense_transactions = Transaction.objects.filter(
         flow_group__family=family,
         flow_group__period_start_date=start_date,
         flow_group__group_type__in=[EXPENSE_MAIN, EXPENSE_SECONDARY],
         realized=True
-    ).exclude(flow_group__is_investment=True)
+    ).exclude(flow_group__is_investment=True).filter(fcq_trans)
     
     if mode == 'general':
         # Use the calculated totals from get_balance_summary
@@ -787,6 +826,42 @@ def create_flow_group_view(request):
 
     query_period = request.GET.get('period') or request.POST.get('period')
     start_date, end_date, _unused = get_current_period_dates(family, query_period)
+
+    # Multi-currency silo for this request (?currency= wins over session)
+    from ..utils.currency_utils import get_active_currency
+    active_currency = get_active_currency(request, family)
+
+    def build_form_context(form):
+        """Shared context for the add-group page (GET and POST error re-renders)."""
+        default_date = get_default_date_for_period(start_date, end_date)
+        child_max_budget = None
+        if current_member.role == 'CHILD':
+            from ..utils.currency_utils import flowgroup_currency_q
+            child_sum = Transaction.objects.filter(
+                flow_group__group_type=FLOW_TYPE_INCOME,
+                flow_group__family=family,
+                flow_group__period_start_date=start_date,
+                member=current_member,
+                is_child_manual_income=True
+            ).filter(
+                flowgroup_currency_q(family, active_currency, prefix='flow_group__')
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            child_max_budget = money_to_decimal(child_sum)
+
+        context = {
+            'form': form,
+            'is_new': True,
+            'family_members': family_members,
+            'current_member': current_member,
+            'current_user_id': request.user.id,
+            'today_date': default_date.strftime('%Y-%m-%d'),
+            'start_date': start_date,
+            'end_date': end_date,
+            'child_max_budget': child_max_budget,
+        }
+        context.update(get_base_template_context(family, query_period, start_date))
+        return context
+
     if request.method == 'POST':
         form = FlowGroupForm(request.POST, family=family, period=start_date)
         if form.is_valid():
@@ -795,13 +870,16 @@ def create_flow_group_view(request):
             flow_group.owner = request.user
             flow_group.group_type = EXPENSE_MAIN
             flow_group.period_start_date = start_date
+            # Stamp the currency silo at creation time (v1.8.0)
+            flow_group.currency = active_currency
 
-            # Check for duplicate name in the same period
+            # Check for duplicate name in the same period AND currency silo
             group_name = form.cleaned_data.get('name')
             if FlowGroup.objects.filter(
                 family=family,
                 name=group_name,
-                period_start_date=start_date
+                period_start_date=start_date,
+                currency=active_currency
             ).exists():
                 error_message = _("A Flow Group with the name '%(name)s' already exists in this period.") % {'name': group_name}
 
@@ -813,26 +891,24 @@ def create_flow_group_view(request):
                         'error_type': 'duplicate_name'
                     }, status=400)
 
-                # Otherwise, add error to form and re-render
+                # Otherwise, add error to form and re-render the form page
                 form.add_error('name', error_message)
-                context = {
-                    'form': form, 'start_date': start_date, 'end_date': end_date,
-                    'current_member': current_member,
-                }
-                context.update(get_base_template_context(family, query_period, start_date))
-                return render(request, 'finances/add_flow_group.html', context)
+                return render(request, 'finances/FlowGroup.html', build_form_context(form))
 
-            currency = get_period_currency(family, start_date)
+            currency = active_currency
             budget_decimal = form.cleaned_data.get('budgeted_amount')
             flow_group.budgeted_amount = Money(budget_decimal, currency)
             
             if current_member.role == 'CHILD':
+                from ..utils.currency_utils import flowgroup_currency_q
                 child_manual_sum = Transaction.objects.filter(
                     flow_group__group_type=FLOW_TYPE_INCOME,
                     flow_group__family=family,
                     flow_group__period_start_date=start_date,
                     member=current_member,
                     is_child_manual_income=True
+                ).filter(
+                    flowgroup_currency_q(family, currency, prefix='flow_group__')
                 ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
                 
                 child_manual_income_total = money_to_decimal(child_manual_sum)
@@ -840,12 +916,7 @@ def create_flow_group_view(request):
 
                 if budget_value > child_manual_income_total:
                     messages.error(request, _("Budget cannot exceed your available balance (%(balance)s).") % {'balance': f'${child_manual_income_total}'})
-                    context = {
-                        'form': form, 'start_date': start_date, 'end_date': end_date,
-                        'current_member': current_member, 'child_max_budget': child_manual_income_total,
-                    }
-                    context.update(get_base_template_context(family, query_period, start_date))
-                    return render(request, 'finances/add_flow_group.html', context)
+                    return render(request, 'finances/FlowGroup.html', build_form_context(form))
                 
                 flow_group.is_shared = True
             
@@ -893,34 +964,7 @@ def create_flow_group_view(request):
     else:
         form = FlowGroupForm(family=family, period=start_date)
 
-    default_date = get_default_date_for_period(start_date, end_date)
-    
-    child_max_budget = None
-    if current_member.role == 'CHILD':
-        child_sum = Transaction.objects.filter(
-            flow_group__group_type=FLOW_TYPE_INCOME,
-            flow_group__family=family,
-            flow_group__period_start_date=start_date,
-            member=current_member,
-            is_child_manual_income=True
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        
-        child_max_budget = money_to_decimal(child_sum)
-
-   
-    context = {
-        'form': form,
-        'is_new': True,
-        'family_members': family_members,
-        'current_member': current_member,
-        'current_user_id': request.user.id,  # Current user ID for comparison
-        'today_date': default_date.strftime('%Y-%m-%d'),
-        'start_date': start_date,
-        'end_date': end_date,
-        'child_max_budget': child_max_budget,
-    }
-    context.update(get_base_template_context(family, query_period, start_date))
-    return render(request, 'finances/FlowGroup.html', context)
+    return render(request, 'finances/FlowGroup.html', build_form_context(form))
 
 
 @login_required
@@ -960,7 +1004,14 @@ def edit_flow_group_view(request, group_id):
         current_group_id = group.id
         current_period = group.period_start_date
 
-        form = FlowGroupForm(request.POST, instance=group, family=family, period=start_date)
+        # Bug 3.1 (v1.8.0): due_day of a closed card bill is locked on the
+        # detail page; clamp any submitted value back to the stored one.
+        if is_card_view and group.closed:
+            post_data = request.POST.copy()
+            post_data['due_day'] = '' if group.due_day is None else str(group.due_day)
+            form = FlowGroupForm(post_data, instance=group, family=family, period=start_date)
+        else:
+            form = FlowGroupForm(request.POST, instance=group, family=family, period=start_date)
 
         # Check for duplicate name validation error
         if not form.is_valid() and 'name' in form.errors:
@@ -990,6 +1041,7 @@ def edit_flow_group_view(request, group_id):
                 previous_group = FlowGroup.objects.filter(
                     family=family,
                     name=old_name,
+                    currency=group.currency,
                     period_start_date__lt=current_period,
                     is_recurring=True
                 ).exclude(id=current_group_id).order_by('-period_start_date').first()
@@ -1008,9 +1060,13 @@ def edit_flow_group_view(request, group_id):
             # NOW save the renamed group
             flow_group = form.save(commit=False)
 
-            currency = get_period_currency(family, start_date)
+            # Currency silo never changes on edit: the group keeps its own
+            # currency; legacy (empty) groups resolve to the period currency.
+            group_currency = flow_group.currency or get_period_currency(family, start_date)
+            if not flow_group.currency:
+                flow_group.currency = group_currency
             budget_decimal = form.cleaned_data.get('budgeted_amount')
-            flow_group.budgeted_amount = Money(budget_decimal, currency)
+            flow_group.budgeted_amount = Money(budget_decimal, group_currency)
 
             if flow_group.is_kids_group:
                 flow_group.is_shared = True
@@ -1074,8 +1130,18 @@ def edit_flow_group_view(request, group_id):
     total_realized = money_to_decimal(total_real)
 
     linked_transactions = []
+    card_bill_current = None
+    card_bill_next = None
+    card_has_next_bill = False
     if is_card_view:
-        from ..utils.credit_card_utils import get_card_bill_transactions
+        from ..utils.credit_card_utils import (
+            get_card_bill_transactions, get_card_bill_total, get_card_next_bill_total
+        )
+        # Issue #44 (comment 230): explicit current/next bill split for the
+        # card detail screen (comment 230, S4 — cards interface).
+        card_bill_current = get_card_bill_total(group, start_date)
+        card_bill_next = get_card_next_bill_total(group, start_date)
+        card_has_next_bill = card_bill_next is not None
         direct_ids = {t.id for t in transactions}
         bill_transactions = [
             t for t in get_card_bill_transactions(group, start_date)
@@ -1103,8 +1169,8 @@ def edit_flow_group_view(request, group_id):
     budget_warning = total_estimated > budg_amt_val if budg_amt_val else False
 
     default_date = get_default_date_for_period(start_date, end_date)
-    period_currency = get_period_currency(family, start_date)
-    currency_symbol = get_currency_symbol(period_currency)
+    group_currency = group.currency or get_period_currency(family, start_date)
+    currency_symbol = get_currency_symbol(group_currency)
 
     context = {
         'form': form,
@@ -1120,6 +1186,9 @@ def edit_flow_group_view(request, group_id):
         'today_date': default_date.strftime('%Y-%m-%d'),
         'total_estimated': total_estimated,
         'total_realized': total_realized,
+        'card_bill_current': money_to_decimal(card_bill_current) if card_bill_current is not None else None,
+        'card_bill_next': money_to_decimal(card_bill_next) if card_bill_next is not None else None,
+        'card_has_next_bill': card_has_next_bill,
         'budget_warning': budget_warning,
         'start_date': start_date,
         'end_date': end_date,
@@ -1385,7 +1454,12 @@ def remove_member_view(request, member_id):
 
 @login_required
 def investments_view(request):
-    """View for managing investments."""
+    """Investments screen: global grid (all currencies), silo-scoped summaries.
+
+    v1.8.0: the list shows every family investment with its currency badge
+    (Manager decision #218); the Available Balance and Total Invested cards
+    are scoped to the active currency silo.
+    """
     family, current_member, _unused2 = get_family_context(request.user)
     if not family:
         return redirect('dashboard')
@@ -1394,49 +1468,104 @@ def investments_view(request):
     if current_member.role == 'CHILD':
         messages.error(request, _("Child users cannot access investments."))
         return redirect('dashboard')
-    
+
+    from ..utils.currency_utils import get_active_currency, get_family_currencies
+    from ..investments.registry import PLUGINS
+
     query_period = request.GET.get('period')
-    
-    if request.method == 'POST':
-        form = InvestmentForm(request.POST)
-        if form.is_valid():
-            investment = form.save(commit=False)
-            investment.family = family
-            investment.save()
-            messages.success(request, _('Investment added.'))
-            redirect_url = f"/investments/?period={query_period}" if query_period else "/investments/"
-            return redirect(redirect_url)
-    else:
-        form = InvestmentForm()
+    start_date, end_date, _unused = get_current_period_dates(family, query_period)
+    active_currency = get_active_currency(request, family)
 
     investments = Investment.objects.filter(family=family).order_by('name')
-    start_date, end_date, _unused = get_current_period_dates(family, query_period)
+    total_invested = Decimal('0.00')
+    for investment in investments:
+        investment.plugin_label = str(investment.plugin.name) if investment.plugin else investment.plugin_code
+        investment.currency_symbol = get_currency_symbol(investment.currency)
+        if investment.currency == active_currency:
+            total_invested += money_to_decimal(investment.balance)
 
-    # Calculate available investment balance from FlowGroups marked as investment
-    # Sum all realized transactions in investment FlowGroups (YTD - Year to Date)
-    from datetime import date
-    year_start = date(end_date.year, 1, 1)
+    available_balance = get_available_investment_balance(family, active_currency, end_date)
 
-    investment_balance = Transaction.objects.filter(
-        flow_group__family=family,
-        flow_group__is_investment=True,
-        flow_group__period_start_date__range=(year_start, end_date),
-        realized=True
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-
-    # Convert Money to Decimal
-    available_balance = money_to_decimal(investment_balance)
+    currency_symbols = {
+        code: get_currency_symbol(code) for code in get_family_currencies(family)
+    }
+    for code in investments.values_list('currency', flat=True).distinct():
+        # Custom (International) records may use currencies outside the
+        # family chips; expose their symbols so cards render properly.
+        currency_symbols.setdefault(code, get_currency_symbol(code))
+    plugins_json = json.dumps([
+        {
+            'code': plugin.code,
+            'name': str(plugin.name),
+            'currency': plugin.currency,
+            'group': str(plugin.group or plugin.currency),
+        }
+        for plugin in PLUGINS.values()
+    ])
 
     context = {
-        'investment_form': form,
-        'family_investments': investments,
+        # Template iterates {% for item in investments %}; the previous
+        # 'family_investments' key never matched it, so the grid always
+        # rendered the empty placeholder (issue #44 comment 230, render fix).
+        'investments': investments,
+        'active_currency': active_currency,
         'start_date': start_date,
         'end_date': end_date,
-        'currency_symbol': get_currency_symbol(family.configuration.base_currency),
-        'available_balance': available_balance.quantize(Decimal('0.01'), rounding=ROUND_DOWN),
+        'currency_symbol': get_currency_symbol(active_currency),
+        'available_balance': available_balance,
+        'total_invested': total_invested.quantize(Decimal('0.01'), rounding=ROUND_DOWN),
+        'currency_symbols_json': json.dumps(currency_symbols),
+        'plugins_json': plugins_json,
     }
     context.update(get_base_template_context(family, query_period, start_date))
     return render(request, 'finances/invest.html', context)
+
+
+@login_required
+def investment_detail_view(request, investment_id):
+    """Investment detail: card data + full InvestmentEvent history (paged)."""
+    family, current_member, _unused2 = get_family_context(request.user)
+    if not family:
+        return redirect('dashboard')
+
+    # Block Child users from accessing investments
+    if current_member.role == 'CHILD':
+        messages.error(request, _("Child users cannot access investments."))
+        return redirect('dashboard')
+
+    investment = get_object_or_404(Investment, id=investment_id, family=family)
+    investment.plugin_label = str(investment.plugin.name) if investment.plugin else investment.plugin_code
+    investment.currency_symbol = get_currency_symbol(investment.currency)
+
+    query_period = request.GET.get('period')
+    start_date, _end_date, _unused = get_current_period_dates(family, query_period)
+
+    from django.core.paginator import Paginator
+    events_qs = investment.events.select_related('created_by').all()
+    paginator = Paginator(events_qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    events = []
+    for event in page_obj.object_list:
+        if event.created_by:
+            event.created_by_name = (
+                event.created_by.get_full_name() or event.created_by.username
+            )
+        else:
+            event.created_by_name = ''
+        events.append(event)
+
+    context = {
+        'investment': investment,
+        'events': events,
+        'page': page_obj.number,
+        'has_previous': page_obj.has_previous(),
+        'has_next': page_obj.has_next(),
+        'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None,
+        'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+    }
+    context.update(get_base_template_context(family, query_period, start_date))
+    return render(request, 'finances/investment_detail.html', context)
 
 
 @login_required
@@ -1445,7 +1574,9 @@ def add_receipt_view(request):
     family, _unused1, _unused2 = get_family_context(request.user)
     query_period = request.GET.get('period')
     start_date, _unused1, _unused2 = get_current_period_dates(family, query_period)
-    income_group = get_default_income_flow_group(family, request.user, start_date)
+    from ..utils.currency_utils import get_active_currency
+    active_currency = get_active_currency(request, family)
+    income_group = get_default_income_flow_group(family, request.user, start_date, currency=active_currency)
     
     redirect_url = f"?period={query_period}" if query_period else ""
     return redirect(f"/flow-group/{income_group.id}/edit/{redirect_url}")
@@ -1500,12 +1631,13 @@ def shop_lists_dashboard_view(request):
     # Evaluate queryset once and attach total_amount_value to each instance.
     # Must convert to list — if we pass a QuerySet to the template, Django will
     # re-evaluate it during iteration, losing the dynamically set attributes.
+    config = getattr(family, 'configuration', None)
+    currency = config.base_currency if config else 'USD'
+
     shop_lists = list(shop_lists_qs)
     for sl in shop_lists:
         sl.total_amount_value = money_to_decimal(sl.total_amount)
-
-    config = getattr(family, 'configuration', None)
-    currency = config.base_currency if config else 'USD'
+        sl.currency_symbol = get_currency_symbol(sl.currency or currency)
 
     context = {
         'shop_lists': shop_lists,
@@ -1539,7 +1671,10 @@ def create_shop_list_view(request):
         elif request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'error': form.errors.as_json()}, status=400)
     else:
-        form = ShopListForm(family=family, current_member=current_member)
+        from ..utils.currency_utils import get_active_currency
+        form = ShopListForm(
+            family=family, current_member=current_member,
+            default_currency=get_active_currency(request, family))
 
     config = getattr(family, 'configuration', None)
     currency = config.base_currency if config else 'USD'
@@ -1602,7 +1737,7 @@ def edit_shop_list_view(request, list_id):
     is_just_cloned = str(request.session.get('pending_clone_id', '')) == str(shop_list.id)
 
     config = getattr(family, 'configuration', None)
-    currency = config.base_currency if config else 'USD'
+    currency = shop_list.currency or (config.base_currency if config else 'USD')
 
     context = {
         'form': form,

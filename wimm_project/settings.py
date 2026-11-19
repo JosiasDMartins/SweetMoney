@@ -87,6 +87,7 @@ TEMPLATES = [
                 'finances.context_processors.notifications_processor',
                 'finances.context_processors.user_timezone_processor',
                 'finances.context_processors.locale_settings',
+                'finances.context_processors.currency_menu',
             ],
         },
     },
@@ -235,6 +236,10 @@ CONTENT_SECURITY_POLICY = {
         ),
         'font-src': ("'self'",),
         'connect-src': ("'self'",),  # Configure in local_settings.py for WebSocket
+        # Issue #44 (comment 322): PWA manifest link rel="manifest" needs an
+        # explicit manifest-src; without it the fetch falls back to
+        # default-src and the browser logs a policy violation on /manifest.json
+        'manifest-src': ("'self'",),
         'frame-src': ("'none'",),
         'object-src': ("'none'",),
         'base-uri': ("'self'",),

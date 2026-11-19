@@ -66,14 +66,15 @@ def get_card_bill_transactions(card, period_start_date):
     cycle matches the period's month count towards the bill.
     """
     groups = list(get_card_groups(card))
+    current_ids = {g.pk for g in groups}
     if card.due_day is not None:
-        seen_ids = {g.pk for g in groups}
         lineage = list(FlowGroup.objects.filter(
             family=card.family,
             name=card.name,
+            currency=card.currency,
             is_credit_card=True,
             linked_card__isnull=True,
-        ).exclude(pk__in=seen_ids))
+        ).exclude(pk__in=current_ids))
         lineage_ids = [g.pk for g in lineage]
         linked = list(FlowGroup.objects.filter(
             family=card.family,
@@ -84,8 +85,15 @@ def get_card_bill_transactions(card, period_start_date):
     result = []
     seen_transactions = set()
     for group in groups:
+        # Bug 3.2 (v1.8.0): recurring (fixed) transactions are owned by the
+        # recurring engine, which replicates them into every period. The bill
+        # advance must only pull one-off post-closing expenses from previous
+        # period copies (lineage), never the engine's own fixed copies.
+        from_lineage = group.pk not in current_ids
         for transaction in group.transactions.all():
             if transaction.pk in seen_transactions:
+                continue
+            if from_lineage and transaction.is_fixed:
                 continue
             if transaction_in_card_bill(
                 transaction.date, card.due_day, period_start_date
@@ -100,6 +108,60 @@ def get_card_bill_total(card, period_start_date):
     total = Decimal('0.00')
     for transaction in get_card_bill_transactions(card, period_start_date):
         total += transaction.amount.amount
+    return total.quantize(Decimal('0.01'))
+
+
+def get_next_bill_start(period_start_date):
+    """First day of the month following the period's billing month."""
+    year, month = period_start_date.year, period_start_date.month
+    if month == 12:
+        return date(year + 1, 1, 1)
+    return date(year, month + 1, 1)
+
+
+def get_card_next_bill_total(card, period_start_date):
+    """Sum committed to the NEXT month's bill (post-due-day entries).
+
+    Issue #44 (comment 230): the cards interface shows the current and the
+    next bill side by side so the user can plan around what is already
+    committed to the following bill.
+
+    Returns ``None`` for cards without a ``due_day``: those bills close only
+    manually, so a "next bill" projection would just repeat the current one
+    (every transaction matches every month). Callers must hide the split
+    display instead of rendering a misleading duplicate.
+    """
+    if not getattr(card, 'due_day', None):
+        return None
+    return get_card_bill_total(card, get_next_bill_start(period_start_date))
+
+
+def get_group_next_bill_total(group, period_start_date):
+    """Sum of THIS group's transactions committed to the next bill.
+
+    Issue #44 (comment 322): the dashboard expense table shows the current
+    bill pending for open credit-card groups; this projection completes the
+    current/next split at group scope (the card-level split lives in the
+    Credit Cards box and the card detail page).
+
+    Uses the same billing-cycle predicate as the card-level split, so a
+    post-due-day expense lands in the next bill exactly like on the card's
+    own view. Returns ``None`` when no due day applies (no split exists)
+    or for non credit-card groups.
+    """
+    if not getattr(group, 'is_credit_card', False):
+        return None
+    if group.linked_card_id is not None:
+        due_day = getattr(group.linked_card, 'due_day', None)
+    else:
+        due_day = getattr(group, 'due_day', None)
+    if not due_day:
+        return None
+    next_start = get_next_bill_start(period_start_date)
+    total = Decimal('0.00')
+    for transaction in group.transactions.all():
+        if get_billing_period(transaction.date, due_day) == next_start:
+            total += transaction.amount.amount
     return total.quantize(Decimal('0.01'))
 
 

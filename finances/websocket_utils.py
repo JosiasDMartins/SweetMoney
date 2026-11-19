@@ -5,7 +5,6 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 from finances.websocket_sanitizer import sanitize_broadcast_data
-from .views.views_utils import money_to_decimal
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +102,7 @@ class WebSocketBroadcaster:
                 'is_card': transaction.flow_group.is_card,
                 'linked_card_id': transaction.flow_group.linked_card_id,
                 'due_day': transaction.flow_group.due_day,
+                'currency': transaction.flow_group.currency,
             },
             'member': transaction.member.user.username if transaction.member else None,
             'member_id': transaction.member.id if transaction.member else None,
@@ -120,40 +120,11 @@ class WebSocketBroadcaster:
 
     @staticmethod
     def broadcast_transaction_updated(transaction, actor_user):
-        """Broadcast transaction update"""
-        from .views.views_utils import get_currency_symbol
-
-        # Extract numeric amount and currency code
-        amount_value = str(transaction.amount.amount)
-        currency_code = transaction.amount.currency.code
-        currency_symbol = get_currency_symbol(currency_code)
-
+        """Broadcast transaction update (canonical payload, issue #41)"""
         WebSocketBroadcaster.broadcast_to_family(
             family_id=transaction.flow_group.family.id,
             message_type='transaction_updated',
-            data={
-                'id': transaction.id,
-                'description': transaction.description,
-                'amount': amount_value,
-                'currency': currency_code,
-                'currency_symbol': currency_symbol,
-                'date': transaction.date.isoformat(),
-                'realized': transaction.realized,
-                'is_income': transaction.flow_group.group_type == 'INCOME',
-                'is_investment': transaction.flow_group.is_investment,
-                'is_fixed': getattr(transaction, 'is_fixed', False),
-                'flow_group': {
-                    'id': transaction.flow_group.id,
-                    'name': transaction.flow_group.name,
-                    'type': transaction.flow_group.group_type,
-                    'is_credit_card': transaction.flow_group.is_credit_card,
-                    'is_card': transaction.flow_group.is_card,
-                    'linked_card_id': transaction.flow_group.linked_card_id,
-                    'due_day': transaction.flow_group.due_day,
-                },
-                'member': transaction.member.user.username if transaction.member else None,
-                'member_id': transaction.member.id if transaction.member else None,
-            },
+            data=WebSocketBroadcaster.transaction_payload(transaction),
             actor_user=actor_user
         )
 
@@ -239,15 +210,43 @@ class WebSocketBroadcaster:
         if flowgroup.group_type in ['EXPENSE_MAIN', 'EXPENSE_SECONDARY']:
             budget_warning = estimated_total > budgeted
 
+        # Issue #44 (comment 322): next-bill commitment travels with every
+        # FlowGroup broadcast. Card containers carry the card-level split
+        # (lineage-aware, same source as the detail page); linked groups
+        # carry the group-scoped projection used by the dashboard table.
+        next_bill_total = None
+        if getattr(flowgroup, 'is_credit_card', False):
+            from .utils.credit_card_utils import (
+                get_card_next_bill_total,
+                get_group_next_bill_total,
+            )
+
+            if flowgroup.linked_card_id is None:
+                card_next = get_card_next_bill_total(
+                    flowgroup, flowgroup.period_start_date
+                )
+                next_bill_total = (
+                    str(card_next) if card_next is not None else None
+                )
+            else:
+                group_next = get_group_next_bill_total(
+                    flowgroup, flowgroup.period_start_date
+                )
+                next_bill_total = (
+                    str(group_next) if group_next is not None else None
+                )
+
         return {
             'id': flowgroup.id,
             'name': flowgroup.name,
             'owner_id': flowgroup.owner_id if hasattr(flowgroup, 'owner_id') else None,
             'budgeted_amount': str(flowgroup.budgeted_amount.amount) if flowgroup.budgeted_amount else '0.00',
             'currency': flowgroup.budgeted_amount.currency.code if flowgroup.budgeted_amount else '',
+            'group_currency': flowgroup.currency,
             'total_estimated': str(estimated_total),
             'total_realized': str(realized_total),
             'budget_warning': budget_warning,
+            'next_bill_total': next_bill_total,
             'is_shared': flowgroup.is_shared,
             'is_kids_group': flowgroup.is_kids_group,
             'is_investment': flowgroup.is_investment,
@@ -278,19 +277,56 @@ class WebSocketBroadcaster:
         }
 
     @staticmethod
+    def broadcast_investment_updated(investment, actor_user=None):
+        """Canonical investment payload: WebSocket broadcast AND AJAX
+        responses use the same dict (issue #41 pattern)."""
+        WebSocketBroadcaster.broadcast_to_family(
+            family_id=investment.family_id,
+            message_type='investment_updated',
+            data=WebSocketBroadcaster.investment_payload(investment),
+            actor_user=actor_user
+        )
+
+    @staticmethod
+    def investment_payload(investment):
+        """Canonical serialized form of an investment (global screen,
+        per-record currency badge)."""
+        plugin = investment.plugin
+        return {
+            'id': investment.id,
+            'name': investment.name,
+            'plugin_code': investment.plugin_code,
+            'plugin_name': str(plugin.name),
+            'supports_interest': plugin.supports_interest,
+            'currency': investment.currency or (
+                investment.balance.currency.code if investment.balance else ''),
+            'balance': str(investment.balance.amount),
+            'annual_rate': str(investment.annual_rate) if investment.annual_rate is not None else None,
+            'maturity_date': investment.maturity_date.isoformat() if investment.maturity_date else None,
+            'ir_rate': str(investment.ir_rate),
+        }
+
+    @staticmethod
     def broadcast_bank_balance_updated(bank_balance, actor_user):
         """Broadcast bank balance update"""
         from django.db.models import Sum
         from .models import BankBalance
         from decimal import Decimal
 
-        # Calculate total bank balance for the period
+        # Calculate total bank balance for the period (same currency silo)
         tot_bank = BankBalance.objects.filter(
             family=bank_balance.family,
-            period_start_date=bank_balance.period_start_date
+            period_start_date=bank_balance.period_start_date,
+            amount_currency=bank_balance.amount_currency
         ).aggregate(total=Sum('amount'))['total']
 
         # Handle Money object or None
+        # Imported lazily: views.* imports websocket_utils at module level,
+        # so a module-level import here creates a circular import whenever
+        # websocket_utils is the first `finances` module loaded (e.g. by the
+        # investment deposit/withdraw helpers).
+        from .views.views_utils import money_to_decimal
+
         total_bank_balance = money_to_decimal(tot_bank)
 
         WebSocketBroadcaster.broadcast_to_family(
@@ -300,6 +336,7 @@ class WebSocketBroadcaster:
                 'id': bank_balance.id,
                 'description': bank_balance.description,
                 'amount': str(bank_balance.amount.amount),
+                'currency': bank_balance.amount_currency,
                 'date': bank_balance.date.strftime('%Y-%m-%d'),
                 'member_id': bank_balance.member.id if bank_balance.member else None,
                 'member_name': bank_balance.member.user.username if bank_balance.member else 'Family',

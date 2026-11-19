@@ -85,17 +85,65 @@ class SystemVersion(models.Model):
 
     @classmethod
     def get_current_version(cls):
-        """Returns the current version stored in DB, or None if not set."""
+        """Returns the current version stored in DB, or None if not set.
+
+        Normalizes separator corruption (a stored '1.7,2' reads as '1.7.2'):
+        a comma-corrupted version must never keep the update loop running,
+        because every comparison against the code version would fail and
+        re-advertise the update (issue #44 comment 230).
+        """
         version_obj = cls.objects.first()
-        return version_obj.version if version_obj else None
+        if version_obj is None:
+            return None
+        return (version_obj.version or '').strip().replace(',', '.') or None
 
     @classmethod
     def set_version(cls, version):
-        """Sets or updates the system version in DB."""
+        """Sets or updates the system version in DB.
+
+        Write-side normalization mirrors get_current_version: the stored
+        value is stripped and comma-normalized so corruption never reaches
+        the DB row (issue #44 comment 230 — defense in depth; the read side
+        stays normalized regardless).
+        """
         version_obj, created = cls.objects.get_or_create(id=1)
-        version_obj.version = version
+        version_obj.version = (version or '').strip().replace(',', '.') or None
         version_obj.save()
         return version_obj
+
+
+class UpdatePhaseState(models.Model):
+    """Persistent marker that the post-update automatic phase (migrations +
+    update scripts) already ran successfully for a target code version.
+
+    The previous guard was session-scoped, so every fresh browser session
+    and every server reboot re-executed the update scripts while the DB
+    version lagged behind (issue #44 comment 230). The phase must run ONCE
+    per target version, for every session and device.
+    """
+
+    target_version = models.CharField(max_length=50, unique=True)
+    applied_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Update Phase State")
+        verbose_name_plural = _("Update Phase States")
+
+    def __str__(self):
+        return f"phase applied for v{self.target_version}"
+
+    @classmethod
+    def has_run_for(cls, target_version):
+        return cls.objects.filter(target_version=target_version).exists()
+
+    @classmethod
+    def mark_run_for(cls, target_version):
+        obj, _created = cls.objects.get_or_create(target_version=target_version)
+        return obj
+
+    @classmethod
+    def clear_for(cls, target_version):
+        cls.objects.filter(target_version=target_version).delete()
 
 
 class SkippedUpdate(models.Model):
@@ -212,6 +260,26 @@ class FamilyConfiguration(models.Model):
 
     def __str__(self):
         return f"Config for {self.family.name}"
+
+class FamilyCurrency(models.Model):
+    """Secondary currency enabled for a family (multi-currency v1.8.0).
+
+    The default currency is NOT stored here: it is always derived from
+    FamilyConfiguration.base_currency, which is an effective family currency
+    even with no rows in this table (single source of truth).
+    """
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='currencies')
+    code = models.CharField(max_length=3)   # ISO code, ex.: 'CAD'
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('family', 'code')
+        verbose_name = _("Family Currency")
+        verbose_name_plural = _("Family Currencies")
+
+    def __str__(self):
+        return f"{self.family.name} - {self.code}"
+
 
 class Period(models.Model):
     """
@@ -352,12 +420,23 @@ class FlowGroup(models.Model):
     )
 
     # For reordering FlowGroups in a list/dashboard
-    order = models.PositiveIntegerField(default=0, db_index=True) 
+    order = models.PositiveIntegerField(default=0, db_index=True)
+
+    # Currency silo (multi-currency v1.8.0): which family currency this
+    # group belongs to. Empty = legacy group (treated as the family's
+    # default currency until the OTA backfill runs).
+    currency = models.CharField(
+        max_length=3,
+        default='',
+        help_text=_("Currency code this group belongs to (empty = family default)")
+    )
 
     class Meta:
         ordering = ['group_type', 'order', 'name']
-        # FlowGroups are unique per family, name, and period
-        unique_together = ('family', 'name', 'period_start_date')
+        # FlowGroups are unique per family, name, period and currency silo:
+        # the same name may exist in different currency silos of the same
+        # period (independent instances), but never twice in one silo.
+        unique_together = ('family', 'name', 'period_start_date', 'currency')
         
     def __str__(self):
         return f"{self.name} ({self.family.name}) - {self.period_start_date}"
@@ -443,21 +522,90 @@ class FlowGroupAccess(models.Model):
 
 # --- Investment Model ---
 class Investment(models.Model):
-    """Simple model for tracking family investments."""
+    """Family investment record bound to an add-in plugin (v1.8.0)."""
+
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='investments')
     name = models.CharField(max_length=150)
-    
-    # ATUALIZADO: MoneyField com moeda
-    amount = MoneyField(
+    plugin_code = models.CharField(
+        max_length=30,
+        default='cash',
+        help_text=_('Investment type (add-in plugin code).')
+    )
+    currency = models.CharField(max_length=3, default='')
+    annual_rate = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=_('Manual fixed annual interest rate in percent (e.g. 13.1500).')
+    )
+    balance = MoneyField(
         max_digits=15,
         decimal_places=2,
         default_currency='USD',
         default=Decimal('0.00')
     )
-    
-    family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='investments')
-    
+    maturity_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text=_('Optional maturity date (GIC).')
+    )
+    ir_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0'),
+        help_text=_('Simplified income-tax rate in percent (RDB).')
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    @property
+    def plugin(self):
+        from .investments.registry import get_plugin
+        return get_plugin(self.plugin_code)
+
     def __str__(self):
-        return f"{self.name} ({self.amount})"
+        return f"{self.name} ({self.balance})"
+
+
+class InvestmentEvent(models.Model):
+    """Immutable history entry of an investment balance change (v1.8.0)."""
+
+    EVENT_DEPOSIT = 'DEPOSIT'
+    EVENT_WITHDRAWAL = 'WITHDRAWAL'
+    EVENT_INTEREST = 'INTEREST'
+    EVENT_ADJUSTMENT = 'ADJUSTMENT'
+    EVENT_DEDUCTED = 'DEDUCTED_FROM_AVAILABLE'
+
+    EVENT_TYPE_CHOICES = [
+        (EVENT_DEPOSIT, _('Deposit')),
+        (EVENT_WITHDRAWAL, _('Withdrawal')),
+        (EVENT_INTEREST, _('Interest')),
+        (EVENT_ADJUSTMENT, _('Adjustment')),
+        (EVENT_DEDUCTED, _('Deducted from available balance')),
+    ]
+
+    investment = models.ForeignKey(Investment, on_delete=models.CASCADE, related_name='events')
+    event_type = models.CharField(max_length=30, choices=EVENT_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=15, decimal_places=2)
+    note = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='investment_events'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.investment.name} {self.event_type} {self.amount}"
 
 
 # --- Shopping List Models ---
@@ -467,6 +615,8 @@ class ShopList(models.Model):
     family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name='shop_lists')
     owner = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='owned_shop_lists')
     is_shared = models.BooleanField(default=False)
+    currency = models.CharField(max_length=3, default='', help_text=_(
+        'Currency of this list (per-record; blank means the family base currency).'))
     assigned_members = models.ManyToManyField(
         FamilyMember,
         blank=True,

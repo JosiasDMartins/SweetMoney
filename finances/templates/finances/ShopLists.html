@@ -58,6 +58,14 @@
                             {{ form.name }}
                         </div>
                     </div>
+                    <!-- Per-record currency (v1.8.0) -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1" for="{{ form.currency.id_for_label }}">{% trans "Currency" %}</label>
+                        <div style="width: 110px;">
+                            {{ form.currency }}
+                        </div>
+                        {{ form.currency.errors }}
+                    </div>
                     <!-- Mobile: Total -->
                     <div class="lg:hidden">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{% trans "Total" %}</label>

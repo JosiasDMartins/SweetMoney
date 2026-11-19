@@ -1,10 +1,44 @@
 /**
  * Real-time Updates for Dashboard
  * Handles WebSocket broadcasts to update the income transactions list
- * Version: 20261104-001 - card-parity in addFlowGroup + linked-card indicator sync
+ * Version: 20261112-001 - credit-card next-bill split in expense table rows
  */
 (function() {
     'use strict';
+
+    /**
+     * Issue #44 (comment 322): keep the credit-card next-bill line of an
+     * expense-table row in sync with flowgroup broadcasts. Creates the line
+     * for card groups when the payload carries a value, removes it when the
+     * split no longer applies (null payload), leaves other groups untouched.
+     */
+    function updateGroupNextBill(realizedCell, flowgroupData, formatCurrency) {
+        if (!flowgroupData.is_credit_card) {
+            return;
+        }
+
+        const nextTotal = flowgroupData.next_bill_total;
+        let billEl = realizedCell.querySelector('.group-next-bill');
+
+        if (nextTotal === null || nextTotal === undefined || nextTotal === '') {
+            if (billEl) {
+                billEl.remove();
+            }
+            return;
+        }
+
+        if (!billEl) {
+            billEl = document.createElement('div');
+            billEl.className = 'group-next-bill text-xs font-normal text-gray-500 dark:text-gray-400 mt-1';
+            const tbody = document.getElementById('expense-groups-tbody');
+            billEl.textContent = (tbody && tbody.dataset.nextBillLabel) || 'Next bill:';
+            realizedCell.appendChild(billEl);
+        }
+
+        billEl.dataset.value = nextTotal;
+        const label = (billEl.textContent.split(':')[0] || 'Next bill') + ':';
+        billEl.textContent = label + ' ' + formatCurrency(nextTotal);
+    }
 
     // Local currency formatting function using DASHBOARD_CONFIG
     function formatCurrencyLocal(amount) {
@@ -806,25 +840,38 @@
                 }
 
                 // Update realized (4th column)
+                // Issue #44 (comment 322): write into the .group-realized-value
+                // span so the sibling next-bill line survives the update.
                 const realizedCell = row.querySelector('.group-realized');
                 if (realizedCell) {
                     const formattedRealized = formatCurrencyLocal(flowgroupData.total_realized || '0.00');
-                    realizedCell.textContent = formattedRealized;
+                    // Credit-card groups render the pending marker next to the amount
+                    const cardPendingSuffix = (flowgroupData.is_credit_card && !flowgroupData.closed) ? ' *' : '';
+                    const realizedValueEl = realizedCell.querySelector('.group-realized-value') || realizedCell;
+                    realizedValueEl.textContent = formattedRealized + cardPendingSuffix;
                     realizedCell.dataset.value = flowgroupData.total_realized || '0.00';
 
                     // Update CSS classes considering accessibility
                     // Priority: child_group > credit_card_pending > not_accessible > default
                     realizedCell.classList.remove('text-red-600', 'dark:text-red-500', 'text-orange-600', 'dark:text-orange-500', 'font-semibold', 'text-gray-400', 'dark:text-gray-500', 'font-medium');
+                    realizedValueEl.classList.remove('text-red-600', 'dark:text-red-500', 'text-orange-600', 'dark:text-orange-500', 'font-semibold', 'text-gray-400', 'dark:text-gray-500', 'font-medium');
 
                     if (flowgroupData.is_kids_group) {
                         realizedCell.classList.add('font-medium');
+                        realizedValueEl.classList.add('font-medium');
                     } else if (flowgroupData.is_credit_card && !flowgroupData.closed) {
                         realizedCell.classList.add('text-orange-600', 'dark:text-orange-500', 'font-semibold');
+                        realizedValueEl.classList.add('text-orange-600', 'dark:text-orange-500', 'font-semibold');
                     } else if (!isAccessible) {
                         realizedCell.classList.add('text-gray-400', 'dark:text-gray-500');
+                        realizedValueEl.classList.add('text-gray-400', 'dark:text-gray-500');
                     } else {
                         realizedCell.classList.add('text-red-600', 'dark:text-red-500');
+                        realizedValueEl.classList.add('text-red-600', 'dark:text-red-500');
                     }
+
+                    // Issue #44 (comment 322): keep the next-bill split in sync
+                    updateGroupNextBill(realizedCell, flowgroupData, formatCurrencyLocal);
                 }
 
                 // Highlight the updated row

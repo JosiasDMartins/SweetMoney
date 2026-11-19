@@ -1,11 +1,24 @@
 // finances/static/finances/js/post_update.js
-// Version: 20261017-001 - Admin dropdown identify flow, general admin
+// Version: 20261112-001 - CSP: i18n moved to a JSON data block (issue #44 comment 322)
+// Previous: 20261017-001 - Admin dropdown identify flow, general admin
 // selection, all-users email assignment with disabled OK until complete
 
 (function () {
     'use strict';
 
-    const i18n = () => window.POST_UPDATE_I18N || {};
+    // CSP-safe i18n: parsed from the <script type="application/json"
+    // id="post-update-i18n"> data block (issue #44 comment 322 removed the
+    // inline window.POST_UPDATE_I18N script)
+    const i18n = () => {
+        const el = document.getElementById('post-update-i18n');
+        if (!el) return {};
+        try {
+            return JSON.parse(el.textContent) || {};
+        } catch (e) {
+            console.error('[PostUpdate] Invalid i18n JSON', e);
+            return {};
+        }
+    };
 
     function getCookie(name) {
         const value = document.cookie

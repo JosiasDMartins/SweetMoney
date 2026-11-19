@@ -1,7 +1,7 @@
 /**
  * FlowGroup.js - FlowGroup page functionality
  * PHASE 3 CSP Compliance: All inline scripts moved to external file
- * Version: 20260615-001 - Use timezone-aware default date (fix off-by-one for users behind UTC)
+ * Version: 20261110-001 - Bug 3.1: due_day input blocked when the bill is closed
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -107,6 +107,7 @@ function initFlowGroup() {
             billMarkedClosed: config.dataset.i18nBillMarkedClosed,
             billMarkedNotClosed: config.dataset.i18nBillMarkedNotClosed,
             billOpen: config.dataset.i18nBillOpen,
+            nextBill: config.dataset.i18nNextBill,
             itemsMarkedRealized: config.dataset.i18nItemsMarkedRealized,
             pleaseSaveFlowGroupBeforeClosed: config.dataset.i18nPleaseSaveFlowGroupBeforeClosed,
             pleaseSaveFlowGroupBeforeRealized: config.dataset.i18nPleaseSaveFlowGroupBeforeRealized,
@@ -718,6 +719,21 @@ function blockAllFields(shouldBlock) {
             nameInput.style.backgroundColor = '';
             nameInput.style.color = '';
             nameInput.style.cursor = '';
+        }
+    }
+
+    // Bug 3.1 (v1.8.0): due day of a closed bill is locked on the detail page
+    const dueDayInput = document.querySelector('input[name="due_day"]');
+    if (dueDayInput) {
+        dueDayInput.disabled = shouldBlock;
+        if (shouldBlock) {
+            dueDayInput.style.backgroundColor = '#f3f4f6';
+            dueDayInput.style.color = '#9ca3af';
+            dueDayInput.style.cursor = 'not-allowed';
+        } else {
+            dueDayInput.style.backgroundColor = '';
+            dueDayInput.style.color = '';
+            dueDayInput.style.cursor = '';
         }
     }
 

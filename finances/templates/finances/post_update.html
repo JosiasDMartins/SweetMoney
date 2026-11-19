@@ -194,17 +194,17 @@
 {% endblock content %}
 
 {% block scripts_extra %}
-<script>
-    window.POST_UPDATE_I18N = {
-        invalidResponse: "{% trans 'Unexpected response from the server. Try again.' %}",
-        networkError: "{% trans 'Network error. Please try again.' %}",
-        saveError: "{% trans 'Some emails could not be saved:' %}",
-        username: "{% trans 'Username' %}",
-        role: "{% trans 'Role' %}",
-        email: "{% trans 'Email' %}",
-        passwordMismatch: "{% trans 'Passwords do not match.' %}",
-        allEmailsAssigned: "{% trans 'All emails assigned. Reloading...' %}"
-    };
-</script>
-<script src="{% static 'finances/js/post_update.js' %}?v=20261017-001" defer></script>
+{# Issue #44 (comment 322): CSP compliance — translations served as a JSON data #}
+{# block (script-src 'self' forbids inline executable scripts); post_update.js parses it. #}
+<script type="application/json" id="post-update-i18n">{
+    "invalidResponse": "{% trans 'Unexpected response from the server. Try again.' %}",
+    "networkError": "{% trans 'Network error. Please try again.' %}",
+    "saveError": "{% trans 'Some emails could not be saved:' %}",
+    "username": "{% trans 'Username' %}",
+    "role": "{% trans 'Role' %}",
+    "email": "{% trans 'Email' %}",
+    "passwordMismatch": "{% trans 'Passwords do not match.' %}",
+    "allEmailsAssigned": "{% trans 'All emails assigned. Reloading...' %}"
+}</script>
+<script src="{% static 'finances/js/post_update.js' %}?v=20261112-001" defer></script>
 {% endblock scripts_extra %}

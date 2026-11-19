@@ -1,3 +1,4 @@
+import json
 import logging
 from django.db.utils import OperationalError, ProgrammingError
 from django.conf import settings
@@ -8,7 +9,7 @@ from .models import Notification
 logger = logging.getLogger(__name__)
 
 #Files version
-VERSION = "1.7.2"
+VERSION = "1.8.0"
 
 #General contect for the entire system
 def database_version(request):
@@ -177,3 +178,44 @@ def locale_settings(request):
             'decimal_separator': '.',
             'thousand_separator': ',',
         }
+
+
+def currency_menu(request):
+    """
+    Context processor for the sidebar multi-currency menu (v1.8.0).
+
+    Resolves the active currency (?currency= wins over the session, invalid
+    values fall back to the family default), persists the choice in the
+    session and exposes the currency chips server-side to base.html.
+    """
+    if not request.user.is_authenticated:
+        return {}
+
+    from .utils.currency_utils import (
+        get_family_currencies, get_active_currency, set_session_currency
+    )
+
+    try:
+        member = request.user.memberships.select_related('family').first()
+        if not member:
+            return {}
+
+        family = member.family
+        codes = get_family_currencies(family)
+        active = get_active_currency(request, family)
+        if request.session.get('currency') != active:
+            set_session_currency(request, active)
+
+        from .forms import CURRENCY_CHOICES
+        return {
+            'family_currencies': codes,
+            'family_currencies_json': json.dumps(codes),
+            'default_currency': codes[0] if codes else '',
+            'active_currency': active,
+            'currency_choices_json': json.dumps(
+                [{'code': code, 'label': label} for code, label in CURRENCY_CHOICES]
+            ),
+        }
+    except Exception:
+        logger.exception("currency_menu context processor failed")
+        return {}

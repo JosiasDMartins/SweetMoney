@@ -1,4 +1,5 @@
 import io
+import sys
 import tempfile
 import json
 import traceback
@@ -399,27 +400,61 @@ def apply_updates_programmatically():
 
 
 
+class _SafeStdout:
+    """Stdout proxy that survives a dead consumer (EPIPE / closed stream).
+
+    Update scripts and their runner print progress to stdout; when the server
+    runs with its output attached to a pipe whose reader is gone (closed
+    terminal, killed supervisor), every print raises BrokenPipeError and would
+    abort the update phase mid-flight. A dead log consumer must never stop the
+    update itself.
+    """
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, s):
+        try:
+            return self._stream.write(s)
+        except (BrokenPipeError, ValueError, OSError):
+            return len(s)
+
+    def flush(self):
+        try:
+            self._stream.flush()
+        except (BrokenPipeError, ValueError, OSError):
+            pass
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
 def execute_update_script(script_path):
     """Executes an update script and returns the output."""
     # Se script_path é só o nome do arquivo, construir o path completo
     if not Path(script_path).exists():
         scripts_dir = Path(settings.BASE_DIR) / 'update_scripts'
         script_path = scripts_dir / script_path
-    
-    print(f"[EXECUTE_SCRIPT] Loading from: {script_path}")
-    
-    spec = importlib.util.spec_from_file_location("update_script", script_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    
-    if not hasattr(module, 'run'):
-        raise ValueError(f"Script {script_path} must have a run() function")
-    
-    result = module.run()
-    
+
+    real_stdout = sys.stdout
+    sys.stdout = _SafeStdout(real_stdout)
+    try:
+        print(f"[EXECUTE_SCRIPT] Loading from: {script_path}")
+
+        spec = importlib.util.spec_from_file_location("update_script", script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        if not hasattr(module, 'run'):
+            raise ValueError(f"Script {script_path} must have a run() function")
+
+        result = module.run()
+    finally:
+        sys.stdout = real_stdout
+
     if not result.get('success', False):
         raise Exception(result.get('message', 'Script failed without message'))
-    
+
     return result.get('message', 'Success')
 
 

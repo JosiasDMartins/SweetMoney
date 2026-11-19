@@ -608,11 +608,17 @@
                             <td class="px-2 py-3 text-right totals-member-col">
                                 <div class="flex flex-col gap-1">
                                     <div class="text-sm">
-                                        <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
+                                        <span class="totals-label text-xs uppercase">{% if is_card_view %}{% trans "Current bill:" %}{% else %}{% trans "Total:" %}{% endif %}</span>
                                     </div>
                                     <div class="text-sm">
                                         <span class="totals-label text-xs uppercase">{% trans "Realized:" %}</span>
                                     </div>
+                                    {% if is_card_view and card_has_next_bill %}
+                                    {# Issue #44 (comment 322): Next bill legend aligned with the other rows #}
+                                    <div class="text-sm" id="card-bill-next-label-mobile">
+                                        <span class="totals-label text-xs uppercase">{% trans "Next bill:" %}</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </td>
                             <!-- Realized column (hidden on mobile) -->
@@ -621,11 +627,16 @@
                             <td class="px-2 py-3 text-right mobile-hide-column totals-fixed-col">
                                 <div class="flex flex-col gap-1">
                                     <div class="text-sm">
-                                        <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
+                                        <span class="totals-label text-xs uppercase">{% if is_card_view %}{% trans "Current bill:" %}{% else %}{% trans "Total:" %}{% endif %}</span>
                                     </div>
                                     <div class="text-sm">
                                         <span class="totals-label text-xs uppercase">{% trans "Realized:" %}</span>
                                     </div>
+                                    {% if is_card_view and card_has_next_bill %}
+                                    <div class="text-sm" id="card-bill-next-label-desktop">
+                                        <span class="totals-label text-xs uppercase">{% trans "Next bill:" %}</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </td>
                             <!-- Amount column - Desktop: Values only, Mobile: Labels + Values -->
@@ -638,17 +649,29 @@
                                     <div class="text-sm">
                                         <span id="total-realized-desktop" class="totals-realized font-bold">{{ currency_symbol }} {{ total_realized|floatformat:2|intcomma }}</span>
                                     </div>
+                                    {% if is_card_view and card_has_next_bill %}
+                                    <!-- Issue #44 (comment 322): next bill value; legend lives in the label column -->
+                                    <div class="text-sm">
+                                        <span id="card-bill-next-desktop" class="text-xs font-semibold text-gray-500 dark:text-gray-400" data-card-bill-next="{{ card_bill_next|stringformat:'.2f' }}">{{ currency_symbol }} {{ card_bill_next|floatformat:2|intcomma }}</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 <!-- Mobile: Labels + Values together -->
                                 <div class="totals-amount-mobile flex flex-col gap-1 px-4">
                                     <div class="text-sm flex justify-end items-center gap-2">
-                                        <span class="totals-label text-xs uppercase">{% trans "Total:" %}</span>
+                                        <span class="totals-label text-xs uppercase">{% if is_card_view %}{% trans "Current bill:" %}{% else %}{% trans "Total:" %}{% endif %}</span>
                                         <span id="total-expenses-mobile" class="totals-value font-bold">{{ currency_symbol }} {{ total_estimated|floatformat:2|intcomma }}</span>
                                     </div>
                                     <div class="text-sm flex justify-end items-center gap-2">
                                         <span class="totals-label text-xs uppercase">{% trans "Realized:" %}</span>
                                         <span id="total-realized-mobile" class="totals-realized font-bold">{{ currency_symbol }} {{ total_realized|floatformat:2|intcomma }}</span>
                                     </div>
+                                    {% if is_card_view and card_has_next_bill %}
+                                    <div class="text-sm flex justify-end items-center gap-2" id="card-bill-next-mobile">
+                                        <span class="totals-label text-xs uppercase">{% trans "Next bill:" %}</span>
+                                        <span id="card-bill-next-mobile-value" class="text-xs font-semibold text-gray-500 dark:text-gray-400" data-card-bill-next="{{ card_bill_next|stringformat:'.2f' }}">{{ currency_symbol }} {{ card_bill_next|floatformat:2|intcomma }}</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </td>
                             <!-- Actions column - Empty on both desktop and mobile -->
@@ -676,6 +699,7 @@
      data-is-credit-card="{% if flow_group.is_credit_card %}true{% else %}false{% endif %}"
      data-is-card-view="{% if is_card_view %}true{% else %}false{% endif %}"
      data-is-closed="{% if flow_group.is_credit_card and flow_group.closed %}true{% else %}false{% endif %}"
+     data-i18n-next-bill="{% trans 'Next bill:' %}"
 
      data-url-toggle-kids-group-realized="{% url 'toggle_kids_group_realized_ajax' %}"
      data-url-toggle-flowgroup-recurring="{% url 'toggle_flowgroup_recurring_ajax' %}"
@@ -1183,8 +1207,8 @@
 <!-- PHASE 3 CSP Compliance: All inline scripts moved to external files -->
 <script src="{% static 'finances/js/utils.js' %}?v=20260219-6" defer></script>
 <script src="{% static 'finances/js/calculator.js' %}?v=20260219-10" defer></script>
-<script src="{% static 'finances/js/FlowGroup.js' %}?v=20261106-001" defer></script>
-<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20261105-001" defer></script>
-<script src="{% static 'finances/js/credit_cards.js' %}?v=20261105-002" defer></script>
+<script src="{% static 'finances/js/FlowGroup.js' %}?v=20261110-001" defer></script>
+<script src="{% static 'finances/js/FlowGroup_realtime.js' %}?v=20261112-001" defer></script>
+<script src="{% static 'finances/js/credit_cards.js' %}?v=20261111-001" defer></script>
 
 {% endblock content %}
